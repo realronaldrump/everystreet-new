@@ -4,6 +4,8 @@
  */
 
 import { CONFIG } from "../../core/config.js";
+import { navigate } from "../../core/navigation.js";
+import { updateRegion } from "../../core/partial-update.js";
 import { createFeatureApi } from "../../core/feature-api.js";
 import store, { optimisticAction } from "../../core/store.js";
 import { getPreloadTripIdFromUrl } from "../../core/url-state.js";
@@ -708,7 +710,8 @@ export default async function initTripsPage({ signal, cleanup, api } = {}) {
   const cleanupFns = [];
   const registerCleanup = (fn) => {
     if (typeof fn === "function") {
-      cleanupFns.push(fn);
+      if (signal?.aborted) fn();
+      else cleanupFns.push(fn);
     }
   };
 
@@ -716,33 +719,23 @@ export default async function initTripsPage({ signal, cleanup, api } = {}) {
   featureApi = api || createFeatureApi({ signal: pageSignal });
   resetTripsState();
 
+  const teardown = () => {
+    for (const fn of cleanupFns.splice(0)) {
+      try { fn(); } catch (error) { console.warn("Trips cleanup error", error); }
+    }
+    if (pageSignal === signal) { pageSignal = null; resetTripsState(); }
+  };
+  cleanup?.(teardown);
+
   try {
     await initializePage(signal, registerCleanup);
   } catch (e) {
+    if (signal?.aborted) return;
     notificationManager.show(`Error loading trips: ${e.message}`, "danger");
     console.error(e);
   }
 
-  registerCleanup(() => {
-    pageSignal = null;
-    resetTripsState();
-  });
 
-  const teardown = () => {
-    cleanupFns.forEach((fn) => {
-      try {
-        fn();
-      } catch (error) {
-        console.warn("Trips cleanup error", error);
-      }
-    });
-  };
-
-  if (typeof cleanup === "function") {
-    cleanup(teardown);
-  } else {
-    return teardown;
-  }
 
   return teardown;
 }
@@ -750,6 +743,7 @@ export default async function initTripsPage({ signal, cleanup, api } = {}) {
 async function initializePage(signal, cleanup) {
   // Load vehicles for filter dropdown
   await loadVehicles();
+  if (signal?.aborted) return;
 
   // Restore saved filters before setting up listeners
   restoreSavedFilters();
@@ -797,6 +791,7 @@ async function initializePage(signal, cleanup) {
     signal ? { signal } : false
   );
   await Promise.all([loadTrips(), loadTripStats()]);
+  if (signal?.aborted) return;
 
   // Apply any saved filters after data loads
   applySavedFilters();
@@ -804,7 +799,7 @@ async function initializePage(signal, cleanup) {
   // Check if we need to open a specific trip (from URL param)
   const preloadTripId = getPreloadTripIdFromUrl();
   if (preloadTripId) {
-    requestAnimationFrame(() => openTripModal(preloadTripId));
+    requestAnimationFrame(() => { if (!signal?.aborted) openTripTools(preloadTripId); });
   }
 }
 
@@ -1587,6 +1582,11 @@ function getFlatTripsTitle(sort) {
 }
 
 function renderTrips(trips) {
+  const region = document.getElementById(tripViewMode === "list" ? "trips-list-view" : "trips-timeline");
+  return updateRegion(region, () => renderTripResults(trips));
+}
+
+function renderTripResults(trips) {
   syncTripViewContainers();
   if (tripViewMode === "list") {
     renderTripsTable(trips);
@@ -3065,6 +3065,10 @@ async function toggleTripInactive(id, inactive) {
 // ==========================================
 
 function openTripModal(tripId) {
+  void navigate(`/trips/${encodeURIComponent(tripId)}`);
+}
+
+function openTripTools(tripId) {
   currentTripId = tripId;
 
   if (!tripModalInstance) {

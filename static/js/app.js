@@ -23,7 +23,16 @@ const start = async () => {
     await initNavigation();
   } catch (error) {
     console.warn("Navigation init failed; continuing without SPA transitions.", error);
-    await ensureRouteModule(window.location.pathname);
+    try {
+      await ensureRouteModule(window.location.pathname);
+    } catch (routeError) {
+      console.error("Page module failed to load", routeError);
+      const message = document.createElement("p");
+      message.className = "alert alert-danger";
+      message.setAttribute("role", "alert");
+      message.textContent = "This page could not finish loading. Reload the page to try again.";
+      document.getElementById("route-content")?.prepend(message);
+    }
   }
   markAppReady();
   startTripProcessingMonitor();

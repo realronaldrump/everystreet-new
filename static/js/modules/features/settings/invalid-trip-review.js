@@ -157,7 +157,7 @@ export class InvalidTripReview {
         const tripCell = transactionId
           ? `<a class="trip-issue-link trip-issues-mono" href="/trips/${encodeURIComponent(
               transactionId
-            )}" data-no-swup>${escapeHtml(transactionId)}</a>`
+            )}">${escapeHtml(transactionId)}</a>`
           : `<span class="trip-issues-mono">N/A</span>`;
 
         const actions = disableActions

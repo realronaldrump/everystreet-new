@@ -3,7 +3,7 @@
  */
 
 import { coverageBoundingBoxToMapBounds } from "../../core/coverage-bounds.js";
-import { swupReady } from "../../core/navigation.js";
+import { navigate } from "../../core/navigation.js";
 import { createMap } from "../../map-core.js";
 import * as RegionalCoverageExplorerAPI from "../../regional-coverage-explorer/api.js";
 import {
@@ -1101,11 +1101,9 @@ function buildRecalculateDetails(job = null) {
 }
 
 function refreshCoveragePage() {
-  swupReady.then((swup) => {
-    swup.navigate(window.location.href, {
-      cache: { read: false, write: true },
-      history: "replace",
-    });
+  void navigate(window.location.href, {
+    cache: { read: false, write: true },
+    history: "replace",
   });
 }
 

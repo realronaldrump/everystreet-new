@@ -1,4 +1,4 @@
-import { swupReady } from "../core/navigation.js";
+import { onNavigation } from "../core/navigation-events.js";
 
 const STORAGE_KEY = "es:ui-density";
 
@@ -12,11 +12,7 @@ const densityManager = {
 
     window.densityManager = this;
     this.applyFromStorage();
-    swupReady
-      .then((swup) => {
-        swup.hooks.on("page:view", () => this.applyFromStorage());
-      })
-      .catch(() => {});
+    onNavigation("page:view", () => this.applyFromStorage());
     this.initialized = true;
   },
 

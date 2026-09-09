@@ -1,4 +1,4 @@
-import { swupReady } from "../core/navigation.js";
+import { onNavigation } from "../core/navigation-events.js";
 
 const MetricAnimator = {
   initialized: false,
@@ -9,11 +9,7 @@ const MetricAnimator = {
     }
 
     this.animateAll();
-    swupReady
-      .then((swup) => {
-        swup.hooks.on("page:view", () => this.animateAll());
-      })
-      .catch(() => {});
+    onNavigation("page:view", () => this.animateAll());
     this.initialized = true;
   },
 

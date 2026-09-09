@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% set detail_page = true %}
+{% set detail_parent = '/trips' %}
+{% from "partials/_map_assets.html" import include_mapbox_css with context %}
+{% block title %}Trip details · Every Street{% endblock %}
+{% block extra_css %}{{ include_mapbox_css() }}{% endblock %}
+{% block detail_content %}
+<article class="trip-detail" id="trip-detail" data-trip-id="{{ trip_id }}">
+  <header class="page-masthead">
+    <div class="pm-lead">
+      <p class="pm-eyebrow">Trip journal</p>
+      <h1 class="pm-title" id="trip-detail-title">Trip details</h1>
+      <p class="pm-sub" id="trip-detail-date"></p>
+    </div>
+  </header>
+  <p id="trip-detail-status" role="status">Loading this trip…</p>
+  <div id="trip-detail-body" hidden>
+    <p id="trip-detail-journey" class="trip-detail-journey"></p>
+    <dl id="trip-detail-metrics" class="trip-detail-metrics"></dl>
+    <div id="trip-detail-map" class="trip-detail-map" role="region" aria-label="Trip route"></div>
+    <p id="trip-detail-map-note" class="text-secondary"></p>
+    <div class="trip-detail-actions">
+      <a id="trip-detail-tools" class="btn btn-primary" href="/trips?highlight={{ trip_id | urlencode }}" data-detail-tools>Trip tools &amp; replay</a>
+      <button id="trip-detail-share" type="button" class="btn btn-outline-secondary">Copy trip link</button>
+    </div>
+  </div>
+</article>
+{% endblock %}

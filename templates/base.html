@@ -11,6 +11,7 @@
           content="Every Street - Tracking and Visualizing Davis's street coverage" />
     <meta name="theme-color" content="#050507" />
     <meta name="color-scheme" content="dark light" />
+    <meta name="es-build" content="{{ repo_version.commit_hash }}" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -70,6 +71,7 @@ Every Street
     <link rel="stylesheet" href="{{ CDN.fontawesome }}" crossorigin="anonymous" />
     {{ static_css("style.css") }}
     {{ static_css("animations.css") }}
+    {{ static_css("navigation-experience.css") }}
     {{ static_css("loading-styles.css") }}
     {{ static_css("route-tracer.css") }}
     <link rel="preload"
@@ -354,6 +356,16 @@ Every Street
           </div>
         </footer>
       </main>
+
+      <dialog id="detail-dialog" class="detail-drawer" aria-label="Details" {% if detail_page | default(false) %}open{% endif %}>
+        <div class="detail-drawer-toolbar">
+          <a href="{{ detail_parent | default('/') }}" class="btn btn-ghost" data-detail-close aria-label="Close details">
+            <i class="fas fa-arrow-left" aria-hidden="true"></i> Back
+          </a>
+        </div>
+        <div id="detail-content">{% block detail_content %}{% endblock %}</div>
+      </dialog>
+      <div id="exploration-map-parking" hidden inert aria-hidden="true"></div>
 
       {{ bottom_nav(es_route_path) }}
       <div class="notification-container" aria-live="polite" aria-atomic="true">

@@ -81,6 +81,8 @@ class APIClient {
         ? await options.parseResponse(response)
         : await this._handleResponse(response);
 
+      this._notifyMutation(normalizedMethod, response);
+
       // Cache successful GET requests
       if (method === "GET" && cache) {
         this._setCache(url, data, cacheDuration);
@@ -133,6 +135,7 @@ class APIClient {
         { ...fetchOptions, signal: activeSignal },
         retry ? this.retryAttempts : 1
       );
+      this._notifyMutation(normalizedMethod, response);
       return response;
     } catch (error) {
       if (timeoutTriggered && error?.name === "AbortError") {
@@ -296,6 +299,14 @@ class APIClient {
     }
 
     return cached.data;
+  }
+
+  _notifyMutation(method, response) {
+    if (!response.ok || ["GET", "HEAD", "OPTIONS"].includes(method)) return;
+    this.cache.clear();
+    if (typeof document !== "undefined" && typeof CustomEvent === "function") {
+      document.dispatchEvent(new CustomEvent("es:data-changed"));
+    }
   }
 
   _setCache(key, data, duration) {

@@ -8,7 +8,14 @@ function bootstrapPage(initFeature, route) {
         // The base template already shows the viewer-mode notice.
         return null;
       }
-      return initFeature(createPageContext({ signal: signal || null, cleanup }));
+      const context = createPageContext({ signal: signal || null, cleanup });
+      const result = initFeature(context);
+      if (result?.then)
+        return result.then((teardown) => {
+          context.onCleanup(teardown);
+        });
+      context.onCleanup(result);
+      return undefined;
     },
     { route }
   );

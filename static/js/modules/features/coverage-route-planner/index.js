@@ -1,6 +1,6 @@
 import { DrivingNavigation } from "../../driving-navigation/manager.js";
 import { DrivingNavigationUI } from "../../driving-navigation/ui.js";
-import { createMap } from "../../map-core.js";
+import { acquireExplorationMap } from "../../core/exploration-map.js";
 import { OptimalRoutesManager } from "../../optimal-route/manager.js";
 import initCoverageRoutePlannerUi from "./ui-scaffold.js";
 
@@ -26,7 +26,7 @@ export default function initCoverageRoutePlannerPage(context = {}) {
   initCoverageRoutePlannerUi({ signal, onCleanup });
 
   try {
-    sharedMap = createMap(MAP_CONTAINER_ID, {
+    sharedMap = acquireExplorationMap(MAP_CONTAINER_ID, {
       center: [-96, 37.8],
       zoom: 4,
     });

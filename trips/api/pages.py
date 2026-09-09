@@ -24,8 +24,8 @@ async def trips_page(
 
 @router.get("/trips/{trip_id}", response_class=HTMLResponse, tags=["Pages"])
 async def trip_details_page(request: Request, trip_id: str):
-    """Render trips page with a specific trip preselected."""
-    return await render_template(request, "trips.html", trip_id=trip_id)
+    """Render a linkable trip detail, also usable as a navigation fragment."""
+    return await render_template(request, "trip_detail.html", trip_id=trip_id)
 
 
 @router.get("/trip-import", response_class=HTMLResponse, tags=["Pages"])

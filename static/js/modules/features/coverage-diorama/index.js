@@ -1,5 +1,5 @@
 import apiClient from "../../core/api-client.js";
-import { swupReady } from "../../core/navigation.js";
+import { navigate } from "../../core/navigation.js";
 import { escapeHtml, isAbortError } from "../../utils.js";
 import { getRemainingDriveableMiles } from "../navigation-core/coverage-areas.js";
 import { createCoverageRouteDraft, saveCoverageRouteDraft } from "./draft.js";
@@ -211,7 +211,10 @@ export default async function initCoverageDioramaPage(context = {}) {
     );
     setText(elements.current, `${Number(area.coverage_percentage || 0).toFixed(1)}%`);
     setText(elements.driven, `${drivenMiles.toFixed(1)} mi`);
-    setText(elements.remaining, remaining === null ? "—" : `${remaining.toFixed(1)} mi`);
+    setText(
+      elements.remaining,
+      remaining === null ? "—" : `${remaining.toFixed(1)} mi`
+    );
   }
 
   function setMode(mode) {
@@ -358,7 +361,7 @@ export default async function initCoverageDioramaPage(context = {}) {
       state.selectedFeatures.map((feature) => feature.properties.segment_id)
     );
     saveCoverageRouteDraft(sessionStorage, draft);
-    swupReady.then((swup) => swup.navigate("/coverage-route-planner?draft=diorama"));
+    void navigate("/coverage-route-planner?draft=diorama");
   }
 
   function resetForecast({ preserveCount = false } = {}) {

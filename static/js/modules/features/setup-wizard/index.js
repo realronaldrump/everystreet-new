@@ -1,6 +1,6 @@
 import apiClient from "../../core/api-client.js";
 import { createFeatureApi } from "../../core/feature-api.js";
-import { swupReady } from "../../core/navigation.js";
+import { navigate } from "../../core/navigation.js";
 import {
   fetchBouncieCredentials as fetchBouncieCredentialsShared,
   saveBouncieCredentials as saveBouncieCredentialsShared,
@@ -1291,11 +1291,9 @@ async function completeSetupAndExit() {
       // Ignore storage errors
     }
     document.dispatchEvent(new CustomEvent("es:setup-status-refresh"));
-    swupReady.then((swup) => {
-      swup.navigate("/", {
-        cache: { read: false, write: true },
-        history: "replace",
-      });
+    void navigate("/", {
+      cache: { read: false, write: true },
+      history: "replace",
     });
   } catch (error) {
     notificationManager.show(error.message || "Unable to finish setup.", "danger");

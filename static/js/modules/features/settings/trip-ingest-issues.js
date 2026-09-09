@@ -731,7 +731,7 @@ export class TripIngestIssues {
         const tripCell = tx
           ? `<a class="trip-issue-link trip-issue-mono" href="/trips/${encodeURIComponent(
               tx
-            )}" data-no-swup>${escapeHtml(tx)}</a>`
+            )}">${escapeHtml(tx)}</a>`
           : windowTripText
             ? `<span class="trip-issue-window">${escapeHtml(windowTripText)}</span>`
             : '<span class="text-muted">--</span>';

@@ -1,5 +1,9 @@
 import { ensureRouteModule } from "./route-loader.js";
 import store from "./store.js";
+import { emitNavigation, pathnameFromSwupUrl } from "./navigation-events.js";
+import { shouldSkipPopState, detailParent } from "./navigation-policy.js";
+import { createNavigationUI } from "./navigation-ui.js";
+export { pathnameFromSwupUrl } from "./navigation-events.js";
 
 let swup = null;
 let resolveReady = null;
@@ -8,75 +12,32 @@ export const swupReady = new Promise((resolve) => {
   resolveReady = resolve;
 });
 
-export function pathnameFromSwupUrl(urlish) {
-  if (!urlish) {
-    return null;
-  }
-  // Swup v4 uses strings for visit.to.url / visit.from.url (pathname + search).
-  if (typeof urlish === "string") {
-    try {
-      return new URL(urlish, window.location.origin).pathname || null;
-    } catch {
-      const trimmed = urlish.trim();
-      if (!trimmed) {
-        return null;
-      }
-      return trimmed.split("#")[0].split("?")[0] || null;
-    }
-  }
-  // Tolerate URL-like objects.
-  if (typeof urlish === "object") {
-    if (typeof urlish.pathname === "string" && urlish.pathname) {
-      return urlish.pathname;
-    }
-    if (typeof urlish.href === "string" && urlish.href) {
-      try {
-        return new URL(urlish.href, window.location.origin).pathname || null;
-      } catch {
-        return null;
-      }
-    }
-  }
-  return null;
-}
-
-function urlFromSwupUrl(urlish) {
-  if (!urlish) {
-    return null;
-  }
-  if (typeof urlish === "string") {
-    return urlish;
-  }
-  if (typeof urlish === "object") {
-    if (typeof urlish.href === "string" && urlish.href) {
-      return urlish.href;
-    }
-    if (typeof urlish.pathname === "string" && urlish.pathname) {
-      return urlish.pathname;
-    }
-  }
-  return null;
-}
+let initialization = null;
 
 async function loadSwupDeps() {
-  const [swupMod, headMod, preloadMod, scrollMod, progressMod, a11yMod] =
-    await Promise.all([
-      import("https://cdn.jsdelivr.net/npm/swup@4.8.2/+esm"),
-      import("https://cdn.jsdelivr.net/npm/@swup/head-plugin@2.3.1/+esm"),
-      import("https://cdn.jsdelivr.net/npm/@swup/preload-plugin@3.2.11/+esm"),
-      import("https://cdn.jsdelivr.net/npm/@swup/scroll-plugin@4.0.0/+esm"),
-      import("https://cdn.jsdelivr.net/npm/@swup/progress-plugin@3.2.0/+esm"),
-      import("https://cdn.jsdelivr.net/npm/@swup/a11y-plugin@5.0.0/+esm"),
-    ]);
+  return import("../../vendor/swup.js");
+}
 
-  return {
-    Swup: swupMod?.default,
-    SwupHeadPlugin: headMod?.default,
-    SwupPreloadPlugin: preloadMod?.default,
-    SwupScrollPlugin: scrollMod?.default,
-    SwupProgressPlugin: progressMod?.default,
-    SwupA11yPlugin: a11yMod?.default,
-  };
+export async function navigate(url, options = {}) {
+  const instance = await swupReady;
+  if (instance) instance.navigate(url, options);
+  else window.location.assign(url);
+}
+
+export function invalidateNavigationCache() {
+  swup?.cache.clear();
+}
+
+export function initNavigation() {
+  if (!initialization) {
+    initialization = initializeNavigation().catch((error) => {
+      swup?.destroy();
+      swup = null;
+      resolveReady?.(null);
+      throw error;
+    });
+  }
+  return initialization;
 }
 
 function applyThemeFromStorage() {
@@ -258,7 +219,7 @@ function updateNav(pathname) {
 }
 
 function updateMapShellA11y(pathname) {
-  const isMap = pathname === "/map";
+  const isMap = pathname === "/map" || document.body.dataset.backgroundRoute === "/map";
   const shell = document.getElementById("persistent-shell");
   if (shell) {
     if (!isMap) {
@@ -405,6 +366,8 @@ function shouldIgnoreVisit(url, { el, event } = {}) {
   if (!href) {
     return true;
   }
+  const path = pathnameFromSwupUrl(href);
+  if (path === "/login" || path === "/logout" || path?.startsWith("/api/")) return true;
   if (href.startsWith("#") || href.startsWith("mailto:") || href.startsWith("tel:")) {
     return true;
   }
@@ -433,7 +396,7 @@ function shouldIgnoreVisit(url, { el, event } = {}) {
   return false;
 }
 
-export async function initNavigation() {
+async function initializeNavigation() {
   if (swup) {
     return swup;
   }
@@ -447,6 +410,7 @@ export async function initNavigation() {
   let SwupScrollPlugin = null;
   let SwupProgressPlugin = null;
   let SwupA11yPlugin = null;
+  let SwupFragmentPlugin = null;
 
   try {
     ({
@@ -456,6 +420,7 @@ export async function initNavigation() {
       SwupScrollPlugin,
       SwupProgressPlugin,
       SwupA11yPlugin,
+      SwupFragmentPlugin,
     } = await loadSwupDeps());
   } catch (error) {
     throw new Error(
@@ -483,12 +448,15 @@ export async function initNavigation() {
     missing.push("SwupA11yPlugin");
   }
 
+  if (typeof SwupFragmentPlugin !== "function") missing.push("SwupFragmentPlugin");
+
   if (missing.length > 0) {
     throw new Error(`Swup dependencies missing: ${missing.join(", ")}`);
   }
 
+  const navigationUI = createNavigationUI(navigate);
   swup = new Swup({
-    containers: ["#route-content"],
+    containers: ["#route-content", "#detail-content"],
     native: true,
     // We're using the browser's View Transitions API (native mode) + our own
     // view-transition CSS. Swup's default animationSelector looks for
@@ -501,29 +469,45 @@ export async function initNavigation() {
     // trigger a full Swup navigation. However, those same entries can be reached via
     // back/forward *across routes*; in that case Swup must handle the popstate or the URL
     // and rendered content will drift out of sync.
-    skipPopStateHandling: (event) => {
-      const source = event?.state?.source;
-      if (!source || source === "swup") {
-        return false;
-      }
-
-      const renderedRoute = document.body?.dataset?.route;
-      if (!renderedRoute) {
-        // Be conservative: if we can't verify the currently-rendered route, let Swup handle.
-        return false;
-      }
-
-      // Only skip non-swup popstates when the URL change stays on the currently-rendered route.
-      return window.location.pathname === renderedRoute;
-    },
+    skipPopStateHandling: (event) =>
+      shouldSkipPopState(
+        event,
+        document.body?.dataset?.detailRoute || document.body?.dataset?.route,
+        window.location.pathname
+      ),
     ignoreVisit: shouldIgnoreVisit,
     plugins: [
       new SwupHeadPlugin({
         awaitAssets: true,
         timeout: 5000,
+        persistTags: (tag) =>
+          tag.dataset?.esBackgroundStyle === "true" ||
+          tag.matches?.("script[src], style, link[data-es-map-style]"),
         attributes: ["lang", "dir", "class", /^data-/],
       }),
       new SwupPreloadPlugin({ preloadInitialPage: true }),
+      new SwupFragmentPlugin({
+        rules: [
+          {
+            from: /.*/,
+            to: [/^\/trips\/[^/]+$/, /^\/coverage-management\/[^/]+\/journal$/],
+            containers: ["#detail-content"],
+            name: "detail",
+            focus: false,
+            if: (visit) =>
+              !detailParent(pathnameFromSwupUrl(visit.from.url)) ||
+              Boolean(navigationUI.backgroundUrl),
+          },
+          {
+            from: /.*/,
+            to: /.*/,
+            containers: ["#detail-content"],
+            name: "detail-close",
+            focus: false,
+            if: (visit) => navigationUI.isClosing(visit),
+          },
+        ],
+      }),
       new SwupScrollPlugin({
         animateScroll: !window.matchMedia("(prefers-reduced-motion: reduce)").matches,
         scrollFriction: 0.3,
@@ -550,7 +534,8 @@ export async function initNavigation() {
   // a swup page transition.
   window.addEventListener("popstate", (event) => {
     if (event.state?.source === "es-store") {
-      const renderedRoute = document.body?.dataset?.route;
+      const renderedRoute =
+        document.body?.dataset?.detailRoute || document.body?.dataset?.route;
       // Only apply URL params directly when the popstate stays on the same rendered route.
       // Cross-route browsing should be handled by Swup, which will call applyUrlParams after
       // the correct page content is loaded.
@@ -566,32 +551,96 @@ export async function initNavigation() {
   });
 
   swup.hooks.on("visit:start", (visit) => {
-    const toPath = pathnameFromSwupUrl(visit?.to?.url);
-    ensureRouteModule(toPath || window.location.pathname);
+    navigationUI.prepare(visit);
+    // Start imports early, then explicitly await them before touching the old page.
+    visit.meta.routeModule = ensureRouteModule(pathnameFromSwupUrl(visit.to.url));
+    visit.meta.routeModule.catch(() => {});
   });
+
+  swup.hooks.before(
+    "content:replace",
+    async (visit) => {
+      await visit.meta.routeModule;
+      if (visit.done) return;
+      const version = visit.to.document?.querySelector(
+        'meta[name="es-build"]'
+      )?.content;
+      const currentVersion = document.querySelector('meta[name="es-build"]')?.content;
+      const role = visit.to.document?.body?.dataset.authRole;
+      if (
+        (version && currentVersion && version !== currentVersion) ||
+        (role && role !== document.body.dataset.authRole)
+      ) {
+        visit.ignore();
+        throw new Error("The application session changed; reload the document.");
+      }
+      emitNavigation("page:leave", visit);
+    },
+    { priority: -100 }
+  );
 
   swup.hooks.on("content:replace", (visit) => {
     updatePersistentShell(visit);
-    const toPath = pathnameFromSwupUrl(visit?.to?.url);
-    setRouteState(toPath || window.location.pathname);
+    navigationUI.replaced(visit);
+    const path = pathnameFromSwupUrl(visit.to.url);
+    if (detailParent(path)) document.body.dataset.detailRoute = path;
+    else delete document.body.dataset.detailRoute;
+    setRouteState(document.body.dataset.backgroundRoute || path);
   });
 
   swup.hooks.on("page:view", (visit) => {
     applyThemeFromStorage();
-
-    const href = urlFromSwupUrl(visit?.to?.url) || window.location.href;
-    const source = visit?.history?.popstate ? "popstate" : "navigate";
-    store.applyUrlParams(href, { emit: true, source });
     store.clearElementCache();
-
+    // Detail visits do not reset the filters of the page underneath.
+    if (!visit.meta.detailVisit) {
+      store.applyUrlParams(visit.to.url, {
+        emit: true,
+        source: visit.history.popstate ? "popstate" : "navigate",
+      });
+    }
     updateRouteTelemetryAndBreadcrumb(window.location.pathname);
+    emitNavigation("page:view", visit);
+    navigationUI.viewed(visit);
   });
+  for (const hook of ["visit:end", "visit:abort", "visit:fail"]) {
+    swup.hooks.on(hook, (visit) => navigationUI.finish(visit));
+  }
+  document.addEventListener("es:data-changed", invalidateNavigationCache);
+  document.addEventListener("historicalTripsUpdated", invalidateNavigationCache);
+  swup.hooks.on("cache:set", (_visit, { page }) => {
+    swup.cache.update(page.url, { cachedAt: Date.now() });
+    if (swup.cache.size > 30) swup.cache.delete(swup.cache.all.keys().next().value);
+  });
+  swup.hooks.before("visit:start", () => {
+    swup.cache.prune(
+      (_url, page) => !page.cachedAt || Date.now() - page.cachedAt > 90000
+    );
+  });
+  let intentTimer;
+  const prepareLink = (event) => {
+    clearTimeout(intentTimer);
+    const link = event.target.closest?.("a[href]");
+    if (!link || shouldIgnoreVisit(link.href, { el: link }) || !isInternalLink(link))
+      return;
+    if (navigator.connection?.saveData) return;
+    intentTimer = setTimeout(() => {
+      void ensureRouteModule(new URL(link.href).pathname).catch(() => {});
+    }, 100);
+  };
+  document.addEventListener("pointerover", prepareLink, { passive: true });
+  document.addEventListener("focusin", prepareLink);
 
   // Initial route module and state.
   await ensureRouteModule(window.location.pathname);
   setRouteState(window.location.pathname);
   updateRouteTelemetryAndBreadcrumb(window.location.pathname);
 
+  if (detailParent(window.location.pathname)) {
+    document.body.dataset.detailRoute = window.location.pathname;
+    const initialVisit = { to: { url: window.location.href }, meta: {} };
+    navigationUI.replaced(initialVisit);
+    navigationUI.viewed(initialVisit);
+  }
   resolveReady?.(swup);
   return swup;
 }

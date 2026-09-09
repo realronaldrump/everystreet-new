@@ -1,5 +1,9 @@
 import { setPlannerView } from "../features/coverage-route-planner/ui-scaffold.js";
-import { swupReady } from "../core/navigation.js";
+import { navigate } from "../core/navigation.js";
+import {
+  getExplorationSelection,
+  setExplorationSelection,
+} from "../core/exploration-map.js";
 import {
   clearCoverageRouteDraft,
   isDioramaDraftRequest,
@@ -31,8 +35,11 @@ export class OptimalRoutesManager {
     this.abortController = new AbortController();
     this.pendingDioramaDraft = this.readPendingDioramaDraft();
     const initialParams = new URLSearchParams(window.location.search);
-    this.initialAreaId = initialParams.get("area") || "";
-    this.initialRouteId = initialParams.get("routeId");
+    const selection = getExplorationSelection();
+    this.initialAreaId = initialParams.get("area") || selection.areaId || "";
+    this.initialRouteId =
+      initialParams.get("routeId") ||
+      (!initialParams.has("area") ? selection.routeId : null);
     this.initialTaskId = initialParams.get("taskId");
     this.selectionEpoch = 0;
 
@@ -387,6 +394,7 @@ export class OptimalRoutesManager {
     this.api.disconnectSSE();
     this.currentTaskId = null;
     this.selectedAreaId = nextAreaId || null;
+    setExplorationSelection(this.selectedAreaId);
     this.lastSelectedAreaId = nextAreaId;
     if (this.ui.areaSelect) this.ui.setAreaSelection(nextAreaId);
     this.config.onAreaSelectionChanged?.(nextAreaId);
@@ -398,7 +406,7 @@ export class OptimalRoutesManager {
     } else {
       url.searchParams.delete("area");
     }
-    window.history.replaceState({}, "", url);
+    window.history.replaceState(window.history.state, "", url);
     this.ui.setLiveNavigationEnabled(false);
     this.simulation.deactivate();
 
@@ -431,6 +439,7 @@ export class OptimalRoutesManager {
     );
     this.clearRouteDisplay();
     this.currentRouteId = selectedRoute?.route_id || null;
+    setExplorationSelection(this.selectedAreaId, this.currentRouteId);
     this.currentTaskId = taskId;
     this.updateRouteUrl();
     this.ui.updateAreaStats(selectedArea || null);
@@ -667,7 +676,7 @@ export class OptimalRoutesManager {
       if (value) url.searchParams.set(key, value);
       else url.searchParams.delete(key);
     }
-    window.history.replaceState({}, "", url);
+    window.history.replaceState(window.history.state, "", url);
   }
 
   acceptRouteResult(routeData) {
@@ -680,6 +689,7 @@ export class OptimalRoutesManager {
     }
     this.currentRouteData = routeData;
     this.currentRouteId = routeData.route_id;
+    setExplorationSelection(this.selectedAreaId, this.currentRouteId);
     this.updateRouteUrl();
     this.map.displayRoute(routeData.coordinates, routeData, true);
     this.ui.showResults(routeData);
@@ -831,9 +841,7 @@ export class OptimalRoutesManager {
       areaId: this.selectedAreaId,
       routeId: this.currentRouteId,
     });
-    swupReady.then((swup) => {
-      swup.navigate(href);
-    });
+    void navigate(href);
   }
 
   exportGPX() {

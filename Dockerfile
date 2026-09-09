@@ -43,6 +43,9 @@ RUN python -m pip install --upgrade "pip>=25.3,<27" \
 # Copy the rest of the application code
 COPY . ./
 
+# Build the pinned navigation bundle into the image; browsers use our own origin.
+RUN python scripts/build_swup_assets.py
+
 # Generate version.json with git info at build time
 RUN echo "{\"commit_count\": \"$(git rev-list --count HEAD 2>/dev/null || echo Unknown)\", \
 \"commit_hash\": \"$(git rev-parse --short HEAD 2>/dev/null || echo Unknown)\", \

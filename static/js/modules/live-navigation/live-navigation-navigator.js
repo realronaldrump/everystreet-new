@@ -481,7 +481,7 @@ class LiveNavigationNavigator {
       if (value) url.searchParams.set(key, value);
       else url.searchParams.delete(key);
     }
-    window.history.replaceState({}, "", url);
+    window.history.replaceState(window.history.state, "", url);
     const plannerParams = new URLSearchParams();
     if (this.selectedAreaId) plannerParams.set("area", this.selectedAreaId);
     if (this.selectedRouteId) plannerParams.set("routeId", this.selectedRouteId);
@@ -712,7 +712,7 @@ class LiveNavigationNavigator {
     if (target && url.searchParams.get("areaId") === target) {
       url.searchParams.delete("areaId");
       const next = `${url.pathname}${url.search}${url.hash}`;
-      window.history.replaceState({}, "", next);
+      window.history.replaceState(window.history.state, "", next);
     }
   }
 

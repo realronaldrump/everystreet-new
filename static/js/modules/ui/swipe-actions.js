@@ -1,13 +1,9 @@
-import { swupReady } from "../core/navigation.js";
+import { onNavigation } from "../core/navigation-events.js";
 
 const swipeActions = {
   init() {
     this.bindItems();
-    swupReady
-      .then((swup) => {
-        swup.hooks.on("page:view", () => this.bindItems());
-      })
-      .catch(() => {});
+    onNavigation("page:view", () => this.bindItems());
   },
 
   bindItems() {

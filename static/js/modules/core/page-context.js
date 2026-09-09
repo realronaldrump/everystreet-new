@@ -2,10 +2,18 @@ import { createFeatureApi } from "./feature-api.js";
 
 export function createPageContext({ signal = null, cleanup = null } = {}) {
   const disposers = [];
+  const registered = new Set();
+  let disposed = false;
   const api = createFeatureApi({ signal });
 
   const onCleanup = (fn) => {
     if (typeof fn !== "function") {
+      return () => {};
+    }
+    if (registered.has(fn)) return () => {};
+    registered.add(fn);
+    if (disposed) {
+      fn();
       return () => {};
     }
     disposers.push(fn);
@@ -18,6 +26,8 @@ export function createPageContext({ signal = null, cleanup = null } = {}) {
   };
 
   const dispose = () => {
+    if (disposed) return;
+    disposed = true;
     for (let idx = disposers.length - 1; idx >= 0; idx -= 1) {
       try {
         disposers[idx]();

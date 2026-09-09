@@ -71,6 +71,23 @@ jobs:
       - name: Run JavaScript guardrail tests
         run: npm run test:js:guardrails
 
+      - name: Build pinned navigation assets and install browser test tools
+        run: |
+          python scripts/build_swup_assets.py
+          npm install --no-save --package-lock=false @playwright/test@1.63.0
+          npx playwright install --with-deps chromium
+
+      - name: Verify navigation in Chromium
+        run: npx playwright test --config tests/browser/playwright.config.js
+
+      - name: Upload browser failure traces
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: navigation-browser-traces
+          path: test-results/
+          if-no-files-found: ignore
+
       - name: Run Python tests
         run: python -m pytest
 

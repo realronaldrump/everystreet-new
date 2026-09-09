@@ -11,7 +11,7 @@
  */
 
 import { CONFIG } from "../core/config.js";
-import { swupReady } from "../core/navigation.js";
+import { onNavigation } from "../core/navigation-events.js";
 import store from "../core/store.js";
 import mapCore from "../map-core.js";
 import { utils } from "../utils.js";
@@ -171,29 +171,25 @@ const mapControlsManager = {
   },
 };
 
-swupReady
-  .then((swup) => {
-    swup.hooks.on("page:view", (visit) => {
-      const toUrl = visit?.to?.url;
-      let pathname = null;
-      if (typeof toUrl === "string" && toUrl) {
-        try {
-          const { pathname: resolvedPathname } = new URL(toUrl, window.location.origin);
-          pathname = resolvedPathname;
-        } catch {
-          pathname = null;
-        }
-      }
+onNavigation("page:view", (visit) => {
+  const toUrl = visit?.to?.url;
+  let pathname = null;
+  if (typeof toUrl === "string" && toUrl) {
+    try {
+      const { pathname: resolvedPathname } = new URL(toUrl, window.location.origin);
+      pathname = resolvedPathname;
+    } catch {
+      pathname = null;
+    }
+  }
 
-      if ((pathname || window.location.pathname) !== "/map") {
-        return;
-      }
-      // Wait for map to be ready before initializing controls.
-      mapCore.onReady(() => {
-        mapControlsManager.init();
-      });
-    });
-  })
-  .catch(() => {});
+  if ((pathname || window.location.pathname) !== "/map") {
+    return;
+  }
+  // Wait for map to be ready before initializing controls.
+  mapCore.onReady(() => {
+    mapControlsManager.init();
+  });
+});
 
 export default mapControlsManager;

@@ -1,4 +1,4 @@
-import { swupReady } from "../core/navigation.js";
+import { onNavigation } from "../core/navigation-events.js";
 import store from "../core/store.js";
 import { moveModalsToContainer, utils } from "../utils.js";
 import { initAppSelects } from "./app-select.js";
@@ -8,6 +8,7 @@ import interactions from "./interactions.js";
 import mapControlsManager from "./map-controls-manager.js";
 import metricAnimator from "./metric-animator.js";
 import mobileNav from "./mobile-nav.js";
+import { moveFocusOutOfModal } from "./modal-focus.js";
 import panelManager from "./panel-manager.js";
 import setupRequired from "./setup-required.js";
 import swipeActions from "./swipe-actions.js";
@@ -31,6 +32,7 @@ function init() {
       container
         .querySelectorAll(`.modal[data-es-modal-route="${resolvedRoute}"]`)
         .forEach((modal) => {
+          moveFocusOutOfModal(modal);
           const instance = window.bootstrap?.Modal?.getInstance(modal);
           if (instance && modal.classList.contains("show")) {
             modal.addEventListener("hidden.bs.modal", () => modal.remove(), {
@@ -39,6 +41,7 @@ function init() {
             instance.hide();
             return;
           }
+          instance?.dispose?.();
           modal.remove();
         });
     };
@@ -61,23 +64,22 @@ function init() {
     window.addEventListener("resize", debouncedResize);
 
     moveModalsToContainer();
-    swupReady
-      .then((swup) => {
-        swup.hooks.on("page:view", () => moveModalsToContainer());
-        swup.hooks.on("visit:start", (visit) => {
-          const fromUrl = visit?.from?.url;
-          let fromPath = null;
-          if (typeof fromUrl === "string" && fromUrl) {
-            try {
-              fromPath = new URL(fromUrl, window.location.origin).pathname;
-            } catch {
-              fromPath = null;
-            }
-          }
-          cleanupModalsForRoute(fromPath);
-        });
-      })
-      .catch(() => {});
+    onNavigation("page:view", () => moveModalsToContainer());
+    onNavigation("page:leave", (visit) => {
+      const fromUrl = visit?.from?.url;
+      let fromPath = null;
+      if (typeof fromUrl === "string" && fromUrl) {
+        try {
+          fromPath = new URL(fromUrl, window.location.origin).pathname;
+        } catch {
+          fromPath = null;
+        }
+      }
+      if (!visit.meta?.detailVisit || fromPath !== visit.meta.backgroundPath)
+        cleanupModalsForRoute(fromPath);
+      if (!visit.meta?.detailVisit && visit.meta?.backgroundPath)
+        cleanupModalsForRoute(visit.meta.backgroundPath);
+    });
 
     // Defer heavier init (date pickers & events)
     const runDeferred = () => {

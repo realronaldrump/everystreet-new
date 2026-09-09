@@ -1,4 +1,6 @@
 import { getCurrentTheme, resolveMapStyle } from "../../core/map-style-resolver.js";
+import { navigate } from "../../core/navigation.js";
+import { updateRegion } from "../../core/partial-update.js";
 import { createMap, isMapboxStyleUrl, waitForMapboxToken } from "../../map-core.js";
 import { escapeHtml } from "../../utils.js";
 import { mergeStreetFeatures } from "./map-features.js";
@@ -203,7 +205,11 @@ function syncUrl({ replace = true } = {}) {
     url.searchParams.delete("as_of");
   }
   url.hash = state.activeMilestone ? `milestone-${state.activeMilestone}` : "";
-  window.history[replace ? "replaceState" : "pushState"]({}, "", url);
+  window.history[replace ? "replaceState" : "pushState"](
+    { ...window.history.state, source: "es-store" },
+    "",
+    url
+  );
 }
 
 function setActiveControls() {
@@ -1514,6 +1520,10 @@ function renderIntelligence() {
 }
 
 function renderAll() {
+  return updateRegion($("journal-content"), renderJournalResults);
+}
+
+function renderJournalResults() {
   setActiveControls();
   renderSummary();
   renderMilestones();
@@ -1525,7 +1535,7 @@ function renderAll() {
   renderMethodology();
 }
 
-async function reloadRange() {
+async function reloadRange({ syncHistory = true } = {}) {
   state.rangeAbort?.abort();
   state.rangeAbort = new AbortController();
   const { signal } = state.rangeAbort;
@@ -1539,7 +1549,7 @@ async function reloadRange() {
     if (!complete) return;
     renderAll();
     repaintJournalMap();
-    syncUrl();
+    if (syncHistory) syncUrl();
   } finally {
     if (!signal.aborted) $("coverage-journal").setAttribute("aria-busy", "false");
   }
@@ -1563,7 +1573,7 @@ function setupListeners() {
     if (!event.target.value || event.target.value === state.areaId) {
       return;
     }
-    window.location.assign(
+    void navigate(
       `/coverage-management/${encodeURIComponent(event.target.value)}/journal`
     );
   });
@@ -1708,7 +1718,19 @@ function setupListeners() {
     },
     { once: true }
   );
-  listen(window, "popstate", () => window.location.reload());
+  listen(window, "popstate", () => {
+    if (
+      window.location.pathname !==
+      `/coverage-management/${encodeURIComponent(state.areaId)}/journal`
+    )
+      return;
+    const restored = initialState();
+    for (const key of ["range", "source", "level", "asOf", "activeMilestone"])
+      state[key] = restored[key];
+    void reloadRange({ syncHistory: false }).catch((error) => {
+      if (error.name !== "AbortError") setStateMessage(error.message, "error");
+    });
+  });
   if ("IntersectionObserver" in window) {
     const observer = new IntersectionObserver(
       (entries) => {
@@ -1742,6 +1764,15 @@ function setupListeners() {
 
 export default async function initCoverageJournalPage({ signal, cleanup, api } = {}) {
   state = initialState();
+  const ownedState = state;
+  cleanup?.(() => {
+    ownedState.rangeAbort?.abort();
+    ownedState.mapAbort?.abort();
+    ownedState.notesAbort?.abort();
+    for (const remove of ownedState.listeners.splice(0)) remove();
+    ownedState.map?.remove();
+    ownedState.map = null;
+  });
   featureApi = api;
   if (!state.areaId || !featureApi) {
     return;
@@ -1795,17 +1826,4 @@ export default async function initCoverageJournalPage({ signal, cleanup, api } =
     console.error("Coverage Journal failed", error);
     setStateMessage(error.message || "The Journal could not be opened.", "error");
   }
-
-  cleanup?.(() => {
-    state.rangeAbort?.abort();
-    state.mapAbort?.abort();
-    state.notesAbort?.abort();
-    for (const remove of state.listeners.splice(0)) {
-      remove();
-    }
-    if (state.map) {
-      state.map.remove();
-      state.map = null;
-    }
-  });
 }

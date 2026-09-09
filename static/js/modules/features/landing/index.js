@@ -9,7 +9,7 @@ import {
   isBouncieLiveTrackingEnabled,
 } from "../tracking/availability.js";
 import { createFeatureApi } from "../../core/feature-api.js";
-import { swupReady } from "../../core/navigation.js";
+import { navigate } from "../../core/navigation.js";
 import store from "../../core/store.js";
 import { getRemainingDriveableMiles } from "../navigation-core/coverage-areas.js";
 import metricAnimator from "../../ui/metric-animator.js";
@@ -1077,7 +1077,9 @@ async function checkLiveTracking() {
       clearInterval(liveTrackingIntervalId);
       liveTrackingIntervalId = null;
       if (elements.liveIndicator) {
-        (elements.liveIndicator.closest(".status-chip") || elements.liveIndicator).hidden = true;
+        (
+          elements.liveIndicator.closest(".status-chip") || elements.liveIndicator
+        ).hidden = true;
       }
       return;
     }
@@ -1167,9 +1169,7 @@ function bindSwipeActions() {
       const tripId = item?.dataset.tripId;
 
       if (action === "view") {
-        swupReady.then((swup) => {
-          swup.navigate("/trips");
-        });
+        void navigate("/trips");
       } else if (action === "share" && tripId) {
         const shareData = {
           title: "Every Street Trip",

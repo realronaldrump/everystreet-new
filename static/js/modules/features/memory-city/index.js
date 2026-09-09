@@ -442,7 +442,7 @@ export default async function initMemoryCityPage(ctx = {}) {
     state.selectedAreaId = nextId;
     const url = new URL(window.location.href);
     url.searchParams.set("area", nextId);
-    window.history.replaceState({}, "", url);
+    window.history.replaceState(window.history.state, "", url);
     await loadArea(nextId);
   }
 

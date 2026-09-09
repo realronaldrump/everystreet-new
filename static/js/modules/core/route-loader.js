@@ -1,20 +1,21 @@
 import { ensureLibraries } from "./library-loader.js";
 
-const loadedRoutes = new Set();
+const loadedRoutes = new Map();
 
 async function importOnce([pattern, specifier, libraries = []]) {
   const key = pattern.replace(/\*$/, "");
   if (loadedRoutes.has(key)) {
-    return;
+    return loadedRoutes.get(key);
   }
-  loadedRoutes.add(key);
-  try {
+  const pending = (async () => {
     await ensureLibraries(libraries);
     await import(specifier);
-  } catch (error) {
+  })().catch((error) => {
     loadedRoutes.delete(key);
-    console.error(`Failed to load route: ${key}`, error);
-  }
+    throw error;
+  });
+  loadedRoutes.set(key, pending);
+  return pending;
 }
 
 function normalizePathname(pathname) {
@@ -30,7 +31,8 @@ function normalizePathname(pathname) {
 const routes = [
   ["/", "../../pages/landing.js"],
   ["/map", "../../pages/map.js", ["map", "deck"]],
-  ["/trips/*", "../../pages/trips.js", ["map"]],
+  ["/trips", "../../pages/trips.js", ["map"]],
+  ["/trips/*", "../../pages/trip-detail.js", ["map"]],
   ["/trip-import", "../../pages/trip-import.js"],
   ["/routes/*", "../../pages/routes.js", ["map", "chart"]],
   ["/insights", "../../pages/insights.js", ["chart", "deck"]],

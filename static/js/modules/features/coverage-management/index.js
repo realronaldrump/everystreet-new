@@ -14,13 +14,20 @@
  */
 
 import apiClient from "../../core/api-client.js";
+import { navigate } from "../../core/navigation.js";
+import {
+  acquireExplorationMap,
+  getExplorationSelection,
+  setExplorationSelection,
+} from "../../core/exploration-map.js";
+import { updateRegion } from "../../core/partial-update.js";
 import { createFeatureApi } from "../../core/feature-api.js";
 import { getCurrentTheme, resolveMapStyle } from "../../core/map-style-resolver.js";
 import {
   getDriveableMiles,
   getRemainingDriveableMiles,
 } from "../navigation-core/coverage-areas.js";
-import { createMap, isMapboxStyleUrl, waitForMapboxToken } from "../../map-core.js";
+import { isMapboxStyleUrl, waitForMapboxToken } from "../../map-core.js";
 import confirmationDialog from "../../ui/confirmation-dialog.js";
 import GlobalJobTracker from "../../ui/global-job-tracker.js";
 import notificationManager from "../../ui/notifications.js";
@@ -166,6 +173,17 @@ export default async function initCoverageManagementPage({
   state.pageSignal = signal || null;
   featureApi = api || createFeatureApi({ signal: state.pageSignal });
   state.pageActive = true;
+  const ownedState = state;
+  const teardown = () => {
+    ownedState.viewportAbort?.abort();
+    ownedState.pageActive = false;
+    ownedState.pageSignal = null;
+    clearTimeout(ownedState.activeJobsRefreshTimeoutId);
+    ownedState.map?.remove();
+    ownedState.hoverPopup?.remove();
+    if (state === ownedState) state = INITIAL_STATE();
+  };
+  cleanup?.(teardown);
 
   const modalsContainer = document.getElementById("modals-container");
   ["addAreaModal", "batchRecalculateModal"].forEach((modalId) => {
@@ -181,45 +199,19 @@ export default async function initCoverageManagementPage({
   setupKeyboardShortcuts(signal);
   initValidationUI();
   await loadCoverageFilterSettings();
+  if (signal?.aborted) return;
 
   // Load initial area list
   await loadAreas();
+  if (signal?.aborted) return;
+  const requestedArea =
+    new URLSearchParams(window.location.search).get("area") ||
+    getExplorationSelection().areaId;
+  if (requestedArea && state.areaList.some((area) => area.id === requestedArea))
+    await viewArea(requestedArea);
 
   // Resume any background jobs (GlobalJobTracker handles localStorage persistence)
   // No-op here — GlobalJobTracker auto-resumes.
-
-  // Teardown function
-  const teardown = () => {
-    state.viewportAbort?.abort();
-    state.pageActive = false;
-    state.pageSignal = null;
-    clearActiveJobsRefresh();
-
-    // Clean up map
-    if (state.map) {
-      try {
-        state.map.remove();
-      } catch {
-        /* ignore */
-      }
-    }
-
-    // Clean up hover popup
-    if (state.hoverPopup) {
-      try {
-        state.hoverPopup.remove();
-      } catch {
-        /* ignore */
-      }
-    }
-
-    // Reset all state
-    state = INITIAL_STATE();
-  };
-
-  if (typeof cleanup === "function") {
-    cleanup(teardown);
-  }
 
   return teardown;
 }
@@ -1301,13 +1293,15 @@ async function loadAreas() {
       state.areaRoadFilterVersionById.set(area.id, area.road_filter_version || null);
     });
 
-    const { hasAreas } = renderAreaCards({
-      areas: state.areaList,
-      activeJobsByAreaId: state.activeJobsByAreaId,
-      activeRouteJobsByAreaId: state.activeRouteJobsByAreaId,
-      areaErrorById: state.areaErrorById,
-      areaNameById: state.areaNameById,
-    });
+    const { hasAreas } = updateRegion(document.getElementById("area-cards-grid"), () =>
+      renderAreaCards({
+        areas: state.areaList,
+        activeJobsByAreaId: state.activeJobsByAreaId,
+        activeRouteJobsByAreaId: state.activeRouteJobsByAreaId,
+        areaErrorById: state.areaErrorById,
+        areaNameById: state.areaNameById,
+      })
+    );
 
     scheduleActiveJobsRefresh(hasActiveJobs);
 
@@ -1374,9 +1368,7 @@ function handleAreaCardClick(event) {
 
   switch (action) {
     case "journal":
-      window.location.assign(
-        `/coverage-management/${encodeURIComponent(areaId)}/journal`
-      );
+      void navigate(`/coverage-management/${encodeURIComponent(areaId)}/journal`);
       break;
     case "view":
       viewArea(areaId);
@@ -1623,6 +1615,11 @@ async function recalculateCoverage(areaId, displayName) {
 async function viewArea(areaId) {
   const requestId = ++state.areaViewRequestId;
   state.currentAreaId = areaId;
+  const previousSelection = getExplorationSelection();
+  setExplorationSelection(
+    areaId,
+    previousSelection.areaId === areaId ? previousSelection.routeId : null
+  );
   closeStreetDetailPanel();
 
   // Transition to area view immediately
@@ -1847,7 +1844,7 @@ async function initOrUpdateMap(areaId, bbox, areaSyncToken = null) {
       accessToken = await waitForMapboxToken({ timeoutMs: 5000 });
     }
 
-    state.map = createMap("coverage-map", {
+    state.map = acquireExplorationMap("coverage-map", {
       style: styleUrl,
       accessToken,
       bounds: [

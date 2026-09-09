@@ -1,4 +1,4 @@
-import { swupReady } from "../core/navigation.js";
+import { onNavigation } from "../core/navigation-events.js";
 
 const RIPPLE_SELECTOR =
   ".btn, .nav-tile, .action-button, .mobile-fab, .mobile-action-btn, [data-ripple]";
@@ -19,14 +19,10 @@ const interactions = {
     this.applyStaggeredReveals();
     this.observeValueFlashes();
 
-    swupReady
-      .then((swup) => {
-        swup.hooks.on("page:view", () => {
-          this.applyStaggeredReveals();
-          this.observeValueFlashes();
-        });
-      })
-      .catch(() => {});
+    onNavigation("page:view", () => {
+      this.applyStaggeredReveals();
+      this.observeValueFlashes();
+    });
 
     this.initialized = true;
   },

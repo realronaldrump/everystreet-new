@@ -1,5 +1,5 @@
 import { CONFIG } from "../core/config.js";
-import { swupReady } from "../core/navigation.js";
+import { onNavigation } from "../core/navigation-events.js";
 import store from "../core/store.js";
 import { utils } from "../utils.js";
 import eventManager from "./event-manager.js";
@@ -114,11 +114,7 @@ const panelManager = {
       });
     }
 
-    swupReady
-      .then((swup) => {
-        swup.hooks.on("page:view", () => this.close("mobile"));
-      })
-      .catch(() => {});
+    onNavigation("page:view", () => this.close("mobile"));
   },
 
   initDrawerSections() {

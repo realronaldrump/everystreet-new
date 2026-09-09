@@ -137,14 +137,14 @@ test("trip fetching stays coverage-aware without wasting metric requests", () =>
 
 test("swup visit URLs are always treated as strings", () => {
   const navigationSource = readStaticJs("modules", "core", "navigation.js");
-  const domUtilsSource = readStaticJs("modules", "utils", "dom.js");
+  const lifecycleSource = readStaticJs("modules", "core", "page-lifecycle.js");
 
   assert.match(navigationSource, /pathnameFromSwupUrl\(/);
   assert.doesNotMatch(navigationSource, /visit\?\.to\?\.url\?\.pathname/);
   assert.doesNotMatch(navigationSource, /visit\?\.to\?\.url\?\.href/);
 
-  assert.match(domUtilsSource, /pathnameFromSwupUrl\(visit\?\.from\?\.url\)/);
-  assert.doesNotMatch(domUtilsSource, /visit\?\.from\?\.url\?\.pathname/);
+  assert.match(lifecycleSource, /pathnameFromSwupUrl\(visit\.to\?\.url\)/);
+  assert.doesNotMatch(lifecycleSource, /visit\?\.to\?\.url\?\.pathname/);
 });
 
 test("landing route stays distinct from the map route state", () => {

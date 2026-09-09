@@ -47,3 +47,5 @@ scripts/bootstrap.sh
 
 # templates/bouncie_simulator.html
 tasks/todo.md
+static/js/vendor/swup.js
+static/js/vendor/swup-LICENSE.txt

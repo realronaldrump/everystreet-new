@@ -1,4 +1,4 @@
-import { swupReady } from "../core/navigation.js";
+import { onNavigation } from "../core/navigation-events.js";
 
 const mobileNav = {
   initialized: false,
@@ -33,11 +33,7 @@ const mobileNav = {
     this.updateActive();
     this.bindScroll();
 
-    swupReady
-      .then((swup) => {
-        swup.hooks.on("page:view", () => this.updateActive());
-      })
-      .catch(() => {});
+    onNavigation("page:view", () => this.updateActive());
   },
 
   updateActive() {
