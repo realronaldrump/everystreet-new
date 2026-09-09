@@ -9,6 +9,13 @@ from db.models import Trip
 from tracking.services import tracking_service
 
 
+@pytest.fixture(autouse=True)
+def enable_tracking(monkeypatch):
+    monkeypatch.setattr(
+        tracking_service.live_tracking, "is_enabled", AsyncMock(return_value=True)
+    )
+
+
 def _complete_trip_metrics(
     *,
     timestamp: str,

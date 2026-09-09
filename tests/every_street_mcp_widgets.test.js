@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import vm from "node:vm";
 
 const readWidget = (name) =>
   readFile(new URL(`../every_street_mcp/${name}`, import.meta.url), "utf8");
@@ -14,11 +15,43 @@ test("action widget keeps commit behind an explicit click", async () => {
   assert.doesNotMatch(source, /setTimeout\([^)]*commit_every_street_action/);
 });
 
-test("live widget labels Redis state as ephemeral and polls safely", async () => {
+test("live widget stops refreshing when tracking is disabled", async () => {
   const source = await readWidget("live_drive.html");
-  assert.match(source, /Ephemeral Redis state only/);
-  assert.match(source, /get_live_drive/);
-  assert.match(source, /10000/);
+  const script = source.match(/<script>([\s\S]*?)<\/script>/)[1];
+  for (const initiallyDisabled of [true, false]) {
+    const elements = new Map();
+    let refresh;
+    let stopped = false;
+    const context = {
+      document: {
+        getElementById(id) {
+          if (!elements.has(id)) elements.set(id, {});
+          return elements.get(id);
+        },
+      },
+      window: { openai: {
+        toolOutput: { enabled: !initiallyDisabled },
+        async callTool(name) {
+          assert.equal(name, "get_live_drive");
+          return { structuredContent: { enabled: false } };
+        },
+      } },
+      setInterval(callback, interval) {
+        assert.equal(interval, 10000);
+        refresh = callback;
+        return 1;
+      },
+      clearInterval(id) { assert.equal(id, 1); stopped = true; },
+    };
+    vm.runInNewContext(script, context);
+    if (!initiallyDisabled) {
+      assert.equal(stopped, false);
+      await refresh();
+    }
+    assert.equal(stopped, true);
+    assert.equal(elements.get("state").textContent, "Disabled");
+    assert.equal(elements.get("metrics").innerHTML, "");
+  }
 });
 
 test("explorer includes responsive map and required attribution", async () => {

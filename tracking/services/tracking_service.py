@@ -12,6 +12,7 @@ import math
 from datetime import UTC, datetime
 from typing import Any
 
+from core import live_tracking
 from core.bouncie_normalization import (
     normalize_existing_coordinates,
     normalize_webhook_trip_data_points,
@@ -401,6 +402,8 @@ async def _publish_completed_and_clear(
 
 async def process_trip_start(data: dict[str, Any]) -> None:
     """Process tripStart event - initialize or refresh ephemeral live trip state."""
+    if not await live_tracking.is_enabled():
+        return
     transaction_id = data.get("transactionId")
     start_data = data.get("start")
 
@@ -459,6 +462,8 @@ async def process_trip_start(data: dict[str, Any]) -> None:
 
 async def process_trip_data(data: dict[str, Any]) -> None:
     """Process tripData event - update coordinates and metrics in ephemeral state."""
+    if not await live_tracking.is_enabled():
+        return
     transaction_id = data.get("transactionId")
     data_points = data.get("data", [])
 
@@ -544,6 +549,8 @@ async def process_trip_data(data: dict[str, Any]) -> None:
 
 async def process_trip_metrics(data: dict[str, Any]) -> None:
     """Process tripMetrics event - update summary metrics in ephemeral state."""
+    if not await live_tracking.is_enabled():
+        return
     transaction_id = data.get("transactionId")
     metrics_data = data.get("metrics")
 
@@ -618,6 +625,8 @@ async def process_trip_metrics(data: dict[str, Any]) -> None:
 
 async def process_trip_end(data: dict[str, Any]) -> None:
     """Process tripEnd event - publish completion and clear ephemeral live state."""
+    if not await live_tracking.is_enabled():
+        return
     transaction_id = data.get("transactionId")
     end_data = data.get("end")
 
@@ -674,6 +683,8 @@ async def process_trip_end(data: dict[str, Any]) -> None:
 
 async def get_active_trip() -> dict[str, Any] | None:
     """Get the currently active live trip from ephemeral storage."""
+    if not await live_tracking.is_enabled():
+        return None
     try:
         trip = await get_active_trip_snapshot()
         if not trip:
@@ -792,6 +803,9 @@ async def get_webhook_status() -> dict[str, Any]:
     except Exception as exc:
         logger.debug("Failed to load Bouncie webhook status: %s", exc)
 
+    result["enabled"] = await live_tracking.is_enabled()
+    if not result["enabled"]:
+        result["message"] = live_tracking.DISABLED_MESSAGE
     return result
 
 

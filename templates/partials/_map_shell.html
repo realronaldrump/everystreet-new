@@ -343,14 +343,16 @@ Satellite
               <span>Terrain relief</span>
               <span class="view-switch-mark" aria-hidden="true"></span>
             </button>
-            <div class="view-popover-divider" aria-hidden="true"></div>
-            <button type="button"
-                    id="sim-toggle"
-                    class="view-popover-row view-popover-action"
-                    aria-pressed="false">
-              <span>Bouncie simulator</span>
-              <i class="fas fa-broadcast-tower" aria-hidden="true"></i>
-            </button>
+            {% if auth_context.is_owner and app_settings.get('bouncieLiveTrackingEnabled', false) %}
+              <div class="view-popover-divider" aria-hidden="true"></div>
+              <button type="button"
+                      id="sim-toggle"
+                      class="view-popover-row view-popover-action"
+                      aria-pressed="false">
+                <span>Bouncie simulator</span>
+                <i class="fas fa-broadcast-tower" aria-hidden="true"></i>
+              </button>
+            {% endif %}
           </div>
         </div>
       </div>

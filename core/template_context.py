@@ -22,6 +22,7 @@ async def _get_template_app_settings(include_sensitive: bool) -> dict[str, Any]:
 
     payload: dict[str, Any] = {
         "map_provider": "self_hosted",
+        "bouncieLiveTrackingEnabled": False,
         "mapbox_token": get_mapbox_token(),
         "mapTripsWithinCoverageOnly": False,
         "tripLayersUseHeatmap": True,
@@ -30,6 +31,10 @@ async def _get_template_app_settings(include_sensitive: bool) -> dict[str, Any]:
     }
     if settings is None:
         return payload
+
+    payload["bouncieLiveTrackingEnabled"] = (
+        getattr(settings, "bouncieLiveTrackingEnabled", False) is True
+    )
 
     map_provider = getattr(settings, "map_provider", "self_hosted")
     payload["map_provider"] = getattr(map_provider, "value", map_provider)

@@ -9,6 +9,7 @@ from datetime import UTC, datetime
 from fastapi import APIRouter, Request, WebSocket, WebSocketDisconnect
 from starlette.websockets import WebSocketState
 
+from core import live_tracking
 from core.api import api_route
 from core.auth import get_request_auth_context, require_owner_websocket
 from core.redis import create_pubsub_redis
@@ -49,6 +50,10 @@ async def websocket_endpoint(websocket: WebSocket):
     disconnect_task: asyncio.Task[None] | None = None
 
     try:
+        if not await live_tracking.is_enabled():
+            await websocket.send_json({"type": "tracking_disabled", "enabled": False})
+            await websocket.close(code=1000, reason=live_tracking.DISABLED_MESSAGE)
+            return
         # Send initial trip state
         initial_trip = await TrackingService.get_active_trip()
         if initial_trip:
@@ -75,6 +80,13 @@ async def websocket_endpoint(websocket: WebSocket):
         while True:
             if disconnect_task.done():
                 disconnect_task.result()
+
+            if not await live_tracking.is_enabled():
+                await websocket.send_json(
+                    {"type": "tracking_disabled", "enabled": False}
+                )
+                await websocket.close(code=1000, reason=live_tracking.DISABLED_MESSAGE)
+                break
 
             message = await pubsub.get_message(
                 ignore_subscribe_messages=True,
@@ -151,6 +163,12 @@ async def websocket_endpoint(websocket: WebSocket):
 @api_route(logger)
 async def active_trip_endpoint(request: Request):
     """Get the currently active trip, if any."""
+    if not await live_tracking.is_enabled():
+        return NoActiveTripResponse(
+            enabled=False,
+            message=live_tracking.DISABLED_MESSAGE,
+            server_time=datetime.now(UTC),
+        )
     auth_context = get_request_auth_context(request)
     if auth_context.viewer_mode:
         return NoActiveTripResponse(server_time=datetime.now(UTC))
@@ -174,6 +192,14 @@ async def trip_updates_endpoint(request: Request):
 
     Returns current active trip if available.
     """
+    if not await live_tracking.is_enabled():
+        return {
+            "status": "success",
+            "enabled": False,
+            "has_update": False,
+            "message": live_tracking.DISABLED_MESSAGE,
+            "server_time": datetime.now(UTC).isoformat(),
+        }
     auth_context = get_request_auth_context(request)
     if auth_context.viewer_mode:
         return {

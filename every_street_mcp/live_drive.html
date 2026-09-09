@@ -11,14 +11,23 @@
     .note{font-size:11px;color:var(--muted);margin:12px 0 0}@media(prefers-color-scheme:dark){:root{--paper:#141b1f;--ink:#eee8dc;--brass:#cf9f50;--blue:#78b9cf;--muted:#a6afb2}}
   </style>
 </head>
-<body><section class="card"><div class="top"><div class="eyebrow">Every Street live drive</div><div class="live" id="state"></div></div><h1 id="headline">Checking live state…</h1><div class="grid" id="metrics"></div><p class="note">Ephemeral Redis state only · refreshes every 10 seconds · never written to historical trips</p></section>
+<body><section class="card"><div class="top"><div class="eyebrow">Every Street live drive</div><div class="live" id="state"></div></div><h1 id="headline">Checking live state…</h1><div class="grid" id="metrics"></div><p class="note" id="note">Live drive updates refresh every 10 seconds.</p></section>
 <script>
+  let refreshTimer;
   function render(data){
+    if(data?.enabled===false){
+      clearInterval(refreshTimer);
+      document.getElementById('state').textContent='Disabled';
+      document.getElementById('headline').textContent='Bouncie live tracking is disabled';
+      document.getElementById('metrics').innerHTML='';
+      document.getElementById('note').textContent='Historical trip imports continue independently.';
+      return;
+    }
     const active=Boolean(data?.active);document.getElementById('state').innerHTML=active?'<span class="dot"></span> Live':'Idle';
     document.getElementById('headline').textContent=active?'A drive is in progress':'No drive is currently active';
     const rows=active?[[`${Number(data.distance_miles||0).toFixed(1)} mi`,'distance'],[`${Math.round(Number(data.current_speed_mph||0))} mph`,'current speed'],[`${Math.round(Number(data.maximum_speed_mph||0))} mph`,'maximum speed']]:[['—','distance'],['—','current speed'],['—','maximum speed']];
     document.getElementById('metrics').innerHTML=rows.map(([v,l])=>`<div class="metric"><b>${v}</b><span>${l}</span></div>`).join('');
   }
+  refreshTimer=setInterval(async()=>{try{const result=await window.openai?.callTool?.('get_live_drive',{});render(result?.structuredContent||result?.structured_content||result||{})}catch{}},10000);
   render(window.openai?.toolOutput||{});
-  setInterval(async()=>{try{const result=await window.openai?.callTool?.('get_live_drive',{});render(result?.structuredContent||result?.structured_content||result||{})}catch{}},10000);
 </script></body></html>

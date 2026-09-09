@@ -4,6 +4,10 @@
  */
 
 import { CONFIG as APP_CONFIG } from "../../core/config.js";
+import {
+  disableBouncieLiveTracking,
+  isBouncieLiveTrackingEnabled,
+} from "../tracking/availability.js";
 import { createFeatureApi } from "../../core/feature-api.js";
 import { swupReady } from "../../core/navigation.js";
 import store from "../../core/store.js";
@@ -1063,8 +1067,20 @@ function updateLastFillup(data) {
  * Check if there's an active live tracking session
  */
 async function checkLiveTracking() {
+  if (!isBouncieLiveTrackingEnabled()) {
+    return;
+  }
   try {
     const data = await apiGet("/api/active_trip");
+    if (data.enabled === false) {
+      disableBouncieLiveTracking();
+      clearInterval(liveTrackingIntervalId);
+      liveTrackingIntervalId = null;
+      if (elements.liveIndicator) {
+        (elements.liveIndicator.closest(".status-chip") || elements.liveIndicator).hidden = true;
+      }
+      return;
+    }
 
     if (elements.liveIndicator) {
       if (data.trip && data.trip.status === "active") {
@@ -1205,9 +1221,11 @@ function setupRefreshInterval() {
   }, CONFIG.refreshInterval);
 
   // Check live tracking more frequently
-  liveTrackingIntervalId = setInterval(() => {
-    checkLiveTracking();
-  }, 10000); // Every 10 seconds
+  if (isBouncieLiveTrackingEnabled()) {
+    liveTrackingIntervalId = setInterval(() => {
+      checkLiveTracking();
+    }, 10000); // Every 10 seconds
+  }
 }
 
 function clearIntervals() {

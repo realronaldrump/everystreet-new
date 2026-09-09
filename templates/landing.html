@@ -22,11 +22,13 @@
         <p class="masthead-sub" id="home-mission" hidden></p>
       </div>
       <div class="masthead-aside">
-        <span class="status-chip" aria-live="polite">
-          <span class="live-dot" id="live-indicator" title="Live tracking"></span>
-          <span class="status-label status-off">Idle</span>
-          <span class="status-label status-on">Live now</span>
-        </span>
+        {% if auth_context.is_owner and app_settings.get('bouncieLiveTrackingEnabled', false) %}
+          <span class="status-chip" aria-live="polite">
+            <span class="live-dot" id="live-indicator" title="Live tracking"></span>
+            <span class="status-label status-off">Idle</span>
+            <span class="status-label status-on">Live now</span>
+          </span>
+        {% endif %}
         <span class="weather-chip" id="weather-chip" data-value-flash hidden></span>
       </div>
     </header>

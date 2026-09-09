@@ -29,6 +29,7 @@ import {
   TRIP_LAYER_RENDER_MODE_EVENT,
 } from "./features/map/trip-layer-render-mode.js";
 import LiveTripTracker from "./features/tracking/index.js";
+import { isBouncieLiveTrackingEnabled } from "./features/tracking/availability.js";
 import layerManager from "./layer-manager.js";
 import mapCore from "./map-core.js";
 import mapManager from "./map-manager.js";
@@ -65,6 +66,11 @@ const getSavedStreetViewModes = () => {
  * Initialize live trip tracker if available
  */
 const initializeLiveTracker = () => {
+  if (!isBouncieLiveTrackingEnabled()) {
+    state.liveTracker?.destroy();
+    state.liveTracker = null;
+    return;
+  }
   if (state.map && !state.liveTracker) {
     try {
       state.liveTracker = new LiveTripTracker(state.map);

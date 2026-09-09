@@ -18,6 +18,7 @@ from mcp.types import CallToolResult, TextContent, ToolAnnotations
 
 from analytics.services.dashboard_service import DashboardService
 from analytics.services.trip_analytics_service import TripAnalyticsService
+from core import live_tracking
 from core.auth import get_session_secret
 from core.redis import get_shared_redis
 from db.models import (
@@ -41,7 +42,7 @@ SERVER_NAME = "every-street-intelligence"
 SERVER_VERSION = "1.0.0"
 PUBLIC_APP_URL = "https://www.everystreet.me"
 EXPLORER_RESOURCE_URI = "ui://every-street/explorer-v1.html"
-LIVE_RESOURCE_URI = "ui://every-street/live-drive-v1.html"
+LIVE_RESOURCE_URI = "ui://every-street/live-drive-v2.html"
 ACTION_RESOURCE_URI = "ui://every-street/action-review-v1.html"
 VIEW_TTL_SECONDS = 20 * 60
 ACTION_MAX_AGE_SECONDS = 10 * 60
@@ -362,6 +363,7 @@ async def get_every_street_snapshot() -> CallToolResult:
         "place_count": place_count,
         "recurring_route_count": recurring_count,
         "live_drive_active": bool(live),
+        "live_tracking_enabled": await live_tracking.is_enabled(),
         "coverage_areas": [
             {
                 "id": str(area.id),
@@ -671,6 +673,12 @@ async def recommend_coverage_missions(
 )
 async def get_live_drive() -> CallToolResult:
     started = await _start_tool("get_live_drive")
+    if not await live_tracking.is_enabled():
+        await _audit("get_live_drive", started, result_count=0)
+        return _result(
+            live_tracking.DISABLED_MESSAGE,
+            {"active": False, "enabled": False},
+        )
     live = await TrackingService.get_active_trip()
     if not live:
         await _audit("get_live_drive", started, result_count=0)

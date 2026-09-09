@@ -133,6 +133,9 @@ function setupAppSettingsForm() {
   const tripLayersUseHeatmapToggle = document.getElementById("trip-layers-use-heatmap");
   const geocodeTripsOnFetch = document.getElementById("geocode-trips-on-fetch");
   const mapMatchTripsOnFetch = document.getElementById("map-match-trips-on-fetch");
+  const bouncieLiveTrackingToggle = document.getElementById(
+    "bouncie-live-tracking-enabled"
+  );
   const form = document.getElementById("app-settings-form");
   const themeToggleCheckbox = document.getElementById("theme-toggle-checkbox");
   const densityOptions = document.querySelectorAll("input[name='ui-density']");
@@ -156,6 +159,9 @@ function setupAppSettingsForm() {
       document.documentElement.getAttribute("data-bs-theme") === "dark";
 
     // Apply settings to form elements
+    if (bouncieLiveTrackingToggle) {
+      bouncieLiveTrackingToggle.checked = settings.bouncieLiveTrackingEnabled === true;
+    }
     if (mapProviderSelect) {
       mapProviderSelect.value = map_provider || "self_hosted";
     }
@@ -274,6 +280,7 @@ function setupAppSettingsForm() {
     const densityValue = [...densityOptions].find((input) => input.checked)?.value;
     const mapProvider = mapProviderSelect?.value || "self_hosted";
     const payload = {
+      bouncieLiveTrackingEnabled: bouncieLiveTrackingToggle?.checked === true,
       map_provider: mapProvider,
       highlightRecentTrips: highlightRecentTrips?.checked,
       autoCenter: autoCenterToggle?.checked,

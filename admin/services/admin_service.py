@@ -56,6 +56,7 @@ MAPBOX_SETTINGS_ERROR = (
 )
 
 DEFAULT_APP_SETTINGS: dict[str, Any] = {
+    "bouncieLiveTrackingEnabled": False,
     # UI Preferences
     "highlightRecentTrips": True,
     "autoCenter": True,
@@ -107,6 +108,13 @@ class AdminService:
     @staticmethod
     async def update_app_settings(settings: dict[str, Any]) -> dict[str, Any]:
         settings = dict(settings)
+        if "bouncieLiveTrackingEnabled" in settings and not isinstance(
+            settings["bouncieLiveTrackingEnabled"], bool
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail="Bouncie live tracking must be true or false.",
+            )
         settings.pop("accentColor", None)
         settings.pop("mapbox_token", None)
         settings.pop("mapbox_access_token", None)

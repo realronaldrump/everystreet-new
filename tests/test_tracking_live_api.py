@@ -15,6 +15,13 @@ from tracking.api import live as live_api
 from tracking.api.live import router
 
 
+@pytest.fixture(autouse=True)
+def enable_tracking(monkeypatch):
+    monkeypatch.setattr(
+        live_api.live_tracking, "is_enabled", AsyncMock(return_value=True)
+    )
+
+
 def _create_app() -> FastAPI:
     app = FastAPI()
     app.add_middleware(

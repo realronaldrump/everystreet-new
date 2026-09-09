@@ -451,6 +451,7 @@ Every Street
     <script type="text/template" id="es-env-data">
         {
             "authContext": {{ auth_context_json | tojson }},
+            "bouncieLiveTrackingEnabled": {{ (app_settings.get('bouncieLiveTrackingEnabled', false) if app_settings else false) | tojson }},
             "mapboxToken": {{ (app_settings.get('mapbox_token') if app_settings else '') | tojson }},
             "mapProvider": {{ ((app_settings.get('map_provider') | default('self_hosted', true) | lower) if app_settings else 'self_hosted') | tojson }},
             "mapTripsWithinCoverageOnly": {{ ((app_settings.get('mapTripsWithinCoverageOnly', false)) if app_settings else false) | tojson }},
@@ -484,6 +485,7 @@ Every Street
             window.MAPBOX_PUBLIC_ACCESS_TOKEN = envData.mapboxToken;
             window.MAP_PROVIDER = envData.mapProvider || "self_hosted";
             window.APP_SETTINGS_FLAGS = {
+                bouncieLiveTrackingEnabled: envData.bouncieLiveTrackingEnabled === true,
                 mapTripsWithinCoverageOnly: envData.mapTripsWithinCoverageOnly || false,
                 tripLayersUseHeatmap: envData.tripLayersUseHeatmap !== false,
                 mapTerrainReliefEnabled: envData.mapTerrainReliefEnabled === true

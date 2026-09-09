@@ -11,6 +11,10 @@ import {
 } from "./state.js";
 import { createLineFeature, createMarkerFeature } from "./ui.js";
 import { connectLiveWebSocket } from "./websocket.js";
+import {
+  disableBouncieLiveTracking,
+  isBouncieLiveTrackingEnabled,
+} from "./availability.js";
 
 /**
  * LiveTripTracker - Real-time trip visualization
@@ -24,6 +28,9 @@ class LiveTripTracker {
   static instance = null;
 
   constructor(map) {
+    if (!isBouncieLiveTrackingEnabled()) {
+      return;
+    }
     if (LiveTripTracker.instance) {
       LiveTripTracker.instance.destroy();
     }
@@ -111,6 +118,9 @@ class LiveTripTracker {
 
   // --- Map layers -------------------------------------------------------
   initializeMapLayers() {
+    if (this.isDestroyed) {
+      return;
+    }
     if (!this.map || !this.map.addSource) {
       console.warn("Map not ready for layers");
       return;
@@ -682,6 +692,9 @@ class LiveTripTracker {
   async initialize() {
     try {
       await this.loadInitialTrip();
+      if (this.isDestroyed) {
+        return;
+      }
       this.startPolling();
       this.connectWebSocket();
       this.setupMapStyleListener();
@@ -717,6 +730,13 @@ class LiveTripTracker {
   async loadInitialTrip() {
     try {
       const data = await apiClient.get("/api/active_trip");
+      if (this.isDestroyed) {
+        return;
+      }
+      if (data.enabled === false) {
+        this.stopForDisabledTracking();
+        return;
+      }
 
       if (
         data.status === "success" &&
@@ -759,7 +779,13 @@ class LiveTripTracker {
           this.lastStreamEventAt = Date.now();
           this.updateStatus(true, this.hasActiveTrip ? "Live tracking" : "Idle");
         },
-        onMessage: (data) => this.handleSocketMessage(data),
+        onMessage: (data) => {
+          if (data.type === "tracking_disabled") {
+            this.stopForDisabledTracking();
+            return;
+          }
+          this.handleSocketMessage(data);
+        },
         onClose: (event) => {
           if (this.isDestroyed) {
             return;
@@ -878,6 +904,12 @@ class LiveTripTracker {
     this.poll();
   }
 
+  stopForDisabledTracking() {
+    disableBouncieLiveTracking();
+    this.clearTrip();
+    this.destroy();
+  }
+
   stopPolling() {
     if (this.pollingTimer) {
       clearTimeout(this.pollingTimer);
@@ -894,6 +926,10 @@ class LiveTripTracker {
     try {
       const data = await apiClient.get("/api/trip_updates");
       if (this.isDestroyed) {
+        return;
+      }
+      if (data.enabled === false) {
+        this.stopForDisabledTracking();
         return;
       }
 

@@ -12,6 +12,7 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request, Response, status
 
+from core import live_tracking
 from core.api import api_route
 from core.date_utils import parse_timestamp
 from setup.services.bouncie_credentials import get_bouncie_credentials
@@ -305,6 +306,12 @@ async def _handle_live_webhook_request(
     source_label: str,
     strict_schema: bool,
 ) -> Response:
+    if not await live_tracking.is_enabled():
+        if require_auth:
+            # Acknowledge without parsing, dispatching, or recording a delivery.
+            # Provider retries must not turn disabled tracking into background work.
+            return _ok_response()
+        raise HTTPException(status_code=409, detail=live_tracking.DISABLED_MESSAGE)
     payload = await _parse_request_payload(request, source_label=source_label)
     if require_auth:
         await _require_bouncie_authorization(request)

@@ -403,7 +403,11 @@ async def get_service_health() -> dict[str, Any]:
     public_error = webhook_status.get("webhook_error")
     webhook_active = webhook_status.get("webhook_active")
 
-    if bouncie_ready and public_ok is False:
+    if webhook_status.get("enabled") is False:
+        bouncie_details.append({"label": "Live tracking", "value": "Disabled"})
+        if bouncie_ready:
+            bouncie_message = "Historical imports configured. Live tracking disabled."
+    elif bouncie_ready and public_ok is False:
         bouncie_status = "error"
         bouncie_label = "Unreachable"
         bouncie_message = "Public webhook endpoint is unreachable"

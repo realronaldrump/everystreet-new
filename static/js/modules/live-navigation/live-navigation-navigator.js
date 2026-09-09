@@ -898,7 +898,7 @@ class LiveNavigationNavigator {
       this.overviewMode = false;
       this.ui.updateControlStates(this.overviewMode, this.followMode);
       this.ui.hideSetupPanel();
-      this.ui.setNavStatus("Device GPS unavailable. Waiting for live tracking.", true);
+      this.ui.setNavStatus("Device GPS unavailable. Enable location access to navigate.", true);
       return;
     }
 
@@ -966,7 +966,7 @@ class LiveNavigationNavigator {
   handleGeolocationError(error) {
     if (error.code === error.PERMISSION_DENIED) {
       this.ui.setNavStatus(
-        "Location permission denied. Waiting for live tracking.",
+        "Location permission denied. Enable location access to navigate.",
         true
       );
       this.isNavigating = false;

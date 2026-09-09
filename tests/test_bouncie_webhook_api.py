@@ -7,6 +7,13 @@ from fastapi.testclient import TestClient
 from tracking.api import webhooks as webhook_api
 
 
+@pytest.fixture(autouse=True)
+def enable_tracking(monkeypatch):
+    monkeypatch.setattr(
+        webhook_api.live_tracking, "is_enabled", AsyncMock(return_value=True)
+    )
+
+
 @pytest.fixture
 def webhook_client() -> TestClient:
     app = FastAPI()

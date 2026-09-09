@@ -309,6 +309,23 @@ Highlight Recent Trips
                 </div>
               </div>
               <div class="setting-item">
+                <label class="setting-label" for="bouncie-live-tracking-enabled">
+                  <span class="setting-label-title">Bouncie Live Tracking</span>
+                  <span class="setting-label-description">
+                    Enable Bouncie webhook tracking and the live trip simulator.
+                    Leave off while Bouncie webhooks are unavailable. Historical
+                    trip imports and phone GPS navigation continue independently.
+                    Changes reach open maps in about 30 seconds; reload to re-enable.
+                  </span>
+                </label>
+                <div class="setting-control">
+                  <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" role="switch"
+                           id="bouncie-live-tracking-enabled" />
+                  </div>
+                </div>
+              </div>
+              <div class="setting-item">
                 <label class="setting-label" for="auto-center-toggle">
                   <span class="setting-label-title">
 Auto-Center on Live Location

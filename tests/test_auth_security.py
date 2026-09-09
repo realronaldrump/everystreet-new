@@ -104,6 +104,9 @@ def _configure_auth_test_env(
 
 
 def _patch_auth_test_dependencies(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        live_api.live_tracking, "is_enabled", AsyncMock(return_value=True)
+    )
     fake_redis = _FakeRedis()
 
     async def fake_get_settings() -> _FakeSettings:

@@ -79,6 +79,7 @@ class NoActiveTripResponse(BaseModel):
 
     status: str = "success"
     has_active_trip: bool = False
+    enabled: bool = True
     message: str = "No active trip"
     server_time: datetime
 

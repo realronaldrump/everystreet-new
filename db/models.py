@@ -1396,6 +1396,7 @@ class AppSettings(Document):
     setup_completed_at: datetime | None = None
 
     # UI Preferences
+    bouncieLiveTrackingEnabled: bool = False
     highlightRecentTrips: bool = True
     autoCenter: bool = True
     mapTripsWithinCoverageOnly: bool = False
