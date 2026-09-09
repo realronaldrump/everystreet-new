@@ -334,3 +334,8 @@ export function initAppSelects() {
   });
   documentObserver.observe(document.body, { childList: true, subtree: true });
 }
+
+// Programmatic selections must update the visible control without firing a change.
+export function syncAppSelect(select) {
+  instances.get(select)?.render();
+}

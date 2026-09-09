@@ -131,7 +131,7 @@ export default function initCoverageRoutePlannerUi(context = {}) {
     "click",
     () => {
       setPlannerView("plan");
-      document.getElementById("area-select")?.focus();
+      document.querySelector(".area-selector-widget .es-select__button")?.focus();
     },
     { signal }
   );

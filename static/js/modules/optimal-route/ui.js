@@ -1,3 +1,4 @@
+import { syncAppSelect } from "../ui/app-select.js";
 import { revealPlannerSection } from "../features/coverage-route-planner/ui-scaffold.js";
 import notificationManager from "../ui/notifications.js";
 import { getRemainingDriveableMiles } from "../features/navigation-core/coverage-areas.js";
@@ -74,6 +75,12 @@ export class OptimalRouteUI {
     });
   }
 
+  setAreaSelection(areaId) {
+    if (!this.areaSelect) return;
+    this.areaSelect.value = areaId;
+    syncAppSelect(this.areaSelect);
+  }
+
   updateSavedRoutes(areas, onRouteClick) {
     const historyContainer = document.getElementById("route-history");
     if (!historyContainer) {
@@ -119,9 +126,7 @@ export class OptimalRouteUI {
     historyContainer.querySelectorAll(".route-history-item").forEach((item) => {
       item.addEventListener("click", () => {
         const { areaId } = item.dataset;
-        if (this.areaSelect) {
-          this.areaSelect.value = areaId;
-        }
+        this.setAreaSelection(areaId);
         onRouteClick(areaId);
       });
     });

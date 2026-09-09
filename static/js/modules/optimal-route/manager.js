@@ -267,7 +267,7 @@ export class OptimalRoutesManager {
 
   restoreAreaSelection() {
     if (this.ui.areaSelect) {
-      this.ui.areaSelect.value = this.lastSelectedAreaId || "";
+      this.ui.setAreaSelection(this.lastSelectedAreaId || "");
     }
   }
 
@@ -305,7 +305,7 @@ export class OptimalRoutesManager {
 
       this.ui.populateAreaSelect(areas);
       if (this.selectedAreaId && this.ui.areaSelect)
-        this.ui.areaSelect.value = this.selectedAreaId;
+        this.ui.setAreaSelection(this.selectedAreaId);
       this.ui.updateSavedRoutes(areas, (areaId) => this.onAreaSelect(areaId));
       if (this.initialRouteId || this.initialTaskId) {
         const routeId = this.initialRouteId;
@@ -331,7 +331,7 @@ export class OptimalRoutesManager {
         areas.some((area) => String(area.id) === this.initialAreaId)
       ) {
         if (this.ui.areaSelect) {
-          this.ui.areaSelect.value = this.initialAreaId;
+          this.ui.setAreaSelection(this.initialAreaId);
         }
         const { initialAreaId } = this;
         this.initialAreaId = "";
@@ -388,7 +388,7 @@ export class OptimalRoutesManager {
     this.currentTaskId = null;
     this.selectedAreaId = nextAreaId || null;
     this.lastSelectedAreaId = nextAreaId;
-    if (this.ui.areaSelect) this.ui.areaSelect.value = nextAreaId;
+    if (this.ui.areaSelect) this.ui.setAreaSelection(nextAreaId);
     this.config.onAreaSelectionChanged?.(nextAreaId);
     const url = new URL(window.location.href);
     url.searchParams.delete("routeId");
@@ -554,7 +554,7 @@ export class OptimalRoutesManager {
       return;
     }
     if (this.ui.areaSelect) {
-      this.ui.areaSelect.value = draft.areaId;
+      this.ui.setAreaSelection(draft.areaId);
     }
     await this.onAreaSelect(draft.areaId);
   }
