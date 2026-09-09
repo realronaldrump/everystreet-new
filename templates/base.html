@@ -7,8 +7,10 @@
     <meta charset="UTF-8" />
     <meta name="viewport"
           content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    {% block seo_head %}
     <meta name="description"
           content="Every Street - Tracking and Visualizing Davis's street coverage" />
+    {% endblock %}
     <meta name="theme-color" content="#050507" />
     <meta name="color-scheme" content="dark light" />
     <meta name="es-build" content="{{ repo_version.commit_hash }}" />

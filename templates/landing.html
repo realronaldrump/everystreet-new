@@ -1,8 +1,32 @@
 {% extends "base.html" %}
 
-{% block title %}
+{% block title %}Every Street{% endblock %}
 
- Every Street
+{% block seo_head %}
+  <meta name="description"
+        content="Every Street is a personal street-coverage project by Davis Deaton, tracking and visualizing the roads driven over time." />
+  <meta property="og:title" content="Every Street | A Project by Davis Deaton" />
+  <meta property="og:description"
+        content="A personal street-coverage project tracking and visualizing the roads driven over time." />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Every Street" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="Every Street | A Project by Davis Deaton" />
+  <meta name="twitter:description"
+        content="A personal street-coverage project tracking and visualizing the roads driven over time." />
+  <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "url": "https://www.everystreet.me/",
+      "name": "Every Street",
+      "description": "A personal street-coverage project by Davis Deaton.",
+      "creator": {
+        "@type": "Person",
+        "name": "Davis Deaton"
+      }
+    }
+  </script>
 {% endblock %}
 
 
