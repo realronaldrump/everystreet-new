@@ -16,7 +16,7 @@
 }
 
 .detail-drawer::backdrop {
-  background: rgb(0 0 0 / 45%);
+  background: rgb(var(--backdrop-rgb) / 45%);
 }
 
 .detail-drawer-toolbar {
@@ -33,7 +33,7 @@
 }
 
 .trip-detail-journey {
-  font-size: 1.1rem;
+  font-size: var(--font-size-lg);
 }
 
 .trip-detail-metrics {
@@ -44,13 +44,13 @@
 }
 
 .trip-detail-metrics dt {
-  font-size: 0.8rem;
+  font-size: var(--font-size-xs);
   color: var(--text-secondary);
   font-weight: 400;
 }
 
 .trip-detail-metrics dd {
-  font-size: 1.25rem;
+  font-size: var(--font-size-xl);
   margin: 6px 0 0;
 }
 
