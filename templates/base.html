@@ -363,7 +363,13 @@ Every Street
             <i class="fas fa-arrow-left" aria-hidden="true"></i> Back
           </a>
         </div>
-        <div id="detail-content">{% block detail_content %}{% endblock %}</div>
+        <div id="detail-content">
+          {% if detail_page | default(false) and auth_context.viewer_mode %}
+            <div class="alert alert-secondary m-3" role="status">Log in to view these details. <a href="/login">Owner login</a></div>
+          {% else %}
+            {% block detail_content %}{% endblock %}
+          {% endif %}
+        </div>
       </dialog>
       <div id="exploration-map-parking" hidden inert aria-hidden="true"></div>
 

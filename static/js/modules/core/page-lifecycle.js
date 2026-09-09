@@ -79,7 +79,9 @@ export function onPageLoad(callback, options = {}) {
       return;
     stop();
   });
-  const ready = () => run();
+  const ready = () => {
+    if (!active) run();
+  };
   ownerDocument.addEventListener("appReady", ready);
   const timer = setTimeout(ready, 0);
   return () => {

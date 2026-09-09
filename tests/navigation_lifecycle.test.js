@@ -117,6 +117,31 @@ test("disposal before the scheduled initial mount prevents initialization", asyn
   assert.equal(mounted, false);
 });
 
+test("app-ready and page-view events win over the pending initial timer", async (t) => {
+  environment(t);
+  let mounts = 0;
+  const dispose = onPageLoad(
+    () => {
+      mounts++;
+    },
+    { route: "/trips" }
+  );
+  document.dispatchEvent(new Event("appReady"));
+  await tick();
+  assert.equal(mounts, 1);
+  dispose();
+  const disposeLater = onPageLoad(
+    () => {
+      mounts++;
+    },
+    { route: "/trips" }
+  );
+  emitNavigation("page:view", { to: { url: "/trips" } });
+  await tick();
+  assert.equal(mounts, 2);
+  disposeLater();
+});
+
 test("history and motion distinguish detail, driving, and same-page filter visits", () => {
   assert.equal(detailParent("/trips/123"), "/trips");
   assert.equal(

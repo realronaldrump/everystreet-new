@@ -22,10 +22,20 @@ export function acquireExplorationMap(containerId, options = {}) {
     canvas.id = "exploration-map-canvas";
     canvas.className = "exploration-map-canvas";
     host.replaceChildren(canvas);
-    session = { canvas, map: createMap(canvas.id, options), release: null };
+    session = {
+      canvas,
+      map: createMap(canvas.id, options),
+      release: null,
+      areaId: selectedArea,
+    };
   } else {
     session.release?.();
     host.replaceChildren(session.canvas);
+    if (options.bounds && session.areaId !== selectedArea)
+      session.map.fitBounds(
+        options.bounds,
+        options.fitBoundsOptions || { padding: 50, duration: 0 }
+      );
   }
   const map = session.map;
   const events = [];
@@ -38,6 +48,7 @@ export function acquireExplorationMap(containerId, options = {}) {
   const release = () => {
     if (closed) return;
     closed = true;
+    session.areaId = selectedArea;
     map.stop?.();
     for (const args of events) map.off(...args);
     for (const id of [...layers].reverse()) if (map.getLayer(id)) map.removeLayer(id);
