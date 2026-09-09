@@ -1168,13 +1168,13 @@ function bindSwipeActions() {
       const item = button.closest("[data-trip-id]");
       const tripId = item?.dataset.tripId;
 
-      if (action === "view") {
-        void navigate("/trips");
+      if (action === "view" && tripId) {
+        void navigate(`/trips/${encodeURIComponent(tripId)}`);
       } else if (action === "share" && tripId) {
         const shareData = {
           title: "Every Street Trip",
           text: "Check out this recent trip.",
-          url: `${window.location.origin}/trips`,
+          url: `${window.location.origin}/trips/${encodeURIComponent(tripId)}`,
         };
         if (navigator.share) {
           navigator.share(shareData).catch(() => {});

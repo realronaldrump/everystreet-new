@@ -191,9 +191,9 @@ const tripInteractions = {
 
     return `
         <div class="trip-popup-actions">
-          <button class="btn btn-sm btn-primary view-trip-btn" data-trip-id="${tripId}">
+          <a class="btn btn-sm btn-primary view-trip-btn" href="/trips/${encodeURIComponent(tripId)}">
             <i class="fas fa-eye"></i> View
-          </button>
+          </a>
           <button class="btn btn-sm btn-outline-warning rematch-trip-btn" data-trip-id="${tripId}">
             <i class="fas fa-route"></i> Rematch
           </button>
@@ -238,9 +238,7 @@ const tripInteractions = {
       button.classList.add("btn-loading");
 
       try {
-        if (button.classList.contains("view-trip-btn")) {
-          window.open(`/trips/${tripId}`, "_blank");
-        } else if (button.classList.contains("rematch-trip-btn")) {
+        if (button.classList.contains("rematch-trip-btn")) {
           await this.rematchTrip(tripId, popup);
         } else if (button.classList.contains("delete-matched-trip-btn")) {
           await this.deleteMatchedTrip(tripId, popup);
