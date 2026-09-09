@@ -1,3 +1,4 @@
+import { updateUrlHistory } from "../../core/url-history.js";
 import apiClient from "../../core/api-client.js";
 import { createFeatureApi } from "../../core/feature-api.js";
 import { navigate } from "../../core/navigation.js";
@@ -684,7 +685,7 @@ function handleBouncieRedirectParams() {
     url.searchParams.delete("bouncie_error");
     url.searchParams.delete("bouncie_connected");
     url.searchParams.delete("vehicles_synced");
-    window.history.replaceState(window.history.state, document.title, url.pathname);
+    updateUrlHistory(url.pathname);
   }
 }
 

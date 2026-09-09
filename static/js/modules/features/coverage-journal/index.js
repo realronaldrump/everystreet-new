@@ -1,3 +1,4 @@
+import { updateUrlHistory } from "../../core/url-history.js";
 import { getCurrentTheme, resolveMapStyle } from "../../core/map-style-resolver.js";
 import { navigate } from "../../core/navigation.js";
 import { updateRegion } from "../../core/partial-update.js";
@@ -205,11 +206,7 @@ function syncUrl({ replace = true } = {}) {
     url.searchParams.delete("as_of");
   }
   url.hash = state.activeMilestone ? `milestone-${state.activeMilestone}` : "";
-  window.history[replace ? "replaceState" : "pushState"](
-    { ...window.history.state, source: "es-store" },
-    "",
-    url
-  );
+  updateUrlHistory(url, { push: !replace });
 }
 
 function setActiveControls() {

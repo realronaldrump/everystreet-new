@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import store from "../static/js/modules/core/store.js";
 import { createPageContext } from "../static/js/modules/core/page-context.js";
+import { updateUrlHistory } from "../static/js/modules/core/url-history.js";
 import { onPageLoad } from "../static/js/modules/core/page-lifecycle.js";
 import { emitNavigation } from "../static/js/modules/core/navigation-events.js";
 import {
@@ -40,6 +41,23 @@ test("page context runs late cleanup immediately and deduplicates returned teard
   context.onCleanup(() => calls++);
   context.dispose();
   assert.equal(calls, 2);
+});
+
+test("URL-only updates preserve history metadata but replace its recorded URL", (t) => {
+  environment(t);
+  let record;
+  window.location.href = "https://example.test/trips";
+  window.history = {
+    state: { source: "swup", index: 3, url: "/trips" },
+    pushState: (state, _title, url) => {
+      record = { state, url };
+    },
+  };
+  updateUrlHistory("/trips?vehicle=example", { push: true });
+  assert.equal(record.state.index, 3);
+  assert.equal(record.state.source, "es-store");
+  assert.equal(record.state.url, new URL(record.url, window.location.href).href);
+  assert.equal(record.state.url, "https://example.test/trips?vehicle=example");
 });
 
 test("opening and closing a detail keeps its underlying page mounted", async (t) => {

@@ -81,7 +81,7 @@ class APIClient {
         ? await options.parseResponse(response)
         : await this._handleResponse(response);
 
-      this._notifyMutation(normalizedMethod, response);
+      this._notifyMutation(normalizedMethod, response, url);
 
       // Cache successful GET requests
       if (method === "GET" && cache) {
@@ -135,7 +135,7 @@ class APIClient {
         { ...fetchOptions, signal: activeSignal },
         retry ? this.retryAttempts : 1
       );
-      this._notifyMutation(normalizedMethod, response);
+      this._notifyMutation(normalizedMethod, response, url);
       return response;
     } catch (error) {
       if (timeoutTriggered && error?.name === "AbortError") {
@@ -301,8 +301,10 @@ class APIClient {
     return cached.data;
   }
 
-  _notifyMutation(method, response) {
+  _notifyMutation(method, response, url) {
     if (!response.ok || ["GET", "HEAD", "OPTIONS"].includes(method)) return;
+    if (method === "POST" && String(url).split("?")[0] === "/api/trips/datatable")
+      return;
     this.cache.clear();
     if (typeof document !== "undefined" && typeof CustomEvent === "function") {
       document.dispatchEvent(new CustomEvent("es:data-changed"));

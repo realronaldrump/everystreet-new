@@ -1,3 +1,4 @@
+import { updateUrlHistory } from "../../core/url-history.js";
 /**
  * Memory City — your driving history as a sculpture of strata.
  *
@@ -442,7 +443,7 @@ export default async function initMemoryCityPage(ctx = {}) {
     state.selectedAreaId = nextId;
     const url = new URL(window.location.href);
     url.searchParams.set("area", nextId);
-    window.history.replaceState(window.history.state, "", url);
+    updateUrlHistory(url);
     await loadArea(nextId);
   }
 

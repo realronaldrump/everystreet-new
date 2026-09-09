@@ -1,3 +1,4 @@
+import { updateUrlHistory } from "../../core/url-history.js";
 /**
  * App Settings Module - Handles app preferences, tab switching, and settings form
  */
@@ -71,7 +72,7 @@ export function setActiveTab(tabName, { persist = true, updateHash = false } = {
   if (updateHash) {
     const url = new URL(window.location.href);
     url.hash = normalizedTabName;
-    window.history.replaceState(window.history.state, document.title, url.toString());
+    updateUrlHistory(url.toString());
   }
 
   document.dispatchEvent(

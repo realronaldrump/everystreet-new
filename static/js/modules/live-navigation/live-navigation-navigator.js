@@ -1,3 +1,4 @@
+import { updateUrlHistory } from "../core/url-history.js";
 /**
  * Live Navigation Controller
  * Coordinates the live navigation modules.
@@ -481,7 +482,7 @@ class LiveNavigationNavigator {
       if (value) url.searchParams.set(key, value);
       else url.searchParams.delete(key);
     }
-    window.history.replaceState(window.history.state, "", url);
+    updateUrlHistory(url);
     const plannerParams = new URLSearchParams();
     if (this.selectedAreaId) plannerParams.set("area", this.selectedAreaId);
     if (this.selectedRouteId) plannerParams.set("routeId", this.selectedRouteId);
@@ -712,7 +713,7 @@ class LiveNavigationNavigator {
     if (target && url.searchParams.get("areaId") === target) {
       url.searchParams.delete("areaId");
       const next = `${url.pathname}${url.search}${url.hash}`;
-      window.history.replaceState(window.history.state, "", next);
+      updateUrlHistory(next);
     }
   }
 

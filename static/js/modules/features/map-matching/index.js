@@ -1,3 +1,4 @@
+import { updateUrlHistory } from "../../core/url-history.js";
 import { CONFIG } from "../../core/config.js";
 import { createFeatureApi } from "../../core/feature-api.js";
 import { createMap } from "../../map-core.js";
@@ -424,7 +425,7 @@ function resetToSelect() {
   // Clear URL parameter
   const url = new URL(window.location.href);
   url.searchParams.delete("job");
-  window.history.replaceState(window.history.state, document.title, url.toString());
+  updateUrlHistory(url.toString());
 }
 
 // ========================================
@@ -724,7 +725,7 @@ function startPolling(jobId) {
 
   const url = new URL(window.location.href);
   url.searchParams.set("job", jobId);
-  window.history.replaceState(window.history.state, document.title, url.toString());
+  updateUrlHistory(url.toString());
 }
 
 async function loadJobs() {

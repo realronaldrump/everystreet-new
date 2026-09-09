@@ -1,4 +1,5 @@
 import { createMap } from "../../map-core.js";
+import store from "../../core/store.js";
 import {
   formatDateTime,
   formatDuration,
@@ -25,6 +26,17 @@ export default async function initTripDetail({ api, signal, cleanup } = {}) {
   const root = document.getElementById("trip-detail");
   if (!root) return;
   const find = (id) => root.querySelector(`#trip-detail-${id}`);
+  const toolsUrl = new URL("/trips", location.origin);
+  const filters = store.get("filters") || {};
+  for (const [param, value] of [
+    ["start", filters.startDate],
+    ["end", filters.endDate],
+    ["vehicle", filters.vehicle],
+    ["highlight", root.dataset.tripId],
+  ]) {
+    if (value) toolsUrl.searchParams.set(param, value);
+  }
+  find("tools").href = toolsUrl.href;
   let map = null;
   const observer = new ResizeObserver(() => map?.resize());
   cleanup?.(() => {

@@ -1,3 +1,4 @@
+import { updateUrlHistory } from "../core/url-history.js";
 import { setPlannerView } from "../features/coverage-route-planner/ui-scaffold.js";
 import { navigate } from "../core/navigation.js";
 import {
@@ -406,7 +407,7 @@ export class OptimalRoutesManager {
     } else {
       url.searchParams.delete("area");
     }
-    window.history.replaceState(window.history.state, "", url);
+    updateUrlHistory(url);
     this.ui.setLiveNavigationEnabled(false);
     this.simulation.deactivate();
 
@@ -676,7 +677,7 @@ export class OptimalRoutesManager {
       if (value) url.searchParams.set(key, value);
       else url.searchParams.delete(key);
     }
-    window.history.replaceState(window.history.state, "", url);
+    updateUrlHistory(url);
   }
 
   acceptRouteResult(routeData) {

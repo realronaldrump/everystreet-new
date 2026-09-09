@@ -455,6 +455,7 @@ async function initializeNavigation() {
   }
 
   const navigationUI = createNavigationUI(navigate);
+  let renderedUrl = window.location.pathname + window.location.search;
   swup = new Swup({
     containers: ["#route-content", "#detail-content"],
     native: true,
@@ -470,6 +471,7 @@ async function initializeNavigation() {
     // back/forward *across routes*; in that case Swup must handle the popstate or the URL
     // and rendered content will drift out of sync.
     skipPopStateHandling: (event) =>
+      !swup?.navigating &&
       shouldSkipPopState(
         event,
         document.body?.dataset?.detailRoute || document.body?.dataset?.route,
@@ -534,6 +536,10 @@ async function initializeNavigation() {
   // a swup page transition.
   window.addEventListener("popstate", (event) => {
     if (event.state?.source === "es-store") {
+      if (swup?.navigating) return;
+      // Detail filters belong to the drawer (e.g. Journal range/as-of). They
+      // must not change date/vehicle filters on the retained background page.
+      if (document.body?.dataset?.detailRoute) return;
       const renderedRoute =
         document.body?.dataset?.detailRoute || document.body?.dataset?.route;
       // Only apply URL params directly when the popstate stays on the same rendered route.
@@ -583,6 +589,7 @@ async function initializeNavigation() {
     updatePersistentShell(visit);
     navigationUI.replaced(visit);
     const path = pathnameFromSwupUrl(visit.to.url);
+    renderedUrl = visit.to.url;
     if (detailParent(path)) document.body.dataset.detailRoute = path;
     else delete document.body.dataset.detailRoute;
     setRouteState(document.body.dataset.backgroundRoute || path);
@@ -611,7 +618,14 @@ async function initializeNavigation() {
     swup.cache.update(page.url, { cachedAt: Date.now() });
     if (swup.cache.size > 30) swup.cache.delete(swup.cache.all.keys().next().value);
   });
-  swup.hooks.before("visit:start", () => {
+  swup.hooks.before("visit:start", (visit) => {
+    if (!visit.history.popstate) {
+      const renderedPath =
+        document.body.dataset.detailRoute || document.body.dataset.route;
+      if (window.location.pathname === renderedPath)
+        renderedUrl = window.location.pathname + window.location.search;
+      visit.from.url = renderedUrl;
+    }
     swup.cache.prune(
       (_url, page) => !page.cachedAt || Date.now() - page.cachedAt > 90000
     );
