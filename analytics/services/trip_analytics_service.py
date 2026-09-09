@@ -3,10 +3,11 @@
 import logging
 from typing import Any
 
-from core.trip_source_policy import enforce_bouncie_source
+from analytics.services.insight_query import insight_query
 from db.aggregation import aggregate_to_list
 from db.aggregation_utils import (
     build_driver_behavior_fields_stage,
+    build_trip_numeric_fields_stage,
     build_trip_time_group_id,
     get_mongo_tz_expr,
 )
@@ -30,18 +31,19 @@ class TripAnalyticsService:
         Returns:
             Dictionary containing daily distances, time distribution, and weekday distribution
         """
-        query = enforce_bouncie_source(query)
+        query = insight_query(query)
         tz_expr = get_mongo_tz_expr()
 
         pipeline = [
             {"$match": query},
+            build_trip_numeric_fields_stage(),
             {
                 "$group": {
                     "_id": build_trip_time_group_id(
                         date_field="startTime",
                         tz_expr=tz_expr,
                     ),
-                    "totalDistance": {"$sum": "$distance"},
+                    "totalDistance": {"$sum": {"$max": [0, "$numericDistance"]}},
                     "tripCount": {"$sum": 1},
                 },
             },
@@ -174,7 +176,7 @@ class TripAnalyticsService:
         Returns:
             Dictionary containing totals, weekly, and monthly driving behavior statistics
         """
-        query = enforce_bouncie_source(query)
+        query = insight_query(query)
         tz_expr = get_mongo_tz_expr()
 
         pipeline = [

@@ -5,11 +5,26 @@ import logging
 from fastapi import APIRouter, HTTPException, Request, status
 
 from analytics.services.dashboard_service import DashboardService
+from analytics.services.insight_query import insight_query
+from analytics.services.mobility_insights_service import MobilityInsightsService
 from core.cache import cached
 from core.trip_query_spec import TripQuerySpec
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+
+@cached("movement_insights", ttl_seconds=300)
+async def _movement_insights_cached(query: dict):
+    return await MobilityInsightsService.get_mobility_insights(query)
+
+
+@router.get("/api/movement-insights")
+async def get_movement_insights(request: Request):
+    query = insight_query(
+        TripQuerySpec.from_request(request).to_mongo_query(enforce_source=True)
+    )
+    return await _movement_insights_cached(query)
 
 
 @cached("driving_insights", ttl_seconds=300)
@@ -29,10 +44,9 @@ async def _metrics_cached(query: dict):
 async def get_driving_insights(request: Request):
     """Get aggregated driving insights."""
     try:
-        include_movement = (
-            str(request.query_params.get("include_movement", "true")).lower()
-            not in {"0", "false", "no", "off"}
-        )
+        include_movement = str(
+            request.query_params.get("include_movement", "true")
+        ).lower() not in {"0", "false", "no", "off"}
         query = TripQuerySpec.from_request(
             request,
             include_invalid=True,

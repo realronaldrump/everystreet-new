@@ -767,16 +767,16 @@ class MobilityInsightsService:
                     "street_key": _normalize_street_key(bucket["street_name"]),
                     "trip_count": len(bucket["trip_ids"]),
                     "traversals": int(bucket["traversals"]),
-                    "times_driven": int(bucket["traversals"]),
+                    "times_driven": len(bucket["trip_ids"]),
                     "distance_miles": round(float(bucket["distance_miles"]), 2),
                     "cells": len(bucket["cell_ids"]),
                 }
                 for bucket in grouped.values()
             ),
             key=lambda row: (
-                -int(row["traversals"]),
-                -float(row["distance_miles"]),
                 -int(row["trip_count"]),
+                -float(row["distance_miles"]),
+                str(row["street_key"]),
             ),
         )[:street_limit]
 
@@ -1042,14 +1042,10 @@ class MobilityInsightsService:
         """
         Aggregate H3 mobility insights for the current query window.
 
-        This syncs a bounded number of unsynced trips automatically so
-        Insights reflects recent imports without manual backfill.
+        Read profiles produced by historical ingestion. Page reads do not
+        rebuild trip profiles; pending analysis is reported explicitly.
         """
         query = enforce_bouncie_source(query)
-        sync_query = _combine_query(query, {"matchedGps": {"$ne": None}})
-        synced_count, pending_unsynced = await cls.sync_unsynced_trips_for_query(
-            sync_query,
-        )
         trip_query = _combine_query(
             query,
             {"invalid": {"$ne": True}},
@@ -1123,7 +1119,7 @@ class MobilityInsightsService:
                     "distance_miles": {"$sum": "$mobility.cell_counts.distance_miles"},
                 },
             },
-            {"$sort": {"traversals": -1, "distance_miles": -1}},
+            {"$sort": {"trip_count": -1, "distance_miles": -1, "_id": 1}},
             {"$limit": MAX_HEX_CELLS},
         ]
         hex_results = await aggregate_to_list(Trip, hex_pipeline)
@@ -1153,7 +1149,7 @@ class MobilityInsightsService:
                     },
                 },
             },
-            {"$sort": {"traversals": -1, "distance_miles": -1}},
+            {"$sort": {"trip_count": -1, "distance_miles": -1, "_id": 1}},
             {"$limit": MAX_SEGMENTS},
         ]
         segment_results = await aggregate_to_list(Trip, segment_pipeline)
@@ -1163,7 +1159,7 @@ class MobilityInsightsService:
                 "hex": str(item.get("_id")),
                 "trip_count": int(item.get("trip_count") or 0),
                 "traversals": int(item.get("traversals") or 0),
-                "times_driven": int(item.get("traversals") or 0),
+                "times_driven": int(item.get("trip_count") or 0),
                 "distance_miles": round(float(item.get("distance_miles") or 0.0), 2),
             }
             for item in hex_results
@@ -1216,7 +1212,7 @@ class MobilityInsightsService:
                     "street_b": street_b,
                     "trip_count": int(item.get("trip_count") or 0),
                     "traversals": int(item.get("traversals") or 0),
-                    "times_driven": int(item.get("traversals") or 0),
+                    "times_driven": int(item.get("trip_count") or 0),
                     "distance_miles": round(
                         float(item.get("distance_miles") or 0.0),
                         2,
@@ -1284,7 +1280,7 @@ class MobilityInsightsService:
         renderable_top_streets: list[dict[str, Any]] = []
         for street in top_streets:
             street_key = str(street.get("street_key") or "")
-            street["times_driven"] = int(street.get("traversals") or 0)
+            street["times_driven"] = int(street.get("trip_count") or 0)
             street["paths"] = street_paths_by_key.get(street_key, [])
             if _entity_has_paths(street):
                 renderable_top_streets.append(street)
@@ -1299,7 +1295,7 @@ class MobilityInsightsService:
         renderable_top_segments: list[dict[str, Any]] = []
         for segment in top_segments:
             segment_key = str(segment.get("segment_key") or "")
-            segment["times_driven"] = int(segment.get("traversals") or 0)
+            segment["times_driven"] = int(segment.get("trip_count") or 0)
             segment["paths"] = segment_paths_by_key.get(segment_key, [])
             if _entity_has_paths(segment):
                 renderable_top_segments.append(segment)
@@ -1316,20 +1312,23 @@ class MobilityInsightsService:
         return {
             "h3_resolution": H3_RESOLUTION,
             "sample_spacing_m": H3_SAMPLE_SPACING_M,
+            "ranking_note": "Approximate rankings among sampled matched paths. Street names are inferred from nearby map labels; same-name streets are grouped. Distances cover the sampled portions shown, not each entire street.",
             "trip_count": int(summary.get("trip_count") or 0),
             "profiled_trip_count": int(summary.get("profiled_trip_count") or 0),
             "analyzed_trip_count": analyzed_trip_count,
             "analysis_scope": {
                 "geometry_source": "matchedGps",
-                "street_ranking": "times_driven",
-                "segment_ranking": "times_driven",
+                "street_ranking": "distinct_trips",
+                "segment_ranking": "distinct_trips",
             },
-            "synced_trips_this_request": synced_count,
-            "pending_trip_sync_count": pending_unsynced,
+            "synced_trips_this_request": 0,
+            "pending_trip_sync_count": max(
+                0, int(summary.get("trip_count") or 0) - analyzed_trip_count
+            ),
             "metric_basis": {
-                "top_streets_primary": "times_driven",
-                "top_segments_primary": "times_driven",
-                "map_cells_intensity": "times_driven",
+                "top_streets_primary": "distinct_trips",
+                "top_segments_primary": "distinct_trips",
+                "map_cells_intensity": "distinct_trips",
             },
             "hex_cells": hex_cells,
             "top_segments": renderable_top_segments,

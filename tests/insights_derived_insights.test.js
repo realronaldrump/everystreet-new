@@ -159,3 +159,32 @@ test("deriveInsightsSnapshot does not fabricate time patterns for an empty range
   assert.equal(weekday.detail, "No weekday trip data in this range.");
   assert.equal(weekday.action, null);
 });
+
+test("periods include quiet weeks and flag clipped boundary periods", () => {
+  const snapshot = deriveInsightsSnapshot({
+    currentRange: { start: "2026-08-04", end: "2026-08-25" },
+    analytics: {
+      daily_distances: [
+        { date: "2026-08-04", count: 2, distance: 10 },
+        { date: "2026-08-25", count: 1, distance: 5 },
+      ],
+    },
+  });
+  const weeks = snapshot.periods.weekly;
+  assert.equal(weeks.length, 4);
+  assert.equal(weeks[0].start, "2026-08-04");
+  assert.equal(weeks[0].isPartial, true);
+  assert.equal(weeks[1].trips, 0);
+  assert.equal(weeks[1].distanceDeltaPct, null);
+  assert.equal(weeks[2].distanceDelta, 0);
+  assert.equal(weeks[3].end, "2026-08-25");
+  assert.equal(weeks[3].distanceDeltaPct, null);
+});
+
+test("midnight belongs to late night and malformed dates never roll into another month", () => {
+  assert.equal(
+    computeTimeSignature([{ hour: 0, count: 5 }], []).dominantDaypart,
+    "lateNight"
+  );
+  assert.deepEqual(aggregatePeriods([{ date: "2026-02-31", count: 1 }]), []);
+});

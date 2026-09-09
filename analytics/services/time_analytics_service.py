@@ -3,7 +3,7 @@
 import logging
 from typing import Any
 
-from core.trip_source_policy import enforce_bouncie_source
+from analytics.services.insight_query import insight_query
 from db.aggregation import aggregate_to_list
 from db.aggregation_utils import (
     build_time_period_expr,
@@ -40,7 +40,13 @@ class TimeAnalyticsService:
         Raises:
             ValueError: If time_type is invalid
         """
-        query = enforce_bouncie_source(query)
+        query = insight_query(query)
+        if time_type in {"hour", "cell"} and not 0 <= time_value <= 23:
+            raise ValueError("Hour must be between 0 and 23")
+        if time_type == "day" and not 0 <= time_value <= 6:
+            raise ValueError("Day must be between 0 and 6")
+        if time_type == "cell" and day_value is not None and not 0 <= day_value <= 6:
+            raise ValueError("Day must be between 0 and 6")
         tz_expr = get_mongo_tz_expr()
 
         # Add time-specific filter to query
@@ -110,6 +116,7 @@ class TimeAnalyticsService:
                     "totalIdleDuration": "$totalIdleDuration",
                     "fuelConsumed": 1,
                     "timeZone": 1,
+                    "startTimeZone": 1,
                 },
             },
             {"$sort": {"startTime": -1}},

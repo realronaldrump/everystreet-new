@@ -3,9 +3,9 @@
 import logging
 from typing import Any
 
+from analytics.services.insight_query import destination_label_expr, insight_query
 from analytics.services.mobility_insights_service import MobilityInsightsService
 from core.math_utils import calculate_circular_average_hour
-from core.trip_source_policy import enforce_bouncie_source
 from db.aggregation import aggregate_to_list
 from db.aggregation_utils import (
     build_mongo_tz_valid_expr,
@@ -37,7 +37,7 @@ class DashboardService:
         Returns:
             Dictionary containing driving insights and top destinations
         """
-        query = enforce_bouncie_source(query)
+        query = insight_query(query)
         # Main aggregation pipeline
         pipeline = [
             {"$match": query},
@@ -181,6 +181,7 @@ class DashboardService:
             {
                 "$addFields": {
                     "duration_seconds": build_trip_duration_seconds_expr(),
+                    "destinationLabel": destination_label_expr(),
                     "destinationDistance": {
                         "$convert": {
                             "input": "$distance",
@@ -193,7 +194,7 @@ class DashboardService:
             },
             {
                 "$group": {
-                    "_id": "$destination",
+                    "_id": "$destinationLabel",
                     "visits": {"$sum": 1},
                     "distance": {
                         "$sum": {
@@ -229,7 +230,7 @@ class DashboardService:
                             "$project": {
                                 "_id": 0,
                                 "distance": "$numericDistance",
-                                "recorded_at": 1,
+                                "recorded_at": "$day_key",
                             },
                         },
                     ],
@@ -241,7 +242,7 @@ class DashboardService:
                             "$project": {
                                 "_id": 0,
                                 "duration_seconds": 1,
-                                "recorded_at": 1,
+                                "recorded_at": "$day_key",
                             },
                         },
                     ],
@@ -253,7 +254,7 @@ class DashboardService:
                             "$project": {
                                 "_id": 0,
                                 "max_speed": "$numericMaxSpeed",
-                                "recorded_at": 1,
+                                "recorded_at": "$day_key",
                             },
                         },
                     ],
@@ -265,7 +266,7 @@ class DashboardService:
                             "$project": {
                                 "_id": 0,
                                 "avg_speed": "$avgSpeedValue",
-                                "recorded_at": 1,
+                                "recorded_at": "$day_key",
                             },
                         },
                     ],
@@ -277,7 +278,7 @@ class DashboardService:
                             "$project": {
                                 "_id": 0,
                                 "idle_seconds": "$idleSeconds",
-                                "recorded_at": 1,
+                                "recorded_at": "$day_key",
                             },
                         },
                     ],
@@ -289,7 +290,7 @@ class DashboardService:
                             "$project": {
                                 "_id": 0,
                                 "hard_braking": "$hardBrakingVal",
-                                "recorded_at": 1,
+                                "recorded_at": "$day_key",
                             },
                         },
                     ],
@@ -301,7 +302,7 @@ class DashboardService:
                             "$project": {
                                 "_id": 0,
                                 "hard_accel": "$hardAccelVal",
-                                "recorded_at": 1,
+                                "recorded_at": "$day_key",
                             },
                         },
                     ],
@@ -555,7 +556,9 @@ class DashboardService:
 
         if include_movement:
             try:
-                combined["movement"] = await MobilityInsightsService.get_mobility_insights(
+                combined[
+                    "movement"
+                ] = await MobilityInsightsService.get_mobility_insights(
                     query,
                 )
             except Exception:
@@ -568,15 +571,15 @@ class DashboardService:
                     "analyzed_trip_count": 0,
                     "analysis_scope": {
                         "geometry_source": "matchedGps",
-                        "street_ranking": "times_driven",
-                        "segment_ranking": "times_driven",
+                        "street_ranking": "distinct_trips",
+                        "segment_ranking": "distinct_trips",
                     },
                     "synced_trips_this_request": 0,
                     "pending_trip_sync_count": 0,
                     "metric_basis": {
-                        "top_streets_primary": "times_driven",
-                        "top_segments_primary": "times_driven",
-                        "map_cells_intensity": "times_driven",
+                        "top_streets_primary": "distinct_trips",
+                        "top_segments_primary": "distinct_trips",
+                        "map_cells_intensity": "distinct_trips",
                     },
                     "hex_cells": [],
                     "top_segments": [],
@@ -609,7 +612,7 @@ class DashboardService:
         Returns:
             Dictionary containing trip metrics including totals, averages, and statistics
         """
-        query = enforce_bouncie_source(query)
+        query = insight_query(query)
 
         start_tz_expr = get_mongo_tz_expr("startTime")
 

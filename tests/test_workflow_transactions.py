@@ -12,10 +12,10 @@ from fastapi import HTTPException
 from pymongo import AsyncMongoClient
 
 from db.models import (
+    ALL_DOCUMENT_MODELS,
     CoverageArea,
     CoverageDriveEvent,
     CoverageState,
-    ALL_DOCUMENT_MODELS,
     GeneratedRoute,
     Job,
     Street,
@@ -52,6 +52,60 @@ async def workflow_db():
     yield database
     await client.drop_database(database.name)
     await client.close()
+
+
+async def test_insights_totals_and_destination_drilldowns_agree(workflow_db):
+    """Exercise the real Mongo expressions with heterogeneous imported values."""
+    from analytics.services.dashboard_service import DashboardService
+    from analytics.services.drilldown_service import DrilldownService
+    from analytics.services.trip_analytics_service import TripAnalyticsService
+
+    rows = []
+    for index, destination in enumerate(
+        [
+            "Home",
+            {"formatted_address": "Home"},
+            {"name": "Home", "address": "1 Main St"},
+            "Home Depot",
+            None,
+        ]
+    ):
+        rows.append(
+            {
+                "transactionId": f"insight-{index}",
+                "source": "bouncie",
+                "startTime": datetime(2026, 9, 8, 2, tzinfo=UTC),
+                "endTime": datetime(2026, 9, 8, 3, tzinfo=UTC),
+                "startTimeZone": "America/Denver",
+                "endTimeZone": "America/Denver",
+                "destination": destination,
+                "distance": "5",
+                "fuelConsumed": 0.25,
+            }
+        )
+    rows.extend(
+        [
+            {**rows[0], "transactionId": "invalid", "invalid": True, "distance": 900},
+            {**rows[0], "transactionId": "inactive", "inactive": True, "distance": 800},
+        ]
+    )
+    await workflow_db.trips.insert_many(rows)
+    insights = await DashboardService.get_driving_insights({}, include_movement=False)
+    analytics = await TripAnalyticsService.get_trip_analytics({})
+    trips = await DrilldownService.get_drilldown_trips({}, "trips", destination="Home")
+    assert insights["total_trips"] == 5
+    assert insights["total_distance"] == 25
+    assert sum(day["distance"] for day in analytics["daily_distances"]) == 25
+    assert analytics["daily_distances"][0]["date"] == "2026-09-07"
+    assert insights["records"]["max_day_trips"]["date"] == "2026-09-07"
+    assert insights["records"]["longest_trip"]["recorded_at"] == "2026-09-07"
+    assert insights["most_visited"]["location"] == "Home"
+    assert insights["most_visited"]["count"] == len(trips) == 3
+    assert {trip["transactionId"] for trip in trips} == {
+        "insight-0",
+        "insight-1",
+        "insight-2",
+    }
 
 
 @pytest.fixture

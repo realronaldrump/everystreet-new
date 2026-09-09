@@ -261,12 +261,12 @@ async def test_get_mobility_insights_aggregates_segments_and_streets(
         for row in insights.get("top_streets", [])
     )
     assert "metric_basis" in insights
-    assert insights["metric_basis"]["top_streets_primary"] == "times_driven"
-    assert insights["metric_basis"]["top_segments_primary"] == "times_driven"
-    assert insights["metric_basis"]["map_cells_intensity"] == "times_driven"
+    assert insights["metric_basis"]["top_streets_primary"] == "distinct_trips"
+    assert insights["metric_basis"]["top_segments_primary"] == "distinct_trips"
+    assert insights["metric_basis"]["map_cells_intensity"] == "distinct_trips"
     assert (
         insights["top_streets"][0]["times_driven"]
-        == insights["top_streets"][0]["traversals"]
+        == insights["top_streets"][0]["trip_count"]
     )
     assert insights["top_streets"][0]["paths"]
     assert insights["top_segments"][0]["paths"]
@@ -282,7 +282,7 @@ async def test_get_mobility_insights_aggregates_segments_and_streets(
 
 
 @pytest.mark.asyncio
-async def test_top_street_includes_times_driven_alias(
+async def test_top_street_counts_one_trip_across_many_geometry_samples(
     mobility_db,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -329,12 +329,12 @@ async def test_top_street_includes_times_driven_alias(
     assert top["street_name"] == "Long Street"
     assert top["trip_count"] == 1
     assert top["traversals"] == 101
-    assert top["times_driven"] == 101
+    assert top["times_driven"] == 1
     assert top["paths"]
 
 
 @pytest.mark.asyncio
-async def test_top_street_sort_prioritizes_times_driven_over_trip_count(
+async def test_top_street_sort_prioritizes_distinct_trips_over_sample_count(
     mobility_db,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -378,9 +378,11 @@ async def test_top_street_sort_prioritizes_times_driven_over_trip_count(
 
     insights = await MobilityInsightsService.get_mobility_insights({})
     streets = insights["top_streets"]
-    assert streets[0]["street_name"] == "Beta Boulevard"
-    assert streets[1]["street_name"] == "Alpha Avenue"
-    assert streets[0]["traversals"] > streets[1]["traversals"]
+    assert streets[0]["street_name"] == "Alpha Avenue"
+    assert streets[1]["street_name"] == "Beta Boulevard"
+    assert streets[0]["trip_count"] == 2
+    assert streets[1]["trip_count"] == 1
+    assert streets[0]["traversals"] < streets[1]["traversals"]
 
 
 @pytest.mark.asyncio
@@ -448,7 +450,7 @@ async def test_top_segments_include_trip_count_and_traversal_contract(
     assert "paths" in top_segment
     assert top_segment["trip_count"] == 2
     assert top_segment["traversals"] >= 2
-    assert top_segment["times_driven"] == top_segment["traversals"]
+    assert top_segment["times_driven"] == top_segment["trip_count"]
 
 
 @pytest.mark.asyncio

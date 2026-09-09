@@ -339,7 +339,7 @@ test("movement renders top 10 streets with progressive view-more and updates det
 
   assert.equal((streetsList.innerHTML.match(/movement-rank-btn/g) || []).length, 10);
   assert.equal(streetsMore.hidden, false);
-  assert.match(streetsList.innerHTML, /29 times driven/);
+  assert.match(streetsList.innerHTML, /29 trips/);
   assert.doesNotMatch(streetsList.innerHTML, /time drivens/i);
 
   streetsMore.dispatch("click");
@@ -361,8 +361,8 @@ test("movement renders top 10 streets with progressive view-more and updates det
   });
 
   assert.match(detailPanel.innerHTML, /Street 1/);
-  assert.match(detailPanel.innerHTML, /Times driven/);
-  assert.match(detailPanel.innerHTML, /29 times driven/);
+  assert.match(detailPanel.innerHTML, /Distinct trips/);
+  assert.match(detailPanel.innerHTML, /29 trips/);
   assert.doesNotMatch(detailPanel.innerHTML, /time drivens/i);
 
   env.segmentsToggle.dispatch("click");
@@ -407,7 +407,7 @@ test("movement map creates path layers and keeps selection-linked layer updates"
       distanceMiles: 0.5,
     },
   });
-  assert.match(tooltip.html, /2 times driven/);
+  assert.match(tooltip.html, /2 trips/);
   assert.doesNotMatch(tooltip.html, /time drivens/i);
 
   env.segmentsToggle.dispatch("click");

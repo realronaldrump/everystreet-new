@@ -33,7 +33,7 @@ const routes = [
   ["/trips/*", "../../pages/trips.js", ["map"]],
   ["/trip-import", "../../pages/trip-import.js"],
   ["/routes/*", "../../pages/routes.js", ["map", "chart"]],
-  ["/insights", "../../pages/insights.js", ["chart", "deck", "plot"]],
+  ["/insights", "../../pages/insights.js", ["chart", "deck"]],
   ["/visits", "../../pages/visits.js", ["map", "mapDraw", "datatables"]],
   ["/control-center", "../../pages/control-center.js"],
   ["/vehicles", "../../pages/vehicles.js"],

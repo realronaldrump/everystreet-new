@@ -11,7 +11,7 @@ function toNumber(value, defaultValue = 0) {
 }
 
 function parseYmdUtc(value) {
-  if (typeof value !== "string") {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
     return null;
   }
   const [yearRaw, monthRaw, dayRaw] = value.split("-");
@@ -21,7 +21,8 @@ function parseYmdUtc(value) {
   if (!year || !month || !day) {
     return null;
   }
-  return new Date(Date.UTC(year, month - 1, day));
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return formatYmdUtc(date) === value ? date : null;
 }
 
 function formatYmdUtc(date) {
@@ -121,11 +122,33 @@ function getWeekStartUtc(date) {
   return start;
 }
 
-export function aggregatePeriods(dailyDistances = [], mode = "weekly") {
+export function normalizeDailyDistances(dailyDistances = [], range = {}) {
+  const byDate = new Map();
+  for (const entry of dailyDistances) {
+    if (!parseYmdUtc(entry?.date)) continue;
+    const day = byDate.get(entry.date) || { date: entry.date, distance: 0, count: 0 };
+    day.distance += Math.max(0, toNumber(entry.distance));
+    day.count += Math.max(0, toNumber(entry.count));
+    byDate.set(entry.date, day);
+  }
+  const start = parseYmdUtc(range.start);
+  const end = parseYmdUtc(range.end);
+  if (start && end && start <= end) {
+    const days = [];
+    for (let time = start.getTime(); time <= end.getTime(); time += MS_PER_DAY) {
+      const date = formatYmdUtc(new Date(time));
+      days.push(byDate.get(date) || { date, distance: 0, count: 0 });
+    }
+    return days;
+  }
+  return [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
+}
+
+export function aggregatePeriods(dailyDistances = [], mode = "weekly", range = {}) {
   const normalizedMode = mode === "monthly" ? "monthly" : "weekly";
   const buckets = new Map();
 
-  dailyDistances.forEach((entry) => {
+  normalizeDailyDistances(dailyDistances, range).forEach((entry) => {
     const date = parseYmdUtc(entry?.date);
     if (!date) {
       return;
@@ -177,8 +200,15 @@ export function aggregatePeriods(dailyDistances = [], mode = "weekly") {
     .map((period) => {
       const trips = toNumber(period.trips);
       const distance = toNumber(period.distance);
+      const start =
+        range.start && range.start > period.start ? range.start : period.start;
+      const end = range.end && range.end < period.end ? range.end : period.end;
+      const isPartial = start !== period.start || end !== period.end;
       return {
         ...period,
+        start,
+        end,
+        isPartial,
         distance: Number(distance.toFixed(2)),
         trips,
         avgDistancePerTrip: Number((trips > 0 ? distance / trips : 0).toFixed(2)),
@@ -188,7 +218,8 @@ export function aggregatePeriods(dailyDistances = [], mode = "weekly") {
 
 function computePeriodDeltas(periods = []) {
   return periods.map((period, index) => {
-    const previous = index > 0 ? periods[index - 1] : null;
+    const candidate = index > 0 ? periods[index - 1] : null;
+    const previous = !period.isPartial && !candidate?.isPartial ? candidate : null;
     const distanceDelta = previous ? period.distance - previous.distance : NaN;
     const tripsDelta = previous ? period.trips - previous.trips : NaN;
     const distanceDeltaPct =
@@ -214,14 +245,20 @@ function computePeriodDeltas(periods = []) {
         ? Number(distanceDeltaPct.toFixed(1))
         : null,
       momentumLabel,
-      headline,
+      headline: period.isPartial
+        ? "Partial period · totals for selected days"
+        : headline,
+      comparisonNote:
+        candidate && (period.isPartial || candidate.isPartial)
+          ? "Comparison unavailable: one period is partial."
+          : null,
       summary: buildPeriodSummary(period),
     };
   });
 }
 
 export function computeConsistencyStats(dailyDistances = [], range = {}) {
-  const normalized = dailyDistances
+  const normalized = normalizeDailyDistances(dailyDistances)
     .map((entry) => ({
       date: entry?.date,
       count: toNumber(entry?.count),
@@ -348,7 +385,7 @@ export function computeTimeSignature(timeDistribution = [], weekdayDistribution 
     const vectorStrength = Math.hypot(vector.x, vector.y) / totalTrips;
     if (vectorStrength > 1e-12) {
       const angle = Math.atan2(vector.y, vector.x);
-      weightedHourRaw = (((angle / (Math.PI * 2)) * 24 + 24) % 24 + 24) % 24;
+      weightedHourRaw = ((((angle / (Math.PI * 2)) * 24 + 24) % 24) + 24) % 24;
       if (weightedHourRaw > 23.999999) {
         weightedHourRaw = 0;
       }
@@ -362,11 +399,10 @@ export function computeTimeSignature(timeDistribution = [], weekdayDistribution 
   const dayparts = {
     dawn: hourly.slice(5, 9).reduce((sum, count) => sum + count, 0),
     daytime: hourly.slice(9, 17).reduce((sum, count) => sum + count, 0),
-    evening:
-      hourly.slice(17, 22).reduce((sum, count) => sum + count, 0) +
-      hourly.slice(0, 1).reduce((sum, count) => sum + count, 0),
+    evening: hourly.slice(17, 22).reduce((sum, count) => sum + count, 0),
     lateNight:
       hourly.slice(22, 24).reduce((sum, count) => sum + count, 0) +
+      hourly[0] +
       hourly[1] +
       hourly[2] +
       hourly[3] +
@@ -393,8 +429,7 @@ export function computeTimeSignature(timeDistribution = [], weekdayDistribution 
     quietHour: quietHour.hour,
     peakHourCount: Math.max(0, peakHour.count),
     quietHourCount: Number.isFinite(quietHour.count) ? quietHour.count : 0,
-    weightedHour:
-      weightedHourRaw === null ? null : Number(weightedHourRaw.toFixed(1)),
+    weightedHour: weightedHourRaw === null ? null : Number(weightedHourRaw.toFixed(1)),
     concentrationScore: Number((concentration * 100).toFixed(1)),
     dominantDaypart,
     dominantDaypartLabel: daypartLabel,
@@ -477,6 +512,7 @@ export function computeExplorationStats(topDestinations = [], totalTrips = 0) {
 
   return {
     destinations: normalizedDestinations,
+    totalTrips: toNumber(totalTrips),
     totalDestinationVisits,
     topShareTrips: Number((topShareTrips * 100).toFixed(1)),
     top3ShareTrips: Number((top3ShareTrips * 100).toFixed(1)),
@@ -546,7 +582,7 @@ function buildPatternCards(derivedData = {}) {
       value: `${toNumber(exploration.top3ShareTrips).toFixed(1)}% in top 3`,
       detail: `Top place: ${toNumber(exploration.topShareTrips).toFixed(1)}% • Tracked places: ${toNumber(exploration.uniquePlaces)}`,
       tone: "amber",
-      action: { type: "place" },
+      action: exploration.mostVisited ? { type: "place" } : null,
     },
     {
       id: "weekday",
@@ -589,8 +625,12 @@ export function deriveInsightsSnapshot(stateData = {}) {
     ? analytics.daily_distances
     : [];
 
-  const weeklyBase = aggregatePeriods(dailyDistances, "weekly");
-  const monthlyBase = aggregatePeriods(dailyDistances, "monthly");
+  const weeklyBase = aggregatePeriods(dailyDistances, "weekly", stateData.currentRange);
+  const monthlyBase = aggregatePeriods(
+    dailyDistances,
+    "monthly",
+    stateData.currentRange
+  );
 
   const periods = {
     weekly: computePeriodDeltas(weeklyBase),

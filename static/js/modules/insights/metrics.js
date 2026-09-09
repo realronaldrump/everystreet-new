@@ -62,8 +62,11 @@ export function updateAllMetrics() {
   // Primary counters
   animateCounter("total-trips", Number(insights.total_trips) || 0);
   animateCounter("total-distance", Number(insights.total_distance) || 0, 1);
-  animateCounter("total-fuel", Number(insights.total_fuel_consumed) || 0, 2);
-  animateCounter("hero-total-miles", Number(insights.total_distance) || 0, 1);
+  if (Number(insights.fuel_trip_count) > 0) {
+    animateCounter("total-fuel", Number(insights.total_fuel_consumed) || 0, 2);
+  } else {
+    setText("total-fuel", "—");
+  }
   updateTimeMetric("total-time", Number(metrics.total_duration_seconds) || 0);
 
   // Context copy sourced from derived insights
@@ -72,7 +75,7 @@ export function updateAllMetrics() {
     setText("trips-context", "Needs a few more trips.");
     setText("distance-context", "Needs more trips to compare against.");
     setText("time-context", "Your usual driving hours show up here.");
-    setText("fuel-context", "Log fill-ups to see cost per mile.");
+    setText("fuel-context", "Fuel reported by the trip device.");
     return;
   }
 
@@ -97,7 +100,7 @@ export function updateAllMetrics() {
 
   const fuelText =
     fuelLens.mpg == null
-      ? "Log fill-ups to see MPG here"
-      : `${fuelLens.mpg.toFixed(1)} MPG with ${fuelLens.fuelPerTrip.toFixed(2)} gal/trip`;
+      ? "No usable device fuel data in this range"
+      : `${fuelLens.mpg.toFixed(1)} MPG · ${fuelLens.totalTrips} trips with fuel data`;
   setText("fuel-context", fuelText);
 }

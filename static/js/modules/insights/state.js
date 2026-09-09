@@ -11,14 +11,12 @@ const state = {
   charts: {},
   derivedInsights: null,
   data: {
-    behavior: null,
     insights: null,
     analytics: null,
     metrics: null,
   },
   isLoading: false,
   autoRefreshInterval: null,
-  prevRange: null,
 };
 
 /**

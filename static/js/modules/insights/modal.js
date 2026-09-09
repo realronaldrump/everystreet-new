@@ -4,6 +4,7 @@
  */
 
 import notificationManager from "../ui/notifications.js";
+import { isAbortError } from "../utils.js";
 import {
   escapeHtml,
   formatDateTime,
@@ -13,6 +14,38 @@ import {
 } from "../utils.js";
 import { fetchDrilldownTrips, fetchTimePeriodTrips } from "./api.js";
 import { formatDuration, formatHourLabel, getDateRange } from "./formatters.js";
+
+let requestController = null;
+
+export function destroyTripModal() {
+  requestController?.abort();
+  requestController = null;
+  const element = document.getElementById("tripDetailsModal");
+  const modal = element && bootstrap.Modal.getInstance(element);
+  modal?.hide();
+}
+
+function beginTripRequest(title) {
+  requestController?.abort();
+  const controller = new AbortController();
+  requestController = controller;
+  const element = document.getElementById("tripDetailsModal");
+  document.getElementById("tripDetailsModalLabel").textContent = title;
+  document.getElementById("tripDetailsModalCount").textContent = "Loading trips…";
+  document.getElementById("modal-trips-grid").innerHTML =
+    '<p class="modal-trip-empty" role="status">Loading trips…</p>';
+  element.addEventListener("hide.bs.modal", () => controller.abort(), { once: true });
+  bootstrap.Modal.getOrCreateInstance(element).show();
+  return controller.signal;
+}
+
+function showTripError(error, signal) {
+  if (signal?.aborted || isAbortError(error)) return;
+  document.getElementById("tripDetailsModalCount").textContent = "Unable to load trips";
+  document.getElementById("modal-trips-grid").innerHTML =
+    '<p class="modal-trip-empty" role="alert">Trips could not load. Close this dialog and select the item again to retry.</p>';
+  notificationManager.show("Error loading trips. Please try again.", "error");
+}
 
 function formatInsightValue(kind, trip) {
   if (!kind || !trip) {
@@ -70,10 +103,18 @@ function parseDateMs(value) {
   return Number.isFinite(t) ? t : 0;
 }
 
-function formatTripDateTime(value) {
+export function formatTripDateTime(value, timeZone) {
+  const offset = /^([+-])(\d{2}):?(\d{2})$/.exec(timeZone || "");
+  if (offset) {
+    const minutes =
+      (Number(offset[2]) * 60 + Number(offset[3])) * (offset[1] === "+" ? 1 : -1);
+    value = new Date(new Date(value).getTime() + minutes * 60000);
+    timeZone = "UTC";
+  }
   return formatDateTime(value, {
     default: "-",
     formatOptions: {
+      timeZone: timeZone || "UTC",
       year: "numeric",
       month: "short",
       day: "numeric",
@@ -143,6 +184,7 @@ function sortTripsByKind(trips, kind) {
  * @param {number} timeValue - Value for the time period
  */
 export async function loadAndShowTripsForTimePeriod(timeType, timeValue) {
+  const signal = beginTripRequest("Trips by start time");
   try {
     const dateRange = getDateRange();
     const params = new URLSearchParams({
@@ -152,7 +194,8 @@ export async function loadAndShowTripsForTimePeriod(timeType, timeValue) {
       time_value: timeValue.toString(),
     });
 
-    const trips = await fetchTimePeriodTrips(params);
+    const trips = await fetchTimePeriodTrips(params, signal);
+    if (signal.aborted) return;
     let title = "Trips";
     if (timeType === "hour") {
       title = `Trips at ${formatHourLabel(timeValue)} (${trips.length} trips)`;
@@ -168,14 +211,14 @@ export async function loadAndShowTripsForTimePeriod(timeType, timeValue) {
       ];
       title = `Trips on ${days[timeValue]} (${trips.length} trips)`;
     }
-    displayTripsInModal(trips, { title });
+    displayTripsInModal(trips, { title, limit: 100 });
   } catch (error) {
-    console.error("Error loading trips:", error);
-    notificationManager.show("Error loading trips. Please try again.", "error");
+    showTripError(error, signal);
   }
 }
 
 export async function loadAndShowTripsForTimeCell(dayValue, hourValue) {
+  const signal = beginTripRequest("Trips by weekday and hour");
   try {
     const dateRange = getDateRange();
     const day = Math.min(Math.max(Number(dayValue) || 0, 0), 6);
@@ -188,7 +231,8 @@ export async function loadAndShowTripsForTimeCell(dayValue, hourValue) {
       day_value: day.toString(),
     });
 
-    const trips = await fetchTimePeriodTrips(params);
+    const trips = await fetchTimePeriodTrips(params, signal);
+    if (signal.aborted) return;
     const days = [
       "Sunday",
       "Monday",
@@ -199,10 +243,9 @@ export async function loadAndShowTripsForTimeCell(dayValue, hourValue) {
       "Saturday",
     ];
     const title = `${days[day]} at ${formatHourLabel(hour)} (${trips.length} trips)`;
-    displayTripsInModal(trips, { title });
+    displayTripsInModal(trips, { title, limit: 100 });
   } catch (error) {
-    console.error("Error loading trips:", error);
-    notificationManager.show("Error loading trips. Please try again.", "error");
+    showTripError(error, signal);
   }
 }
 
@@ -216,6 +259,7 @@ export async function loadAndShowTripsForTimeCell(dayValue, hourValue) {
  * @param {number} [opts.limit] - max trips to load
  */
 export async function loadAndShowTripsForDrilldown(kind, opts = {}) {
+  const signal = beginTripRequest(opts.title || "Trips in selected range");
   try {
     const defaultRange = getDateRange();
     const dateRange = {
@@ -230,12 +274,13 @@ export async function loadAndShowTripsForDrilldown(kind, opts = {}) {
       limit: String(opts.limit || 100),
     });
 
-    const trips = await fetchDrilldownTrips(params);
+    if (opts.destination) params.set("destination", opts.destination);
+    const trips = await fetchDrilldownTrips(params, signal);
+    if (signal.aborted) return;
     const title = opts.title || titleForDrilldown(kind, dateRange);
-    displayTripsInModal(trips, { title, insightKind: kind });
+    displayTripsInModal(trips, { title, insightKind: kind, limit: opts.limit || 100 });
   } catch (error) {
-    console.error("Error loading drilldown trips:", error);
-    notificationManager.show("Error loading trips. Please try again.", "error");
+    showTripError(error, signal);
   }
 }
 
@@ -258,7 +303,8 @@ export function displayTripsInModal(trips, opts = {}) {
 
   const countEl = document.getElementById("tripDetailsModalCount");
   if (countEl) {
-    countEl.textContent = `${sortedTrips?.length || 0} trips`;
+    const count = sortedTrips?.length || 0;
+    countEl.textContent = `${count} trip${count === 1 ? "" : "s"} shown${count >= (opts.limit || 100) ? ` · limited to the first ${opts.limit || 100} results` : ""}`;
   }
 
   const grid = document.getElementById("modal-trips-grid");
@@ -278,8 +324,14 @@ export function displayTripsInModal(trips, opts = {}) {
 
     grid.innerHTML = sortedTrips
       .map((trip, idx) => {
-        const startTime = formatTripDateTime(trip.startTime);
-        const duration = formatDuration(Number(trip.duration) || 0);
+        const startTime = formatTripDateTime(
+          trip.startTime,
+          trip.startTimeZone || trip.timeZone
+        );
+        const duration =
+          trip.duration == null
+            ? "Duration unavailable"
+            : formatDuration(Number(trip.duration) || 0);
         const distanceVal = Number(trip.distance);
         const distance =
           Number.isFinite(distanceVal) && distanceVal > 0
@@ -299,7 +351,10 @@ export function displayTripsInModal(trips, opts = {}) {
 
         // Bar fill percentage based on the metric
         const sortVal = Math.abs(getTripSortValue(insightKind || "trips", trip));
-        const fillPct = maxVal > 0 ? Math.round((sortVal / maxVal) * 100) : 0;
+        const fillPct =
+          insightKind && insightKind !== "trips" && maxVal > 0
+            ? Math.round((sortVal / maxVal) * 100)
+            : 0;
 
         // Rank badge for top 3
         const rank = idx + 1;
@@ -338,7 +393,7 @@ export function displayTripsInModal(trips, opts = {}) {
   // Show the modal
   const modalEl = document.getElementById("tripDetailsModal");
   if (modalEl) {
-    const modal = new bootstrap.Modal(modalEl);
+    const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
     modal.show();
   }
 }

@@ -4,11 +4,9 @@
  */
 
 import { escapeHtml, formatHourLabel } from "../utils.js";
-import { fetchDrilldownTrips } from "./api.js";
 import { deriveInsightsSnapshot } from "./derived-insights.js";
-import { formatDuration, getDateRange } from "./formatters.js";
+import { formatDuration } from "./formatters.js";
 import {
-  displayTripsInModal,
   loadAndShowTripsForDrilldown,
   loadAndShowTripsForTimeCell,
   loadAndShowTripsForTimePeriod,
@@ -50,7 +48,7 @@ function formatSignedPercent(value) {
   return `${sign}${value.toFixed(1)}%`;
 }
 
-function formatShortDate(value) {
+export function formatShortDate(value) {
   if (!value) {
     return "-";
   }
@@ -62,6 +60,7 @@ function formatShortDate(value) {
     month: "short",
     day: "numeric",
     year: "numeric",
+    ...(/^\d{4}-\d{2}-\d{2}$/.test(value) ? { timeZone: "UTC" } : {}),
   }).format(date);
 }
 
@@ -140,7 +139,7 @@ function renderRhythmStoryrail(periods = []) {
 
       const previousSummary =
         period.previousTrips == null || period.previousDistance == null
-          ? "No prior period in selected range"
+          ? period.comparisonNote || "No complete prior period in selected range"
           : `Previous: ${period.previousTrips} trips • ${Number(period.previousDistance).toFixed(1)} mi`;
 
       return `
@@ -151,18 +150,14 @@ function renderRhythmStoryrail(periods = []) {
                 data-label="${escapeHtml(period.label)}"
                 aria-label="Open trips for ${escapeHtml(period.label)}">
           <div class="storyrail-topline">
-            <span class="storyrail-period">${escapeHtml(period.label)}</span>
-            <span class="storyrail-delta ${deltaClass}">${formatSignedPercent(period.distanceDeltaPct)}</span>
+            <span class="storyrail-period">${escapeHtml(period.label)}<small>${period.start} – ${period.end}</small></span>
+            <span class="storyrail-delta ${deltaClass}">${period.isPartial ? "Partial period" : formatSignedPercent(period.distanceDeltaPct)}</span>
           </div>
           <h3 class="storyrail-headline">${escapeHtml(period.headline)}</h3>
           <p class="storyrail-summary">${escapeHtml(period.summary)}</p>
           <p class="storyrail-summary">${escapeHtml(previousSummary)}</p>
           ${sparklineSvg(sparkWindow)}
-          <div class="storyrail-meta">
-            <span>${period.trips} trips</span>
-            <span>${period.distance.toFixed(1)} mi</span>
-            <span>${period.avgDistancePerTrip.toFixed(1)} mi/trip</span>
-          </div>
+
         </button>
       `;
     })
@@ -231,19 +226,6 @@ function renderInsightScenes(scenes = []) {
   }
 }
 
-function locationText(place) {
-  if (!place) {
-    return "Unknown place";
-  }
-  if (typeof place === "string") {
-    return place;
-  }
-  if (typeof place === "object") {
-    return place.formatted_address || place.name || place.address || "Unknown place";
-  }
-  return String(place);
-}
-
 function renderPlaceDetail(place, exploration, panel) {
   if (!panel) {
     return;
@@ -263,12 +245,12 @@ function renderPlaceDetail(place, exploration, panel) {
       <h3 class="places-detail-title">${escapeHtml(place.location)}</h3>
       <div class="places-detail-stats">
         <div><span>Visits</span><strong>${place.visits}</strong></div>
-        <div><span>Distance</span><strong>${place.distance.toFixed(1)} mi</strong></div>
+        <div><span>Miles on arriving trips</span><strong>${place.distance.toFixed(1)} mi</strong></div>
         <div><span>Last visit</span><strong>${escapeHtml(formatShortDate(place.lastVisit))}</strong></div>
-        <div><span>Top place share</span><strong>${Number(exploration.topShareTrips || 0).toFixed(1)}%</strong></div>
+        <div><span>Share of trips in range</span><strong>${(exploration.totalTrips > 0 ? (place.visits / exploration.totalTrips) * 100 : 0).toFixed(1)}%</strong></div>
       </div>
       <button type="button" class="btn btn-outline-primary places-detail-action" data-place-action="open-trips">
-        View Trips To This Place
+        View trips to this destination
       </button>
       <a class="places-detail-link" href="/trips">Open trips page</a>
     </div>
@@ -276,34 +258,10 @@ function renderPlaceDetail(place, exploration, panel) {
 }
 
 async function openTripsForPlace(place) {
-  const dateRange = getDateRange();
-  const params = new URLSearchParams({
-    start_date: dateRange.start,
-    end_date: dateRange.end,
-    kind: "trips",
-    limit: "500",
-  });
-
-  const allTrips = await fetchDrilldownTrips(params);
-  const target = (place?.location || "").trim().toLowerCase();
-
-  const filtered = (Array.isArray(allTrips) ? allTrips : []).filter((trip) => {
-    const destination = locationText(trip?.destination).trim().toLowerCase();
-    return destination && target && destination.includes(target);
-  });
-
-  if (!filtered.length) {
-    loadAndShowTripsForDrilldown("trips", {
-      start: dateRange.start,
-      end: dateRange.end,
-      title: `Trips (${dateRange.start} to ${dateRange.end})`,
-    });
-    return;
-  }
-
-  displayTripsInModal(filtered, {
-    title: `Trips to ${place.location} (${filtered.length})`,
-    insightKind: "trips",
+  return loadAndShowTripsForDrilldown("trips", {
+    destination: place.location,
+    title: `Trips to ${place.location}`,
+    limit: 100,
   });
 }
 
@@ -347,7 +305,7 @@ function renderPlacesOrbit(exploration = {}) {
   }
 
   const destinations = Array.isArray(exploration.destinations)
-    ? exploration.destinations.slice(0, 5)
+    ? exploration.destinations
     : [];
 
   if (!destinations.length) {
@@ -357,50 +315,34 @@ function renderPlacesOrbit(exploration = {}) {
     return;
   }
 
-  const maxVisits = Math.max(...destinations.map((place) => place.visits), 1);
-  const nodesMarkup = destinations
-    .map((place, index) => {
-      const angle = (-90 + index * (360 / destinations.length)) * (Math.PI / 180);
-      const radius = 24 + index * 8;
-      const x = 50 + Math.cos(angle) * radius;
-      const y = 50 + Math.sin(angle) * radius;
-      const size = 52 + (place.visits / maxVisits) * 46;
-      const activeClass = index === storyState.selectedPlaceIndex ? "is-active" : "";
-
-      return `
-        <button type="button"
-                class="orbit-node ${activeClass}"
-                data-place-index="${index}"
-                style="left:${x}%;top:${y}%;--node-size:${size}px;animation-delay:${index * 80}ms"
-                aria-label="${escapeHtml(place.location)}">
-          <span class="orbit-node-name">${escapeHtml(place.location)}</span>
-          <span class="orbit-node-visits">${place.visits}</span>
-        </button>
-      `;
-    })
-    .join("");
-
-  container.innerHTML = `
-    <div class="orbit-core" aria-hidden="true">
-      <span>
-        ${Number(exploration.top3ShareTrips || 0).toFixed(1)}% top 3
-        <br />
-        ${Number(exploration.uniquePlaces || 0)} places
-      </span>
-    </div>
-    ${nodesMarkup}
-  `;
+  storyState.selectedPlaceIndex = Math.min(
+    storyState.selectedPlaceIndex,
+    destinations.length - 1
+  );
+  container.innerHTML = `<ol class="destination-ranking">${destinations
+    .map(
+      (place, index) => `
+    <li><button type="button" class="destination-row ${index === storyState.selectedPlaceIndex ? "is-active" : ""}"
+      data-place-index="${index}" aria-pressed="${index === storyState.selectedPlaceIndex}">
+      <span class="destination-rank">${index + 1}</span><span class="destination-name">${escapeHtml(place.location)}</span>
+      <strong>${place.visits}<small>${place.visits === 1 ? "visit" : "visits"}</small></strong>
+    </button></li>`
+    )
+    .join("")}</ol>`;
 
   const selected = destinations[storyState.selectedPlaceIndex] || destinations[0];
   renderPlaceDetail(selected, exploration, panel);
 
   container.onclick = (event) => {
-    const node = event.target.closest(".orbit-node");
+    const node = event.target.closest("[data-place-index]");
     if (!node) {
       return;
     }
     storyState.selectedPlaceIndex = Number.parseInt(node.dataset.placeIndex || "0", 10);
     renderPlacesOrbit(exploration);
+    container
+      .querySelector(`[data-place-index="${storyState.selectedPlaceIndex}"]`)
+      ?.focus({ preventScroll: true });
   };
 
   panel.onclick = async (event) => {
@@ -420,7 +362,7 @@ function renderPlacesOrbit(exploration = {}) {
       await openTripsForPlace(currentPlace);
     } finally {
       actionButton.disabled = false;
-      actionButton.textContent = "View Trips To This Place";
+      actionButton.textContent = "View trips to this destination";
     }
   };
 }
@@ -480,7 +422,7 @@ function renderRecordsTimeline(records = {}) {
 
   if (!entries.length) {
     container.innerHTML =
-      '<div class="story-empty">No record-level outliers in this range yet.</div>';
+      '<div class="story-empty">No records in this date range.</div>';
     return;
   }
 
@@ -508,7 +450,9 @@ function renderTrendsNarrative(snapshot, mode, currentView) {
 
   const periods = snapshot?.periods?.[mode] || [];
   const latest = periods.length ? periods[periods.length - 1] : null;
-  const previous = periods.length > 1 ? periods[periods.length - 2] : null;
+  const previous = latest?.previousStart
+    ? periods.find((period) => period.start === latest.previousStart)
+    : null;
 
   if (!latest) {
     container.textContent = "Not enough periods in this range for a comparison yet.";
@@ -517,7 +461,7 @@ function renderTrendsNarrative(snapshot, mode, currentView) {
 
   const focus =
     currentView === "daily"
-      ? "Daily resolution"
+      ? `${mode === "monthly" ? "Month" : "Week"} summary`
       : `${mode[0].toUpperCase()}${mode.slice(1)} resolution`;
   const avgDistance = latest.trips > 0 ? latest.distance / latest.trips : 0;
   const previousAvgDistance =
@@ -528,14 +472,14 @@ function renderTrendsNarrative(snapshot, mode, currentView) {
       : `${latest.distanceDeltaPct > 0 ? "+" : ""}${latest.distanceDeltaPct.toFixed(1)}%`;
 
   container.innerHTML = `
-    <p><strong>${escapeHtml(focus)}</strong> • Current period: ${latest.trips} trips, ${latest.distance.toFixed(1)} mi, ${avgDistance.toFixed(1)} mi/trip.</p>
-    <p>Distance change vs previous: ${escapeHtml(pctText)}. Previous period: ${previous ? `${previous.trips} trips, ${previous.distance.toFixed(1)} mi, ${previousAvgDistance.toFixed(1)} mi/trip` : "N/A"}.</p>
+    <p><strong>${escapeHtml(focus)}</strong> • ${escapeHtml(latest.label)} (${latest.start} – ${latest.end}${latest.isPartial ? ", partial" : ""}): ${latest.trips} trips, ${latest.distance.toFixed(1)} mi, ${avgDistance.toFixed(1)} mi/trip.</p>
+    <p>${latest.comparisonNote ? escapeHtml(latest.comparisonNote) : previous ? `Distance change vs previous: ${escapeHtml(pctText)}. Previous period: ${previous.trips} trips, ${previous.distance.toFixed(1)} mi, ${previousAvgDistance.toFixed(1)} mi/trip.` : "Choose a range containing two complete periods for a comparison."}</p>
     <div class="trends-narrative-actions">
       <button type="button" class="btn btn-outline-primary btn-sm trends-drill-btn"
               data-start="${latest.start}" data-end="${latest.end}" data-label="${escapeHtml(latest.label)}">
-        View Current Period Trips
+        View these trips
       </button>
-      ${previous ? `<button type="button" class="btn btn-outline-secondary btn-sm trends-drill-btn" data-start="${previous.start}" data-end="${previous.end}" data-label="${escapeHtml(previous.label)}">View Previous Period Trips</button>` : ""}
+      ${previous ? `<button type="button" class="btn btn-outline-secondary btn-sm trends-drill-btn" data-start="${previous.start}" data-end="${previous.end}" data-label="${escapeHtml(previous.label)}">View previous period trips</button>` : ""}
     </div>
   `;
 
@@ -701,8 +645,6 @@ export function renderAllStorySections(stateData = {}) {
 
   const mode = normalizePeriodMode(stateData.rhythmView || stateData.currentView);
   storyState.periodMode = mode;
-  storyState.selectedPlaceIndex = 0;
-
   renderRhythmPeriodToggle(mode);
   renderRhythmStoryrail(snapshot.periods[mode]);
   renderInsightScenes(snapshot.patternCards);

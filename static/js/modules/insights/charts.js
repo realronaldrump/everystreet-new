@@ -3,18 +3,13 @@
  * Chart initialization and update logic for the driving insights page
  */
 
-import { getLoadedLibrary } from "../core/library-loader.js";
-import {
-  formatCalendarDate,
-  formatHourLabel,
-  parseCalendarDate,
-} from "./formatters.js";
-import { loadAndShowTripsForDrilldown } from "./modal.js";
+import { aggregatePeriods, normalizeDailyDistances } from "./derived-insights.js";
+import { formatHourLabel, parseCalendarDate } from "./formatters.js";
+import { loadAndShowTripsForDrilldown, loadAndShowTripsForTimeCell } from "./modal.js";
 import { getChart, getState, setChart } from "./state.js";
 
 const chartCleanupKey = "_esCleanup";
 const HEATMAP_HOURS = Array.from({ length: 24 }, (_, hour) => hour);
-const HEATMAP_HOUR_LABELS = HEATMAP_HOURS.map((hour) => formatHourLabel(hour));
 const DAY_LABELS = [
   "Sunday",
   "Monday",
@@ -24,18 +19,6 @@ const DAY_LABELS = [
   "Friday",
   "Saturday",
 ];
-const PLOT_DAY_DOMAIN = [
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
-  "Sunday",
-];
-const HEATMAP_X_TICKS = [0, 3, 6, 9, 12, 15, 18, 21, 23].map((hour) =>
-  formatHourLabel(hour)
-);
 let pendingHeatmapResize = false;
 
 function readColorToken(name, fallback) {
@@ -65,16 +48,6 @@ function getAtlasChartPalette() {
     readColorToken("--cat-slate", "#727a84"),
     readColorToken("--cat-purple", "#8a7ab0"),
   ];
-}
-
-function registerChartCleanup(chart, cleanup) {
-  if (!chart || typeof cleanup !== "function") {
-    return;
-  }
-  if (!Array.isArray(chart[chartCleanupKey])) {
-    chart[chartCleanupKey] = [];
-  }
-  chart[chartCleanupKey].push(cleanup);
 }
 
 function destroyChartInstance(chart) {
@@ -119,246 +92,6 @@ export function destroyCharts() {
   state.charts = {};
 }
 
-const spotlightPlugin = {
-  id: "spotlight",
-  afterEvent(chart, _args) {
-    const active = chart.getActiveElements();
-    const activeDataset = active.length ? active[0].datasetIndex : null;
-    const datasets = chart.data.datasets || [];
-    let didUpdate = false;
-
-    datasets.forEach((dataset, index) => {
-      if (!dataset._origColors) {
-        dataset._origColors = {
-          backgroundColor: dataset.backgroundColor,
-          borderColor: dataset.borderColor,
-        };
-      }
-
-      const dim = activeDataset !== null && index !== activeDataset;
-      const targetAlpha = dim ? 0.25 : 1;
-
-      const applyAlpha = (color) => {
-        if (!color || typeof color !== "string") {
-          return color;
-        }
-        if (color.startsWith("rgba")) {
-          return color.replace(
-            /rgba\\(([^,]+),\\s*([^,]+),\\s*([^,]+),\\s*[^)]+\\)/,
-            `rgba($1, $2, $3, ${targetAlpha})`
-          );
-        }
-        if (color.startsWith("rgb")) {
-          return color.replace(
-            /rgb\\(([^,]+),\\s*([^,]+),\\s*([^,]+)\\)/,
-            `rgba($1, $2, $3, ${targetAlpha})`
-          );
-        }
-        return color;
-      };
-
-      const orig = dataset._origColors;
-      const nextBackground = Array.isArray(orig.backgroundColor)
-        ? orig.backgroundColor.map(applyAlpha)
-        : applyAlpha(orig.backgroundColor);
-      const nextBorder = Array.isArray(orig.borderColor)
-        ? orig.borderColor.map(applyAlpha)
-        : applyAlpha(orig.borderColor);
-
-      if (
-        dataset.backgroundColor !== nextBackground ||
-        dataset.borderColor !== nextBorder
-      ) {
-        dataset.backgroundColor = nextBackground;
-        dataset.borderColor = nextBorder;
-        didUpdate = true;
-      }
-    });
-
-    if (didUpdate) {
-      chart.update("none");
-    }
-  },
-};
-
-function attachZoomPan(chart) {
-  const labels = chart.data.labels || [];
-  if (labels.length < 5) {
-    return null;
-  }
-
-  const state = {
-    minIndex: 0,
-    maxIndex: labels.length - 1,
-    dragStartX: 0,
-    dragStartMin: 0,
-    dragStartMax: 0,
-    dragging: false,
-    pinchStartDistance: 0,
-  };
-
-  const clampRange = () => {
-    const minRange = Math.min(10, labels.length - 1);
-    const maxRange = labels.length - 1;
-    const range = Math.max(
-      minRange,
-      Math.min(maxRange, state.maxIndex - state.minIndex)
-    );
-    const center = (state.minIndex + state.maxIndex) / 2;
-    state.minIndex = Math.max(0, Math.round(center - range / 2));
-    state.maxIndex = Math.min(labels.length - 1, Math.round(center + range / 2));
-  };
-
-  const applyRange = () => {
-    chart.options.scales.x.min = labels[state.minIndex];
-    chart.options.scales.x.max = labels[state.maxIndex];
-    chart.update("none");
-  };
-
-  const handleWheel = (event) => {
-    event.preventDefault();
-    const zoomFactor = event.deltaY > 0 ? 1.2 : 0.8;
-    const range = state.maxIndex - state.minIndex;
-    const center = (state.minIndex + state.maxIndex) / 2;
-    const newRange = Math.max(
-      5,
-      Math.min(labels.length - 1, Math.round(range * zoomFactor))
-    );
-    state.minIndex = Math.round(center - newRange / 2);
-    state.maxIndex = Math.round(center + newRange / 2);
-    clampRange();
-    applyRange();
-  };
-
-  const handlePointerDown = (event) => {
-    if (event.pointerType === "touch") {
-      return;
-    }
-    state.dragging = true;
-    state.dragStartX = event.clientX;
-    state.dragStartMin = state.minIndex;
-    state.dragStartMax = state.maxIndex;
-    chart.canvas.setPointerCapture(event.pointerId);
-  };
-
-  const handlePointerMove = (event) => {
-    if (!state.dragging) {
-      return;
-    }
-    const deltaX = event.clientX - state.dragStartX;
-    const range = state.dragStartMax - state.dragStartMin;
-    const shift = Math.round((-deltaX / chart.canvas.clientWidth) * range);
-    state.minIndex = state.dragStartMin + shift;
-    state.maxIndex = state.dragStartMax + shift;
-    clampRange();
-    applyRange();
-  };
-
-  const handlePointerUp = () => {
-    state.dragging = false;
-  };
-
-  const handlePointerCancel = () => {
-    state.dragging = false;
-  };
-
-  const handleTouchStart = (event) => {
-    if (event.touches.length !== 2) {
-      return;
-    }
-    const [a, b] = event.touches;
-    state.pinchStartDistance = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
-  };
-
-  const handleTouchMove = (event) => {
-    if (event.touches.length !== 2 || !state.pinchStartDistance) {
-      return;
-    }
-    const [a, b] = event.touches;
-    const distance = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
-    const zoomFactor = distance > state.pinchStartDistance ? 0.9 : 1.1;
-    const range = state.maxIndex - state.minIndex;
-    const center = (state.minIndex + state.maxIndex) / 2;
-    const newRange = Math.max(
-      5,
-      Math.min(labels.length - 1, Math.round(range * zoomFactor))
-    );
-    state.minIndex = Math.round(center - newRange / 2);
-    state.maxIndex = Math.round(center + newRange / 2);
-    clampRange();
-    applyRange();
-    state.pinchStartDistance = distance;
-  };
-
-  chart.canvas.addEventListener("wheel", handleWheel);
-  chart.canvas.addEventListener("pointerdown", handlePointerDown);
-  chart.canvas.addEventListener("pointermove", handlePointerMove);
-  chart.canvas.addEventListener("pointerup", handlePointerUp);
-  chart.canvas.addEventListener("pointercancel", handlePointerCancel);
-  chart.canvas.addEventListener("touchstart", handleTouchStart, { passive: true });
-  // handleTouchMove never calls preventDefault (it only reacts to 2-finger
-  // pinch), so mark it passive to keep single-finger page scroll smooth.
-  chart.canvas.addEventListener("touchmove", handleTouchMove, { passive: true });
-
-  return () => {
-    chart.canvas.removeEventListener("wheel", handleWheel);
-    chart.canvas.removeEventListener("pointerdown", handlePointerDown);
-    chart.canvas.removeEventListener("pointermove", handlePointerMove);
-    chart.canvas.removeEventListener("pointerup", handlePointerUp);
-    chart.canvas.removeEventListener("pointercancel", handlePointerCancel);
-    chart.canvas.removeEventListener("touchstart", handleTouchStart);
-    chart.canvas.removeEventListener("touchmove", handleTouchMove);
-  };
-}
-
-function attachLongPressTooltip(chart) {
-  let timerId = null;
-
-  const showTooltip = (event) => {
-    const points = chart.getElementsAtEventForMode(
-      event,
-      "nearest",
-      { intersect: false },
-      true
-    );
-    if (!points.length) {
-      return;
-    }
-    chart.setActiveElements(points);
-    chart.tooltip.setActiveElements(points, {
-      x: points[0].element.x,
-      y: points[0].element.y,
-    });
-    chart.update("none");
-  };
-
-  const handleTouchStart = (event) => {
-    if (event.touches.length !== 1) {
-      return;
-    }
-    timerId = setTimeout(() => showTooltip(event), 450);
-  };
-
-  const handleTouchEnd = () => {
-    if (timerId) {
-      clearTimeout(timerId);
-      timerId = null;
-    }
-  };
-
-  chart.canvas.addEventListener("touchstart", handleTouchStart, { passive: true });
-  chart.canvas.addEventListener("touchend", handleTouchEnd);
-
-  return () => {
-    if (timerId) {
-      clearTimeout(timerId);
-      timerId = null;
-    }
-    chart.canvas.removeEventListener("touchstart", handleTouchStart);
-    chart.canvas.removeEventListener("touchend", handleTouchEnd);
-  };
-}
-
 /**
  * Initialize all charts
  */
@@ -374,7 +107,7 @@ export function initCharts() {
 function initTrendsChart() {
   const trendsCanvas = document.getElementById("trendsChart");
   const trendsCtx = trendsCanvas?.getContext("2d");
-  if (!trendsCtx) {
+  if (!trendsCtx || typeof Chart === "undefined") {
     return;
   }
 
@@ -395,30 +128,29 @@ function initTrendsChart() {
           data: [],
           borderColor: cobalt,
           backgroundColor: withAlpha(cobalt, 0.12),
-          fill: true,
+          fill: false,
           borderWidth: 3,
           yAxisID: "y",
           pointRadius: 2,
           pointBackgroundColor: cobalt,
           pointHoverRadius: 4,
-          tension: 0.3,
+          tension: 0,
         },
         {
           label: "Trips",
           data: [],
           borderColor: ochre,
           backgroundColor: withAlpha(ochre, 0.12),
-          fill: true,
+          fill: false,
           borderWidth: 3,
           yAxisID: "y1",
           pointRadius: 2,
           pointBackgroundColor: ochre,
           pointHoverRadius: 4,
-          tension: 0.3,
+          tension: 0,
         },
       ],
     },
-    plugins: [spotlightPlugin],
     options: {
       responsive: true,
       maintainAspectRatio: false,
@@ -485,6 +217,7 @@ function initTrendsChart() {
           },
         },
         y1: {
+          ticks: { precision: 0 },
           type: "linear",
           display: true,
           position: "right",
@@ -494,7 +227,7 @@ function initTrendsChart() {
           },
           title: {
             display: true,
-            text: "Number of Trips",
+            text: "Trips",
           },
         },
       },
@@ -503,8 +236,6 @@ function initTrendsChart() {
   });
 
   setChart("trends", chart);
-  registerChartCleanup(chart, attachZoomPan(chart));
-  registerChartCleanup(chart, attachLongPressTooltip(chart));
 }
 
 function initTimeHeatmap() {
@@ -560,7 +291,11 @@ export function updateTrendsChart() {
     return;
   }
 
-  const data = processTimeSeriesData(analytics.daily_distances, state.currentView);
+  const data = processTimeSeriesData(
+    analytics.daily_distances,
+    state.currentView,
+    state.currentRange
+  );
 
   const chart = getChart("trends");
   if (!chart) {
@@ -570,11 +305,16 @@ export function updateTrendsChart() {
   chart.data.labels = data.labels;
   chart.data.datasets[0].data = data.distances;
   chart.data.datasets[1].data = data.counts;
-  chart.data.datasets[0].tension = data.isCompressed ? 0.18 : 0.3;
-  chart.data.datasets[1].tension = data.isCompressed ? 0.18 : 0.3;
+  chart.data.datasets[0].tension = 0;
+  chart.data.datasets[1].tension = 0;
   chart.data.datasets[0].pointHoverRadius = data.isCompressed ? 3 : 4;
   chart.data.datasets[1].pointHoverRadius = data.isCompressed ? 3 : 4;
   chart._esBucketRanges = data.ranges;
+  const note = document.getElementById("trends-resolution-note");
+  if (note)
+    note.textContent = data.isCompressed
+      ? "Long range: each point sums the labeled date interval. Use the table for interval dates and totals."
+      : "";
 
   const totalPoints = data.labels.length;
   const maxTicksLimit =
@@ -601,9 +341,31 @@ export function updateTrendsChart() {
     );
   }
   if (chart.options?.animation) {
-    chart.options.animation.duration = data.isCompressed ? 450 : 900;
+    chart.options.animation.duration = window.matchMedia?.(
+      "(prefers-reduced-motion: reduce)"
+    ).matches
+      ? 0
+      : 350;
   }
 
+  const palette = getAtlasChartPalette();
+  const text = readColorToken("--text-secondary", "currentColor");
+  chart.data.datasets.forEach((dataset, index) => {
+    dataset.borderColor = palette[index];
+    dataset.pointBackgroundColor = palette[index];
+  });
+  for (const axis of Object.values(chart.options.scales)) {
+    axis.ticks.color = text;
+    if (axis.title) axis.title.color = text;
+  }
+  chart.options.plugins.legend.labels.color = text;
+  chart.options.scales.y.grid.color = readColorToken("--border-color", "currentColor");
+  chart.canvas.setAttribute(
+    "aria-label",
+    `${state.currentView} distance and trips, ${state.currentRange?.start} to ${state.currentRange?.end}. ${data.counts.reduce((sum, count) => sum + count, 0)} trips. Use the data table for individual periods.`
+  );
+  renderTrendTable(data);
+  chart.resize();
   chart.update();
 }
 
@@ -623,76 +385,43 @@ function updateTimeHeatmap() {
     return;
   }
 
-  const Plot = getLoadedLibrary("plot");
-  if (!Plot?.plot || !Plot?.cell) {
-    host.innerHTML =
-      '<div class="story-empty time-heatmap-empty">Rhythm heatmap is loading.</div>';
-    return;
-  }
-
   const maxCount = Math.max(...cells.map((cell) => cell.count), 1);
-  const [cobalt] = getAtlasChartPalette();
-  const width = Math.max(760, Math.round(host.clientWidth || 760));
-  const height = width < 820 ? 330 : 370;
+  host.innerHTML = `<table class="insights-heatmap-table"><caption class="visually-hidden">Trip starts in each trip’s local time. Select a cell to view trips.</caption>
+    <thead><tr><th scope="col">Day</th>${HEATMAP_HOURS.map((hour) => `<th scope="col">${hour % 3 === 0 ? formatHourLabel(hour) : `<span class="visually-hidden">${formatHourLabel(hour)}</span>`}</th>`).join("")}</tr></thead>
+    <tbody>${[1, 2, 3, 4, 5, 6, 0]
+      .map(
+        (day) =>
+          `<tr><th scope="row">${DAY_LABELS[day].slice(0, 3)}</th>${HEATMAP_HOURS.map(
+            (hour) => {
+              const cell = cells.find((item) => item.day === day && item.hour === hour);
+              const label = `${DAY_LABELS[day]} at ${formatHourLabel(hour)}: ${cell.count} trips, ${cell.distance.toFixed(1)} miles`;
+              return `<td><button type="button" data-day="${day}" data-hour="${hour}" style="--heat:${cell.count > 0 ? 0.16 + (0.84 * cell.count) / maxCount : 0}" aria-label="${label}" title="${label}" ${cell.count ? "" : "disabled"}>${cell.count || ""}</button></td>`;
+            }
+          ).join("")}</tr>`
+      )
+      .join("")}</tbody></table>`;
+  host.onclick = (event) => {
+    const cell = event.target.closest("button[data-hour]");
+    if (cell && !cell.disabled)
+      void loadAndShowTripsForTimeCell(
+        Number(cell.dataset.day),
+        Number(cell.dataset.hour)
+      );
+  };
+}
 
-  const plot = Plot.plot({
-    width,
-    height,
-    marginTop: 22,
-    marginRight: 26,
-    marginBottom: 46,
-    marginLeft: 86,
-    style: {
-      background: "transparent",
-      color: "var(--text-secondary)",
-      fontFamily: "var(--font-family)",
-      fontSize: "12px",
-      overflow: "visible",
-    },
-    x: {
-      domain: HEATMAP_HOUR_LABELS,
-      ticks: HEATMAP_X_TICKS,
-      label: null,
-      grid: false,
-    },
-    y: {
-      domain: PLOT_DAY_DOMAIN,
-      label: null,
-      tickSize: 0,
-    },
-    color: {
-      type: "linear",
-      domain: [0, maxCount],
-      range: [withAlpha(cobalt, 0.1), withAlpha(cobalt, 0.95)],
-      label: "Trips",
-      legend: true,
-    },
-    marks: [
-      Plot.cell(cells, {
-        x: "hourLabel",
-        y: "dayName",
-        fill: "count",
-        inset: 1.5,
-        title: (cell) =>
-          `${cell.dayName} ${formatHourLabel(cell.hour)}\n${cell.count} trip${cell.count === 1 ? "" : "s"}\n${cell.distance.toFixed(1)} miles`,
-      }),
-      Plot.text(
-        cells.filter((cell) => cell.count === maxCount && maxCount > 1),
-        {
-          x: "hourLabel",
-          y: "dayName",
-          text: "count",
-          fill: readColorToken("--text-on-primary", "#050507"),
-          fontSize: 11,
-          fontWeight: 700,
-          pointerEvents: "none",
-        }
-      ),
-    ],
-  });
-
-  plot.classList.add("time-heatmap-svg");
-  host.replaceChildren(plot);
+function renderTrendTable(data) {
+  const host = document.getElementById("trends-data");
+  if (!host) return;
+  host.innerHTML = `<table class="insights-data-table"><caption class="visually-hidden">Distance and trip totals by period</caption><thead><tr><th scope="col">Period</th><th scope="col">Miles</th><th scope="col">Trips</th></tr></thead><tbody>${data.ranges.map((range, index) => `<tr><th scope="row"><button type="button" class="btn btn-ghost" data-start="${range.start}" data-end="${range.end}">${range.start}${range.end !== range.start ? ` – ${range.end}` : ""}</button></th><td>${Number(data.distances[index]).toFixed(1)}</td><td>${data.counts[index]}</td></tr>`).join("")}</tbody></table>`;
+  host.onclick = (event) => {
+    const button = event.target.closest("button[data-start]");
+    if (button)
+      void loadAndShowTripsForDrilldown("trips", {
+        start: button.dataset.start,
+        end: button.dataset.end,
+      });
+  };
 }
 
 // Data Processing Functions
@@ -703,8 +432,8 @@ function updateTimeHeatmap() {
  * @param {string} viewType - View type (daily, weekly, monthly)
  * @returns {Object} Processed data with labels, distances, and counts
  */
-function processTimeSeriesData(dailyData, viewType) {
-  const aggregated = aggregateByView(dailyData, viewType);
+function processTimeSeriesData(dailyData, viewType, range) {
+  const aggregated = aggregateByView(dailyData, viewType, range);
   const compressed = compressSeriesIfNeeded(aggregated, viewType);
 
   return {
@@ -729,78 +458,26 @@ function formatCalendarLabel(value, options) {
     : String(value || "");
 }
 
-export function aggregateByView(dailyData, viewType) {
+export function aggregateByView(dailyData, viewType, range = {}) {
   if (viewType === "daily") {
-    return [...dailyData]
-      .sort((a, b) => String(a.date || "").localeCompare(String(b.date || "")))
-      .map((d) => ({
-        label: formatCalendarLabel(d.date, {
-          month: "short",
-          day: "numeric",
-        }),
-        start: d.date,
-        end: d.date,
-        distance: d.distance || 0,
-        count: d.count || 0,
-      }));
+    return normalizeDailyDistances(dailyData, range).map((day) => ({
+      label: formatCalendarLabel(day.date, { month: "short", day: "numeric" }),
+      start: day.date,
+      end: day.date,
+      distance: day.distance,
+      count: day.count,
+    }));
   }
-
-  // Aggregate for weekly/monthly views
-  const aggregated = {};
-
-  dailyData.forEach((d) => {
-    const date = parseCalendarDate(d.date);
-    if (!date) {
-      return;
-    }
-    let key = "";
-    let start = "";
-    let end = "";
-
-    if (viewType === "weekly") {
-      const weekStart = new Date(date);
-      const diffToMonday = (date.getUTCDay() + 6) % 7;
-      weekStart.setUTCDate(date.getUTCDate() - diffToMonday);
-      key = formatCalendarDate(weekStart);
-      start = key;
-      const weekEnd = new Date(weekStart);
-      weekEnd.setUTCDate(weekEnd.getUTCDate() + 6);
-      end = formatCalendarDate(weekEnd);
-    } else {
-      key = `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
-      start = `${key}-01`;
-      const lastDay = new Date(
-        Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0)
-      ).getUTCDate();
-      end = `${key}-${String(lastDay).padStart(2, "0")}`;
-    }
-
-    if (!aggregated[key]) {
-      aggregated[key] = { distance: 0, count: 0, start, end };
-    }
-
-    aggregated[key].distance += d.distance || 0;
-    aggregated[key].count += d.count || 0;
-  });
-
-  return Object.entries(aggregated)
-    .map(([key, value]) => {
-      const label =
-        viewType === "weekly"
-          ? `Wk ${formatCalendarLabel(key, { month: "short", day: "numeric" })}`
-          : formatCalendarLabel(`${key}-01`, {
-              month: "short",
-              year: "numeric",
-            });
-      return {
-        label,
-        start: value.start,
-        end: value.end,
-        distance: value.distance,
-        count: value.count,
-      };
-    })
-    .sort((a, b) => String(a.start || "").localeCompare(String(b.start || "")));
+  return aggregatePeriods(dailyData, viewType, range).map((period) => ({
+    label:
+      viewType === "weekly"
+        ? `Wk ${formatCalendarLabel(period.key, { month: "short", day: "numeric" })}`
+        : formatCalendarLabel(`${period.key}-01`, { month: "short", year: "numeric" }),
+    start: period.start,
+    end: period.end,
+    distance: period.distance,
+    count: period.trips,
+  }));
 }
 
 function formatRangeLabel(start, end, viewType) {

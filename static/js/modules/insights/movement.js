@@ -46,11 +46,11 @@ function pluralize(value, singularUnit, pluralUnit = `${singularUnit}s`) {
 }
 
 function formatTimesDriven(value) {
-  return pluralize(value, "time driven", "times driven");
+  return pluralize(value, "trip", "trips");
 }
 
 function formatMiles(value) {
-  return `${asNumber(value).toFixed(1)} mi`;
+  return `${asNumber(value).toFixed(2)} mi`;
 }
 
 function normalizeStreetKey(value) {
@@ -226,6 +226,11 @@ function updateSummaryPills(payload) {
     : 0;
   const synced = asNumber(payload?.synced_trips_this_request);
   const pending = asNumber(payload?.pending_trip_sync_count);
+  const note = document.getElementById("movement-method-note");
+  if (note)
+    note.textContent =
+      payload?.ranking_note ||
+      "Approximate rankings of sampled matched paths. Street names are inferred from nearby map labels.";
 
   if (tripCountEl) {
     if (analyzed <= 0) {
@@ -245,7 +250,7 @@ function updateSummaryPills(payload) {
 
   if (syncStateEl) {
     if (pending > 0) {
-      syncStateEl.textContent = `Sync in progress (${formatInt(pending)} trips remaining)`;
+      syncStateEl.textContent = `Partial data · ${formatInt(pending)} matched trips awaiting analysis`;
     } else if (synced > 0) {
       syncStateEl.textContent = `Updated with ${pluralize(synced, "trip")}`;
     } else if (warnings > 0) {
@@ -267,12 +272,12 @@ function updateMovementCaption(payload) {
   );
   if (geometrySource === "matchedGps") {
     caption.textContent =
-      "Showing matched trip street geometry. Line thickness reflects times driven. Hover to preview and click to lock details.";
+      "Line thickness reflects distinct trips. Select a line or ranked item for details.";
     return;
   }
 
   caption.textContent =
-    "Showing street geometry from your trips. Line thickness reflects times driven.";
+    "Showing street geometry from your trips. Line thickness reflects distinct trips.";
 }
 
 function renderDetailPanel(payload) {
@@ -284,14 +289,13 @@ function renderDetailPanel(payload) {
   const selected = getEntityBySelection(payload, selectedEntity);
   if (!selected) {
     panel.innerHTML =
-      '<div class="movement-detail-empty">Select a street or segment to see times driven, trips, and distance.</div>';
+      '<div class="movement-detail-empty">Select a street or segment to see trips and sampled distance.</div>';
     return;
   }
 
   const mode = selectedEntity?.type === "segments" ? "segments" : "streets";
   const label = getEntityLabel(selected, mode);
   const timesDriven = formatTimesDriven(getTimesDriven(selected));
-  const trips = pluralize(selected?.trip_count, "trip");
   const distance = formatMiles(selected?.distance_miles);
   const typeLabel = mode === "segments" ? "Street segment" : "Street";
 
@@ -301,15 +305,11 @@ function renderDetailPanel(payload) {
       <h4 class="movement-detail-title">${escapeHtml(label)}</h4>
       <div class="movement-detail-stats">
         <div>
-          <span>Times driven</span>
+          <span>Distinct trips</span>
           <strong>${escapeHtml(timesDriven)}</strong>
         </div>
         <div>
-          <span>Trips</span>
-          <strong>${escapeHtml(trips)}</strong>
-        </div>
-        <div>
-          <span>Distance driven</span>
+          <span>Sampled distance</span>
           <strong>${escapeHtml(distance)}</strong>
         </div>
       </div>
@@ -350,7 +350,6 @@ function renderRankingList(mode, payload) {
       const key = getEntityKey(item, mode);
       const label = getEntityLabel(item, mode);
       const timesDriven = formatTimesDriven(getTimesDriven(item));
-      const trips = pluralize(item?.trip_count, "trip");
       const distance = formatMiles(item?.distance_miles);
       return `
         <li class="movement-rank-item">
@@ -362,7 +361,7 @@ function renderRankingList(mode, payload) {
           >
             <strong>${escapeHtml(label)}</strong>
             <span class="movement-rank-meta">${escapeHtml(
-              `${timesDriven} • ${trips} • ${distance}`
+              `${timesDriven} • ${distance} sampled`
             )}</span>
           </button>
         </li>
@@ -526,7 +525,6 @@ function getTooltip(info) {
       <div>
         <strong>${escapeHtml(object.label || "Street")}</strong><br />
         ${escapeHtml(formatTimesDriven(object.timesDriven))}<br />
-        ${escapeHtml(pluralize(object.tripCount, "trip"))}<br />
         ${escapeHtml(formatMiles(object.distanceMiles))}
       </div>
     `,
@@ -972,6 +970,8 @@ export function bindMovementControls(signal) {
 }
 
 export function renderMovementInsights(payload) {
+  const empty = document.getElementById("movement-map-empty");
+  if (empty) empty.textContent = "No matched street geometry is ready in this range.";
   latestMovementPayload = payload || {};
   resetVisibleCounts();
   clearSelectionIfMissing(latestMovementPayload);

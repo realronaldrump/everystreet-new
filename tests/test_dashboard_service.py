@@ -123,9 +123,9 @@ async def test_get_driving_insights_movement_default_includes_metric_basis(
     assert movement["profiled_trip_count"] == 0
     assert movement["analyzed_trip_count"] == 0
     assert movement["analysis_scope"]["geometry_source"] == "matchedGps"
-    assert movement["metric_basis"]["top_streets_primary"] == "times_driven"
-    assert movement["metric_basis"]["top_segments_primary"] == "times_driven"
-    assert movement["metric_basis"]["map_cells_intensity"] == "times_driven"
+    assert movement["metric_basis"]["top_streets_primary"] == "distinct_trips"
+    assert movement["metric_basis"]["top_segments_primary"] == "distinct_trips"
+    assert movement["metric_basis"]["map_cells_intensity"] == "distinct_trips"
     assert movement["validation"]["errors"] == []
 
 

@@ -3,7 +3,7 @@
 import logging
 from typing import Any, ClassVar
 
-from core.trip_source_policy import enforce_bouncie_source
+from analytics.services.insight_query import destination_label_expr, insight_query
 from db.aggregation import aggregate_to_list
 from db.aggregation_utils import (
     build_trip_duration_fields_stage,
@@ -46,6 +46,7 @@ class DrilldownService:
         query: dict[str, Any],
         kind: str,
         limit: int = 100,
+        destination: str | None = None,
     ) -> list[dict[str, Any]]:
         """
         Get a list of trips for a drill-down modal.
@@ -54,7 +55,7 @@ class DrilldownService:
         `TripQuerySpec.to_mongo_query()` and may include an `$expr` for
         date filters (start_date/end_date).
         """
-        query = enforce_bouncie_source(query)
+        query = insight_query(query)
         if kind not in DrilldownService.SUPPORTED_KINDS:
             msg = f"Unsupported drilldown kind: {kind}"
             raise ValueError(msg)
@@ -71,6 +72,13 @@ class DrilldownService:
         match_query = dict(query)
         if extra_match:
             match_query.update(extra_match)
+        if destination is not None:
+            match_query["$expr"] = {
+                "$and": [
+                    match_query.get("$expr", {"$literal": True}),
+                    {"$eq": [destination_label_expr(), {"$literal": destination}]},
+                ]
+            }
 
         pipeline = [
             {"$match": match_query},
@@ -95,6 +103,7 @@ class DrilldownService:
                     "totalIdleDuration": "$totalIdleDuration",
                     "fuelConsumed": 1,
                     "timeZone": 1,
+                    "startTimeZone": 1,
                 },
             },
         ]

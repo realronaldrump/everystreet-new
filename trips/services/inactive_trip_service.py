@@ -28,6 +28,7 @@ _COVERAGE_JOB_TYPES = {"area_backfill", "area_rebuild"}
 _ANALYTICS_CACHE_PREFIXES = (
     "metrics",
     "driving_insights",
+    "movement_insights",
     "trip_analytics",
     "driver_behavior",
 )

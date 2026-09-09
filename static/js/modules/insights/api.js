@@ -6,15 +6,6 @@
 import apiClient from "../core/api-client.js";
 
 /**
- * Fetch driver behavior data
- * @param {URLSearchParams} params - Query parameters
- * @returns {Promise<Object>} Behavior data
- */
-function fetchBehavior(params, signal) {
-  return apiClient.get(`/api/driver-behavior?${params}`, { cache: true, signal });
-}
-
-/**
  * Fetch driving insights data
  * @param {URLSearchParams} params - Query parameters
  * @returns {Promise<Object>} Insights data
@@ -62,32 +53,30 @@ export function fetchDrilldownTrips(params, signal) {
 /**
  * Load all data for the insights page
  * @param {Object} dateRange - Date range object with start and end
- * @param {Object} prevRange - Previous period date range
  * @returns {Promise<Object>} All fetched data
  */
-export async function loadAllData(dateRange, prevRange, signal) {
+export async function loadAllData(dateRange, signal) {
   const params = new URLSearchParams({
     start_date: dateRange.start,
     end_date: dateRange.end,
   });
 
-  const paramsPrev = new URLSearchParams({
-    start_date: prevRange.start,
-    end_date: prevRange.end,
-  });
-
-  const [behavior, insights, analytics, metrics, prevBehavior, prevInsights] =
-    await Promise.all([
-      fetchBehavior(params, signal),
-      fetchInsights(params, signal),
-      fetchAnalytics(params, signal),
-      fetchMetrics(params, signal),
-      fetchBehavior(paramsPrev, signal),
-      fetchInsights(paramsPrev, signal),
-    ]);
+  params.set("include_movement", "false");
+  const [insights, analytics, metrics] = await Promise.all([
+    fetchInsights(params, signal),
+    fetchAnalytics(params, signal),
+    fetchMetrics(params, signal),
+  ]);
 
   return {
-    current: { behavior, insights, analytics, metrics },
-    previous: { behavior: prevBehavior, insights: prevInsights },
+    current: { insights, analytics, metrics },
   };
+}
+
+export function fetchMovement(dateRange, signal) {
+  const params = new URLSearchParams({
+    start_date: dateRange.start,
+    end_date: dateRange.end,
+  });
+  return apiClient.get(`/api/movement-insights?${params}`, { signal, cache: true });
 }

@@ -123,7 +123,12 @@ async def get_drilldown_trips(request: Request):
         )
 
     try:
-        return await DrilldownService.get_drilldown_trips(query, kind, limit)
+        return await DrilldownService.get_drilldown_trips(
+            query,
+            kind,
+            limit,
+            destination=request.query_params.get("destination"),
+        )
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
