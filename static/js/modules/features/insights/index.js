@@ -162,7 +162,13 @@ async function loadAllData(signalOverride) {
       dateRange.start,
       dateRange.end
     );
-    InsightsState.updateState({ currentPeriod: periodDays, currentRange: dateRange });
+    InsightsState.updateState({
+      currentPeriod: periodDays,
+      currentRange: {
+        ...dateRange,
+        asOf: InsightsFormatters.formatDate(new Date()),
+      },
+    });
 
     // Street geometry has independent loading and error states; it never blocks totals.
     const movementRequest = InsightsAPI.fetchMovement(dateRange, activeSignal).then(
@@ -198,7 +204,10 @@ async function loadAllData(signalOverride) {
       document.getElementById("movement-sync-state").textContent =
         "Street rankings unavailable";
     } else {
-      renderMovementInsights(movement.payload);
+      renderMovementInsights({
+        ...movement.payload,
+        total_historical_trips: tripCount,
+      });
     }
   } catch (error) {
     if (isAbortError(error) || activeSignal?.aborted) {

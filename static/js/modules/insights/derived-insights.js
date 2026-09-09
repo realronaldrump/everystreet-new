@@ -203,7 +203,10 @@ export function aggregatePeriods(dailyDistances = [], mode = "weekly", range = {
       const start =
         range.start && range.start > period.start ? range.start : period.start;
       const end = range.end && range.end < period.end ? range.end : period.end;
-      const isPartial = start !== period.start || end !== period.end;
+      const isPartial =
+        start !== period.start ||
+        end !== period.end ||
+        Boolean(range.asOf && period.end >= range.asOf);
       return {
         ...period,
         start,

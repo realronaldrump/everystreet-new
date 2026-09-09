@@ -188,3 +188,12 @@ test("midnight belongs to late night and malformed dates never roll into another
   );
   assert.deepEqual(aggregatePeriods([{ date: "2026-02-31", count: 1 }]), []);
 });
+
+test("a week ending today is still an incomplete period", () => {
+  const periods = aggregatePeriods([], "weekly", {
+    start: "2026-09-07",
+    end: "2026-09-13",
+    asOf: "2026-09-13",
+  });
+  assert.equal(periods[0].isPartial, true);
+});

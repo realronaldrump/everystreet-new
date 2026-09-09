@@ -240,7 +240,9 @@ function updateSummaryPills(payload) {
         tripCountEl.textContent = "No matched trips in this range";
       }
     } else {
-      tripCountEl.textContent = `Analyzed ${pluralize(analyzed, "matched trip")}`;
+      tripCountEl.textContent = payload?.total_historical_trips
+        ? `Matched paths analyzed for ${formatInt(analyzed)} of ${formatInt(payload.total_historical_trips)} trips`
+        : `Analyzed ${pluralize(analyzed, "matched trip")}`;
     }
   }
 
