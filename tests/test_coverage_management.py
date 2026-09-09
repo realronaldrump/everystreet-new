@@ -15,6 +15,7 @@ from core.coverage import (
 )
 from db.models import CoverageArea, CoverageDriveEvent, CoverageState, Job, Street, Trip
 from street_coverage import ingestion as coverage_ingestion
+from street_coverage.api.streets import get_street_detail
 from street_coverage.projection import set_manual_status
 from street_coverage.stats import update_area_stats
 
@@ -193,6 +194,21 @@ async def test_full_backfill_retracts_deleted_trip_evidence(coverage_db):
     assert await CoverageDriveEvent.find_all().count() == 0
     assert await CoverageState.find_all().count() == 0
     assert (await CoverageArea.get(area.id)).driven_length_miles == 0
+
+
+async def test_street_detail_links_evidence_by_transaction_id(coverage_db):
+    area, ids = await area_with_streets([1])
+    trip = await drive(area, {ids[0]: [[0, 1]]})
+
+    result = await get_street_detail(area.id, ids[0])
+
+    assert result["evidence"]
+    assert result["evidence"][0]["trip_id"] == trip.transactionId
+    assert result["evidence"][0]["trip_id"] != str(trip.id)
+
+    await trip.delete()
+    orphaned_result = await get_street_detail(area.id, ids[0])
+    assert orphaned_result["evidence"] == []
 
 
 async def test_trip_moving_outside_rebuild_area_queues_refresh_of_first_evidence(

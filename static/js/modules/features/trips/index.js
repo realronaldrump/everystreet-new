@@ -18,6 +18,7 @@ import {
 import { initTripSync } from "../../trip-sync.js";
 import confirmationDialog from "../../ui/confirmation-dialog.js";
 import loadingManager from "../../ui/loading-manager.js";
+import { moveFocusOutOfModal } from "../../ui/modal-focus.js";
 import notificationManager from "../../ui/notifications.js";
 import {
   DateUtils,
@@ -53,6 +54,8 @@ const selectedTripIds = new Set();
 let isLoading = false;
 let tripModalMap = null;
 let tripModalInstance = null;
+let tripModalElement = null;
+let modalReturnFocus = null;
 let currentTripId = null;
 let currentTripData = null;
 let regeocodeInFlight = false;
@@ -492,6 +495,28 @@ function bindPageEvent(target, type, handler, options) {
   );
 }
 
+function disposeTripModalInstance() {
+  const modal = tripModalElement;
+  if (modal) {
+    moveFocusOutOfModal(modal, { preferredTarget: modalReturnFocus });
+  }
+
+  const instance = tripModalInstance;
+  if (instance) {
+    if (
+      modal?.classList?.contains("show") ||
+      modal?.style?.display === "block"
+    ) {
+      instance.hide?.();
+    }
+    instance.dispose?.();
+  }
+
+  tripModalInstance = null;
+  tripModalElement = null;
+  modalReturnFocus = null;
+}
+
 function isGoogleMapProvider() {
   return String(window.MAP_PROVIDER || "").toLowerCase() === "google";
 }
@@ -634,6 +659,7 @@ function cleanupTripModalMap() {
 }
 
 function resetTripsState() {
+  disposeTripModalInstance();
   tripsData = [];
   filteredTrips = [];
   currentPage = 1;
@@ -662,7 +688,6 @@ function resetTripsState() {
   playbackState.isPlaying = false;
   playbackState.isComplete = false;
   cleanupTripModalMap();
-  tripModalInstance = null;
 }
 
 function normalizeTripSort(value) {
@@ -3069,36 +3094,65 @@ function openTripModal(tripId) {
 }
 
 function openTripTools(tripId) {
-  currentTripId = tripId;
-
-  if (!tripModalInstance) {
-    const el = document.getElementById("tripDetailsModal");
-    if (el) {
-      tripModalInstance = new bootstrap.Modal(el);
-
-      bindPageEvent(el, "hidden.bs.modal", () => {
-        resetPlayback();
-        currentTripData = null;
-        regeocodeInFlight = false;
-        modalRouteActionsTripId = null;
-        clearTripModalRouteData();
-      });
-
-      bindPageEvent(el, "shown.bs.modal", () => {
-        if (!tripModalMap) {
-          void initTripModalMap();
-        } else {
-          resizeTripModalMap();
-          setupTripPlaybackControls();
-          loadTripData(currentTripId);
-        }
-      });
-
-      bindTripModalActions();
-    }
+  if (!tripId) {
+    return;
   }
 
-  tripModalInstance.show();
+  const el = document.getElementById("tripDetailsModal");
+  const Modal = typeof bootstrap !== "undefined" ? bootstrap.Modal : null;
+  if (!el || typeof Modal !== "function") {
+    return;
+  }
+
+  if (tripModalElement !== el) {
+    disposeTripModalInstance();
+    tripModalElement = el;
+    tripModalInstance = new Modal(el);
+
+    bindPageEvent(el, "hide.bs.modal", () => {
+      moveFocusOutOfModal(el, { preferredTarget: modalReturnFocus });
+    });
+
+    bindPageEvent(el, "hidden.bs.modal", () => {
+      if (tripModalElement !== el) {
+        return;
+      }
+      resetPlayback();
+      currentTripData = null;
+      regeocodeInFlight = false;
+      modalRouteActionsTripId = null;
+      modalReturnFocus = null;
+      clearTripModalRouteData();
+    });
+
+    bindPageEvent(el, "shown.bs.modal", () => {
+      if (!tripModalMap) {
+        void initTripModalMap();
+      } else {
+        resizeTripModalMap();
+        setupTripPlaybackControls();
+        void loadTripData(currentTripId);
+      }
+    });
+
+    bindTripModalActions();
+  }
+
+  const activeElement = document.activeElement;
+  modalReturnFocus =
+    activeElement &&
+    activeElement !== el &&
+    !el.contains(activeElement) &&
+    activeElement.isConnected !== false
+      ? activeElement
+      : null;
+  currentTripId = tripId;
+
+  if (el.classList.contains("show")) {
+    void loadTripData(tripId);
+  } else {
+    tripModalInstance.show();
+  }
 }
 
 function bindTripModalActions() {
@@ -3566,6 +3620,17 @@ async function loadTripData(tripId) {
 
     renderTripOnMap(trip);
   } catch (err) {
+    if (currentTripId !== tripId || err?.name === "AbortError" || pageSignal?.aborted) {
+      return;
+    }
+    if (err?.status === 404) {
+      currentTripData = null;
+      clearTripModalRouteData();
+      moveFocusOutOfModal(tripModalElement, { preferredTarget: modalReturnFocus });
+      tripModalInstance?.hide();
+      notificationManager.show("This trip is no longer available.", "warning");
+      return;
+    }
     console.error("Failed to load trip data:", err);
     notificationManager.show("Failed to load trip details", "danger");
   } finally {

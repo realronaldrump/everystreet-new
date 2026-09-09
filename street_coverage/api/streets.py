@@ -13,7 +13,7 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 from starlette.responses import Response
 
-from db.models import CoverageArea, CoverageDriveEvent, CoverageState, Street
+from db.models import CoverageArea, CoverageDriveEvent, CoverageState, Street, Trip
 from street_coverage.projection import area_metrics, set_manual_status
 
 router = APIRouter(prefix="/api/coverage", tags=["coverage-streets"])
@@ -327,20 +327,35 @@ async def get_street_detail(area_id: PydanticObjectId, segment_id: str):
         .limit(5)
         .to_list()
     )
+    trip_ids = {event.trip_id for event in events}
+    trips = (
+        await Trip.find({"_id": {"$in": list(trip_ids)}}).to_list()
+        if trip_ids
+        else []
+    )
+    transaction_ids = {
+        trip.id: trip.transactionId
+        for trip in trips
+        if trip.id is not None and trip.transactionId
+    }
     return {
         "success": True,
         "feature": features[0].model_dump(mode="json"),
         "coverage_revision": area.journal_revision,
         "road_tags": street.road_tags,
+        # CoverageDriveEvent stores Mongo ObjectIds, while the trip API and
+        # frontend links use the stable Bouncie transactionId. Omit orphaned
+        # events so deleted trips cannot produce broken evidence links.
         "evidence": [
             {
-                "trip_id": str(event.trip_id),
+                "trip_id": transaction_ids[event.trip_id],
                 "driven_at": event.driven_at,
                 "source": event.geometry_source,
                 "intervals": event.segment_intervals.get(segment_id, []),
                 "max_offset_meters": event.segment_offsets.get(segment_id),
             }
             for event in events
+            if event.trip_id in transaction_ids
         ],
     }
 
