@@ -680,6 +680,13 @@ async def _run_ingestion_pipeline(
             stage_key="boundary",
         )
 
+        # Coverage jobs can bypass the generic task wrapper and receive an
+        # explicit trip mode, so neither path necessarily reloads user settings.
+        # Refresh before validating cached graphs or spawning a new builder.
+        from core.service_config import refresh_service_config
+
+        await refresh_service_config()
+
         # Stage 1: Fetch boundary if needed
         stage_start = datetime.now(UTC)
         await update_job(

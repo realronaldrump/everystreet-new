@@ -33,6 +33,7 @@ from dotenv import load_dotenv
 from shapely.geometry import box, mapping, shape
 
 from config import get_osm_extracts_path
+from core.settings_snapshot import publish_user_settings
 from core.spatial import buffer_polygon_for_routing
 from map_data.extracts import (
     get_preferred_osm_extract_metadata,
@@ -46,6 +47,7 @@ from street_coverage.public_road_filter import (
     PublicRoadFilterAudit,
     classify_public_road,
     extract_relevant_tags,
+    get_include_service_roads,
     get_public_road_filter_signature,
     get_public_road_filter_version,
 )
@@ -543,9 +545,13 @@ def _graph_build_worker(
     graph_path_str: str,
     max_mb: int,
     extract_metadata: dict[str, Any] | None,
+    include_service_roads: bool,
     result_queue: Any,
 ) -> None:
     try:
+        # Spawn starts with an empty settings snapshot. Restore the parent's
+        # effective policy before classification and graph audit metadata run.
+        publish_user_settings({"coverageIncludeServiceRoads": include_service_roads})
         _apply_memory_limit(max_mb)
         from shapely.geometry import shape
 
@@ -599,6 +605,7 @@ def _build_graph_in_subprocess(
             str(graph_path),
             max_mb,
             extract_metadata,
+            get_include_service_roads(),
             result_queue,
         ),
     )

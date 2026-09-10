@@ -7,16 +7,15 @@ from db_helpers import init_mock_beanie
 from db.models import (
     CoverageArea,
     CoverageDriveEvent,
-    CoverageOverride,
-    CoverageStatusEvent,
-    CoverageState,
     CoverageJournalRollup,
+    CoverageOverride,
+    CoverageState,
+    CoverageStatusEvent,
     Street,
     Trip,
 )
 from street_coverage.matching import MATCHING_VERSION
-from street_coverage.projection import area_metrics, set_manual_status
-from street_coverage.projection import CoverageDeferred
+from street_coverage.projection import CoverageDeferred, area_metrics, set_manual_status
 from street_coverage.stats import calculate_area_stats, update_area_stats
 from street_coverage.trip_credit import credit_trip_area
 from trips.services.inactive_trip_service import InactiveTripService
@@ -120,6 +119,62 @@ async def test_manual_reset_survives_reconciliation_and_can_restore_automatic(
     assert (await CoverageArea.get(area.id)).driven_length_miles == 0.5
 
 
+@pytest.mark.parametrize("status", ["driven", "undriveable"])
+@pytest.mark.parametrize("geometry_changed", [False, True])
+async def test_inventory_rebuild_retains_manual_decisions_by_geometry(
+    evidence_area, monkeypatch, status, geometry_changed
+):
+    from core.coverage import backfill_coverage_for_area
+    from street_coverage.ingestion import reset_area_for_rebuild
+
+    # This test isolates manual decisions from geographic trip matching.
+    monkeypatch.setattr(
+        "core.coverage._build_backfill_trip_query",
+        lambda *_args, **_kwargs: {"_id": {"$in": []}},
+    )
+    area, ids, _trip = evidence_area
+    await set_manual_status(area.id, [ids[0]], status)
+    override = await CoverageOverride.find_one({"area_id": area.id})
+    await reset_area_for_rebuild(area.id)
+    street = await Street.find_one({"segment_id": ids[0]})
+    geometry = street.geometry
+    if geometry_changed:
+        geometry = {
+            "type": "LineString",
+            "coordinates": [[-107, 39], [-107, 39.002]],
+        }
+    new_id = f"{area.id}-2-0"
+    await Street(
+        **{
+            **street.model_dump(exclude={"id"}),
+            "area_version": 2,
+            "segment_id": new_id,
+            "geometry": geometry,
+        }
+    ).insert()
+    await backfill_coverage_for_area(
+        area.id, full=True, trip_mode="both", inventory_version=2
+    )
+
+    rebuilt = await CoverageArea.get(area.id)
+    assert rebuilt.area_version == 2
+    assert rebuilt.pending_area_version is None
+    retained = await CoverageOverride.find_one({"area_id": area.id})
+    assert retained.model_dump() == override.model_dump()
+    assert await CoverageState.find_one({"segment_id": ids[0]}) is None
+    state = await CoverageState.find_one({"segment_id": new_id})
+    if geometry_changed:
+        # Decisions remain stored, but current matching requires exact geometry.
+        assert state is None
+        assert rebuilt.driven_segments == rebuilt.undriveable_segments == 0
+    else:
+        assert state.status == status
+        assert state.manually_marked
+        assert state.marked_at == override.marked_at
+        assert rebuilt.driven_segments == int(status == "driven")
+        assert rebuilt.undriveable_segments == int(status == "undriveable")
+
+
 async def test_manual_driven_can_replace_exclusion_and_correct_denominator(
     evidence_area,
 ):
@@ -184,6 +239,7 @@ async def test_matching_old_inventory_requests_retry_instead_of_losing_credit(
 
 async def test_street_response_rejects_mixed_revision_snapshot(evidence_area):
     from fastapi import HTTPException
+
     from street_coverage.api.streets import _features
 
     area, ids, trip = evidence_area
