@@ -24,7 +24,7 @@ test("sortCoverageAreas defaults to highest completion first", async () => {
   );
 });
 
-test("sortCoverageAreas supports completion, added date, name, and sync ordering", async () => {
+test("sortCoverageAreas supports completion, size, added date, name, and sync ordering", async () => {
   const { sortCoverageAreas } = await import(
     "../static/js/modules/features/coverage-management/areas.js"
   );
@@ -33,6 +33,7 @@ test("sortCoverageAreas supports completion, added date, name, and sync ordering
       id: "bravo",
       display_name: "Bravo",
       coverage_percentage: 50,
+      total_length_miles: 120.25,
       created_at: "2026-01-02T00:00:00Z",
       last_synced: "2026-03-02T00:00:00Z",
     },
@@ -40,6 +41,7 @@ test("sortCoverageAreas supports completion, added date, name, and sync ordering
       id: "alpha",
       display_name: "alpha",
       coverage_percentage: 50,
+      total_length_miles: 9.5,
       created_at: "2026-01-03T00:00:00Z",
       last_synced: null,
     },
@@ -47,6 +49,7 @@ test("sortCoverageAreas supports completion, added date, name, and sync ordering
       id: "charlie",
       display_name: "Charlie",
       coverage_percentage: 10,
+      total_length_miles: 950.5,
       created_at: "2026-01-01T00:00:00Z",
       last_synced: "2026-02-01T00:00:00Z",
     },
@@ -56,6 +59,8 @@ test("sortCoverageAreas supports completion, added date, name, and sync ordering
 
   assert.deepEqual(idsFor("coverage-desc"), ["alpha", "bravo", "charlie"]);
   assert.deepEqual(idsFor("coverage-asc"), ["charlie", "alpha", "bravo"]);
+  assert.deepEqual(idsFor("size-desc"), ["charlie", "bravo", "alpha"]);
+  assert.deepEqual(idsFor("size-asc"), ["alpha", "bravo", "charlie"]);
   assert.deepEqual(idsFor("created-desc"), ["alpha", "bravo", "charlie"]);
   assert.deepEqual(idsFor("created-asc"), ["charlie", "bravo", "alpha"]);
   assert.deepEqual(idsFor("name-asc"), ["alpha", "bravo", "charlie"]);

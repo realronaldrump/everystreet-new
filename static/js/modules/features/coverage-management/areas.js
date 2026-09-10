@@ -47,6 +47,12 @@ export function sortCoverageAreas(areas, sortKey = DEFAULT_AREA_SORT) {
     "coverage-asc": (a, b) =>
       normalizeCoveragePercent(a?.coverage_percentage) -
         normalizeCoveragePercent(b?.coverage_percentage) || compareAreaNames(a, b),
+    "size-desc": (a, b) =>
+      (b?.total_length_miles ?? 0) - (a?.total_length_miles ?? 0) ||
+      compareAreaNames(a, b),
+    "size-asc": (a, b) =>
+      (a?.total_length_miles ?? 0) - (b?.total_length_miles ?? 0) ||
+      compareAreaNames(a, b),
     "created-desc": (a, b) => compareAreaDates(a, b, "created_at", "desc"),
     "created-asc": (a, b) => compareAreaDates(a, b, "created_at", "asc"),
     "name-asc": compareAreaNames,
