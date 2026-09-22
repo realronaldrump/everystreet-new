@@ -22,6 +22,7 @@ import {
   isAbortError,
 } from "../../utils.js";
 import { animateValue } from "./animations.js";
+import initHeroCar from "./car.js";
 import { describeRecentArea, formatAreaFigures, updateMastheadDate } from "./hero.js";
 
 // Configuration
@@ -61,6 +62,7 @@ let recordsLoadRequestId = 0;
 let recentTripsLoadRequestId = 0;
 let recordLoading = false;
 let removeFilterRefreshListener = null;
+let heroCar = null;
 let featureApi = createFeatureApi();
 const apiGet = (url, options = {}) => featureApi.get(url, options);
 const apiRaw = (url, options = {}) => featureApi.raw(url, options);
@@ -74,6 +76,7 @@ export default function initLandingPage({ signal, cleanup, api } = {}) {
   featureApi = api || createFeatureApi({ signal: pageSignal });
   cacheElements();
   updateMastheadDate(elements);
+  heroCar = initHeroCar({ signal: pageSignal });
 
   highlightFrequentTiles();
 
@@ -86,6 +89,8 @@ export default function initLandingPage({ signal, cleanup, api } = {}) {
 
   const teardown = () => {
     clearIntervals();
+    heroCar?.destroy();
+    heroCar = null;
     stopWatchingRange();
     removeFilterRefreshListener?.();
     removeFilterRefreshListener = null;
@@ -1284,6 +1289,7 @@ async function checkLiveTracking() {
   try {
     const data = await apiGet("/api/active_trip");
     if (data.enabled === false) {
+      heroCar?.setLive(false);
       disableBouncieLiveTracking();
       clearInterval(liveTrackingIntervalId);
       liveTrackingIntervalId = null;
@@ -1295,8 +1301,10 @@ async function checkLiveTracking() {
       return;
     }
 
+    const onTheRoad = data.trip?.status === "active";
+    heroCar?.setLive(onTheRoad);
     if (elements.liveIndicator) {
-      if (data.trip && data.trip.status === "active") {
+      if (onTheRoad) {
         elements.liveIndicator.classList.add("active");
         elements.liveIndicator.title = "Live tracking active";
       } else {

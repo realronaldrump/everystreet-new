@@ -17,6 +17,7 @@ elements and ``plate-car*`` for the engraved car.
 
 from __future__ import annotations
 
+import json
 import math
 import random
 import re
@@ -391,24 +392,63 @@ def road(rnd):
     return "".join(out), near, far
 
 
-def car_shadow():
+# Where the car rests on the ground, as fractions of its box (between the
+# wheels, under the body). Transforms scale around this point.
+CAR_ANCHOR = (0.54, 0.93)
+
+
+def car_lane():
+    """Poses along the right-hand lane, relative to where the car parks.
+
+    Each entry is [dx, dy, scale, rotate] in plate units and degrees. The first
+    entry is off the bottom of the plate (where the car drives in from) and the
+    last is at the pass. Returns the entries and the index of the parked pose.
+    """
+    pts, widths = sample_road(ROAD)
+    lane = []
+    for i, ((px, py), w) in enumerate(zip(pts, widths, strict=True)):
+        a = pts[max(0, i - 1)]
+        b = pts[min(len(pts) - 1, i + 1)]
+        dx, dy = b[0] - a[0], b[1] - a[1]
+        length = math.hypot(dx, dy) or 1
+        nx, ny = -dy / length, dx / length
+        lane.append((px + nx * w * 0.24, py + ny * w * 0.24, w, math.atan2(dy, dx)))
     x, y, w = CAR_BOX
     h = w * CAR_ASPECT
-    cx, cy = x + w * 0.54, y + h * 0.93
-    return (
-        f'<ellipse class="pl-shadow pl-car-shadow" cx="{n(cx)}" cy="{n(cy)}" '
-        f'rx="{n(w * 0.52)}" ry="{n(h * 0.1)}" transform="rotate(-9 {n(cx)} {n(cy)})"/>'
+    ax, ay = x + w * CAR_ANCHOR[0], y + h * CAR_ANCHOR[1]
+    rest = min(
+        range(len(lane)), key=lambda i: math.hypot(lane[i][0] - ax, lane[i][1] - ay)
     )
+    rx, ry, rw, ra = lane[rest]
+    keep = sorted({*range(0, len(lane), 2), rest, len(lane) - 1})
+    poses = []
+    for i in keep:
+        lx, ly, lw, la = lane[i]
+        turn = max(-10.0, min(10.0, math.degrees(la - ra) * 0.3))
+        poses.append(
+            [round(lx - rx, 1), round(ly - ry, 1), round(lw / rw, 3), round(turn, 1)]
+        )
+    return poses, keep.index(rest)
 
 
 def car_overlay():
     x, y, w = CAR_BOX
+    h = w * CAR_ASPECT
     style = f"left:{x / W * 100:.3f}%;top:{y / H * 100:.3f}%;width:{w / W * 100:.3f}%"
+    poses, rest = car_lane()
+    lane = json.dumps(poses, separators=(",", ":"))
     return (
-        f'<div class="plate-car" style="{style}" aria-hidden="true">'
+        f'<div class="plate-car" style="{style}" aria-hidden="true" '
+        f"data-lane='{lane}' data-rest=\"{rest}\" "
+        f'data-box="{x},{y},{w},{n(h)}" data-plate="{W},{H}" '
+        f'data-anchor="{CAR_ANCHOR[0]},{CAR_ANCHOR[1]}">'
+        '<svg class="plate-car-shadow" viewBox="0 0 100 20" preserveAspectRatio="none">'
+        '<ellipse cx="50" cy="10" rx="50" ry="10"/></svg>'
+        '<span class="plate-car-body">'
         '<span class="plate-car-base"></span>'
         '<span class="plate-car-ink"></span>'
         '<span class="plate-car-lamps"></span>'
+        "</span>"
         "</div>"
     )
 
@@ -614,7 +654,6 @@ def hero():
         sign(),
         road_svg,
         meadow(rnd, near, far),
-        car_shadow(),
         folded_map(rnd),
         compass(),
         "</g></svg>",

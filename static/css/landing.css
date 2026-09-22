@@ -1433,9 +1433,11 @@ html.light-mode .pl-shadow {
 /* ---- The engraved car, laid over the hero plate --------------
    Alpha masks from scripts/engrave_landing_car.py take the page's
    inks: paper under the car and ink lines by day, a solid ground
-   and cream highlight lines by night, rust for the lamps. */
+   and cream highlight lines by night, rust for the lamps. The page
+   script (features/landing/car.js) drives it along the road. */
 .plate-hero-art {
   position: relative;
+  overflow: hidden;
 }
 
 /* The road runs off the bottom of the plate; keep it inside the frame. */
@@ -1447,9 +1449,38 @@ html.light-mode .pl-shadow {
   position: absolute;
   aspect-ratio: 600 / 408;
   pointer-events: none;
+  transform-origin: 54% 93%;
 }
 
-.plate-car span {
+/* Hidden until the script drives it in; shown anyway if it never runs. */
+.plate-car:not(.is-ready) {
+  opacity: 0;
+  animation: plateCarShow 0s 2.5s forwards;
+}
+
+@keyframes plateCarShow {
+  to {
+    opacity: 1;
+  }
+}
+
+.plate-car.is-moving {
+  will-change: transform, opacity;
+}
+
+.plate-car.is-interactive {
+  pointer-events: auto;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.plate-car-body {
+  position: absolute;
+  inset: 0;
+  transform-origin: 54% 93%;
+}
+
+.plate-car-body > span {
   position: absolute;
   inset: 0;
   mask-position: 0 0;
@@ -1480,8 +1511,92 @@ html.light-mode .plate-car-ink {
   mask-image: url("../images/landing/murano-ink.webp");
 }
 
-html.light-mode .pl-car-shadow {
+.plate-car-shadow {
+  position: absolute;
+  left: 2%;
+  top: 83%;
+  width: 104%;
+  height: 20%;
+  overflow: visible;
+  transform: rotate(-9deg);
+}
+
+.plate-car-shadow ellipse {
+  fill: var(--manual-solid);
+  opacity: 0.55;
+}
+
+html.light-mode .plate-car-shadow ellipse {
   opacity: 0.22;
+}
+
+/* A little rev of the engine when the pointer rests on the car. */
+.plate-car.is-interactive:hover .plate-car-body {
+  animation: plateCarRev 420ms ease-out;
+}
+
+@keyframes plateCarRev {
+  0%,
+  100% {
+    transform: none;
+  }
+
+  20% {
+    transform: translateY(-0.7%) rotate(-0.5deg);
+  }
+
+  45% {
+    transform: translateY(0.35%) rotate(0.35deg);
+  }
+
+  70% {
+    transform: translateY(-0.2%);
+  }
+}
+
+/* Exhaust, drawn as small ink clouds that drift back and fade. */
+.plate-puff {
+  position: absolute;
+  width: var(--puff-size, 5%);
+  aspect-ratio: 44 / 30;
+  pointer-events: none;
+  opacity: 0;
+  transform: translate(-85%, -55%) scale(0.3);
+  animation: platePuff 1.7s cubic-bezier(0.2, 0.6, 0.3, 1) forwards;
+}
+
+.plate-puff svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.plate-puff-cloud {
+  fill: var(--manual-paper);
+  stroke: var(--manual-ink);
+  stroke-width: 1.6;
+  stroke-linejoin: round;
+}
+
+.plate-puff-curl {
+  fill: none;
+  stroke: var(--manual-ink);
+  stroke-width: 1.1;
+  stroke-linecap: round;
+  opacity: 0.7;
+}
+
+@keyframes platePuff {
+  0% {
+    opacity: 0.95;
+    transform: translate(-85%, -55%) scale(0.3);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(-200%, -30%) scale(1.4);
+  }
 }
 
 /* ============================================================
@@ -1685,6 +1800,16 @@ html.light-mode .pl-car-shadow {
   .action-art .plate,
   .record-count::after {
     transition: none;
+  }
+
+  .plate-car:not(.is-ready) {
+    opacity: 1;
+    animation: none;
+  }
+
+  .plate-car.is-interactive:hover .plate-car-body,
+  .plate-puff {
+    animation: none;
   }
 
   .manual-action:hover .action-art .plate,
