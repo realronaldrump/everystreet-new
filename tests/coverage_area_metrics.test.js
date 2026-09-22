@@ -6,7 +6,7 @@ import {
   getDriveableSegments,
   getRemainingDriveableMiles,
 } from "../static/js/modules/features/navigation-core/coverage-areas.js";
-import { buildMissionLine } from "../static/js/modules/features/landing/hero.js";
+import { buildAreaSummary } from "../static/js/modules/features/landing/hero.js";
 
 test("coverage mileage excludes undriveable streets from total and remaining", () => {
   const area = {
@@ -20,13 +20,10 @@ test("coverage mileage excludes undriveable streets from total and remaining", (
 
   assert.equal(getDriveableMiles(area), 80);
   assert.equal(getRemainingDriveableMiles(area), 40);
-  assert.equal(
-    buildMissionLine([area]),
-    "Testville is 50.0% driven. 40.0 miles of streets to go."
-  );
+  assert.equal(buildAreaSummary([area]), "Testville: 50.0% driven, 40.0 mi left");
 });
 
-test("mission line follows the most recently driven coverage area", () => {
+test("area summary follows the most recently driven coverage area", () => {
   const largerOlderArea = {
     display_name: "Waco, Texas",
     coverage_percentage: 55.6,
@@ -45,14 +42,14 @@ test("mission line follows the most recently driven coverage area", () => {
   };
 
   assert.equal(
-    buildMissionLine([largerOlderArea, smallerNewerArea]),
-    "Austin is 25.0% driven. 30.0 miles of streets to go."
+    buildAreaSummary([largerOlderArea, smallerNewerArea]),
+    "Austin: 25.0% driven, 30.0 mi left"
   );
 });
 
-test("mission line is hidden when no coverage area has a drive timestamp", () => {
+test("area summary is empty when no coverage area has a drive timestamp", () => {
   assert.equal(
-    buildMissionLine([
+    buildAreaSummary([
       {
         display_name: "Waco, Texas",
         coverage_percentage: 55.6,

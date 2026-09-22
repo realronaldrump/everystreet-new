@@ -31,11 +31,10 @@
 
 
 {% block extra_css %}
-  {# The field-guide faces load only on the home page: one condensed cut of
-     Roboto Serif for titles and figures, a Franklin gothic for printed
-     labels, and a pencil hand for the margin notes. Running text stays in
-     the app's Source Serif 4. #}
-  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600&family=Libre+Franklin:wght@500..800&family=Roboto+Serif:opsz,wdth,wght@144,72,800&display=swap"
+  {# Home-page faces: one condensed cut of Roboto Serif for titles and
+     figures and a Franklin gothic for labels. Running text stays in the
+     app's Source Serif 4. #}
+  <link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@500..800&family=Roboto+Serif:opsz,wdth,wght@144,72,800&display=swap"
         rel="stylesheet" />
   {{ static_css("landing.css") }}
 {% endblock %}
@@ -50,29 +49,17 @@
     <header class="manual-title">
       <div class="manual-title-copy">
         <p class="manual-kicker">
-          <span>A Motorist&rsquo;s Field Guide</span>
+          <time id="manual-date"></time>
           <span class="manual-kicker-rule" aria-hidden="true"></span>
-          <span class="manual-kicker-meta">
-            No.&nbsp;{{ repo_version.commit_count }}
-            <span aria-hidden="true">&middot;</span>
-            <time id="manual-date"></time>
-          </span>
         </p>
-        <h1 class="manual-headline">Every street, eventually.</h1>
-        <p class="manual-mission" id="home-mission" hidden></p>
-        <p class="pencil-note pencil-note-mission" id="mission-note" aria-hidden="true" hidden>
-          <svg class="pencil-arrow" viewBox="0 0 64 40" focusable="false">
-            <path d="M60 30C48 36 26 36 12 22C9 19 7 15 6 10" />
-            <path d="M1.5 16L6 9.5L11 15.5" />
-          </svg>
-          <span class="pencil-note-text" id="mission-note-text"></span>
-        </p>
+        <h1 class="manual-headline">Every Street</h1>
+        <p class="manual-area" id="home-area" hidden></p>
         <div class="manual-status">
           {% if auth_context.is_owner and app_settings.get('bouncieLiveTrackingEnabled', false) %}
             <span class="status-chip" aria-live="polite">
               <span class="live-dot" id="live-indicator" title="Live tracking"></span>
-              <span class="status-label status-off">Parked</span>
-              <span class="status-label status-on">On the road now</span>
+              <span class="status-label status-off">Idle</span>
+              <span class="status-label status-on">Live now</span>
             </span>
           {% endif %}
           <span class="weather-chip" id="weather-chip" data-value-flash hidden></span>
@@ -81,18 +68,14 @@
 
       <figure class="manual-plate manual-plate-hero">
         {% include "partials/landing/_plate_hero.html" %}
-        <figcaption class="plate-caption">
-          <span class="plate-caption-no">Plate 1.</span>
-          <span id="plate-caption-text">The Murano, on the road.</span>
-        </figcaption>
+        <figcaption class="plate-caption">2014 Nissan Murano</figcaption>
       </figure>
     </header>
 
-    <!-- The log -->
+    <!-- Totals for the selected range -->
     <section class="manual-section manual-log" aria-labelledby="log-heading">
       <div class="section-head">
-        <h2 class="section-eyebrow" id="log-heading">Today&rsquo;s log</h2>
-        <span class="section-meta" id="log-range" hidden></span>
+        <h2 class="section-eyebrow" id="log-heading">Today</h2>
       </div>
       <div class="ledger">
         <div class="ledger-cell snapshot-figure">
@@ -104,14 +87,14 @@
         </div>
 
         <div class="ledger-cell snapshot-figure">
-          <span class="snapshot-label">Trips logged</span>
+          <span class="snapshot-label">Trips</span>
           <span class="snapshot-readout">
             <span class="snapshot-value" id="stat-trips" data-value-flash>--</span>
           </span>
         </div>
 
         <div class="ledger-cell snapshot-figure">
-          <span class="snapshot-label">Time at the wheel</span>
+          <span class="snapshot-label">Drive time</span>
           <span class="snapshot-readout">
             <span class="snapshot-value" id="stat-time" data-value-flash>--</span>
             <span class="snapshot-unit" id="stat-time-unit">hr</span>
@@ -129,17 +112,16 @@
           <span class="record-value" id="record-value" data-value-flash>--</span>
           <span class="record-title" id="record-title">--</span>
           <span class="record-date" id="record-date">--</span>
-          <span class="pencil-note pencil-note-record" id="record-note" aria-hidden="true" hidden>new!</span>
           <span class="visually-hidden">Activate to show the next record.</span>
         </div>
       </div>
     </section>
 
-    <!-- 01 / The mission -->
-    <section class="manual-section home-coverage" id="home-coverage" aria-labelledby="mission-heading" hidden>
+    <!-- 01 / Coverage -->
+    <section class="manual-section home-coverage" id="home-coverage" aria-labelledby="coverage-heading" hidden>
       <div class="section-head">
-        <h2 class="section-eyebrow" id="mission-heading">
-          <span class="section-no">01</span> The mission
+        <h2 class="section-eyebrow" id="coverage-heading">
+          <span class="section-no">01</span> Coverage
         </h2>
         <a class="section-link" href="/coverage-management">All areas <span aria-hidden="true">&rarr;</span></a>
       </div>
@@ -155,10 +137,6 @@
             </span>
           </div>
           <ol class="coverage-register" id="coverage-register"></ol>
-          <figcaption class="figure-caption">
-            <span class="figure-no">Fig. 1.</span>
-            Share of driveable street miles driven, largest areas first. Hatched portion is done.
-          </figcaption>
         </figure>
         <div class="manual-vignette manual-vignette-transit" aria-hidden="true">
           {% include "partials/landing/_vignette_transit.html" %}
@@ -174,7 +152,7 @@
         </span>
         <span class="action-text">
           <span class="action-title">Open the map</span>
-          <span class="action-sub">Trips, coverage, heat, and your live position</span>
+          <span class="action-sub">Trips, coverage, heatmap, live position</span>
         </span>
         <svg class="action-arrow" viewBox="0 0 48 16" aria-hidden="true" focusable="false">
           <path d="M1 8.5C14 7.6 30 8.2 45 8" />
@@ -188,7 +166,7 @@
         </span>
         <span class="action-text">
           <span class="action-title">Plan a route</span>
-          <span class="action-sub">The shortest loop through streets you haven&rsquo;t driven</span>
+          <span class="action-sub">Shortest route through undriven streets</span>
         </span>
         <svg class="action-arrow" viewBox="0 0 48 16" aria-hidden="true" focusable="false">
           <path d="M1 8.5C14 7.6 30 8.2 45 8" />
@@ -275,7 +253,7 @@
           <span class="section-no">03</span> Recent trips
           <span class="activity-live-dot" aria-hidden="true"></span>
         </h2>
-        <a class="section-link" href="/trips">Full log <span aria-hidden="true">&rarr;</span></a>
+        <a class="section-link" href="/trips">All trips <span aria-hidden="true">&rarr;</span></a>
       </div>
       <div class="manual-spread">
         <table class="logbook">
@@ -298,7 +276,7 @@
             <tr>
               <td></td>
               <td class="logbook-time"></td>
-              <th scope="row" class="logbook-total-label" id="logbook-total-label">Page total</th>
+              <th scope="row" class="logbook-total-label" id="logbook-total-label">Total</th>
               <td class="logbook-duration"></td>
               <td class="logbook-num logbook-total" id="logbook-total"></td>
             </tr>

@@ -1,15 +1,13 @@
 import { getRemainingDriveableMiles } from "../navigation-core/coverage-areas.js";
 
-const NEAR_DONE_PERCENT = 85;
-
 export function updateMastheadDate(elements = {}) {
   if (!elements.mastheadDate) {
     return;
   }
   const now = new Date();
   elements.mastheadDate.textContent = now.toLocaleDateString(undefined, {
-    weekday: "short",
-    month: "short",
+    weekday: "long",
+    month: "long",
     day: "numeric",
     year: "numeric",
   });
@@ -20,7 +18,7 @@ export function updateMastheadDate(elements = {}) {
  * The coverage area most recently driven in, or null when no area has a
  * drive timestamp yet.
  */
-export function selectMissionArea(areas) {
+export function selectRecentArea(areas) {
   if (!Array.isArray(areas) || areas.length === 0) {
     return null;
   }
@@ -39,11 +37,11 @@ export function selectMissionArea(areas) {
 }
 
 /**
- * Name, progress, and remaining miles for the mission area, plus the
- * region it sits in (its county, when the display name carries one).
+ * Name, progress, and remaining miles for the most recently driven area,
+ * plus the region it sits in (its county, when the display name has one).
  */
-export function describeMission(areas) {
-  const area = selectMissionArea(areas);
+export function describeRecentArea(areas) {
+  const area = selectRecentArea(areas);
   const parts = String(area?.display_name ?? "")
     .split(",")
     .map((part) => part.trim())
@@ -58,34 +56,30 @@ export function describeMission(areas) {
     parts
       .slice(1)
       .find((part) => !/^\d/.test(part) && !/^united states$/i.test(part)) || null;
-  const remaining = getRemainingDriveableMiles(area);
 
   return {
     name,
     region,
     pct,
-    remaining,
+    remaining: getRemainingDriveableMiles(area),
     done: pct >= 100,
-    nearlyDone: pct >= NEAR_DONE_PERCENT && pct < 100,
   };
 }
 
+/** ": 90.8% driven, 2.8 mi left" for a described area. */
+export function formatAreaFigures(area) {
+  const figures = [`${area.pct.toFixed(1)}% driven`];
+  if (!area.done && area.remaining !== null && area.remaining > 0) {
+    figures.push(`${area.remaining.toFixed(1)} mi left`);
+  }
+  return `: ${figures.join(", ")}`;
+}
+
 /**
- * One factual sentence about the coverage area most recently driven in.
+ * One line of figures for the coverage area most recently driven in.
  * Returns null when there is no usable area yet.
  */
-export function buildMissionLine(areas) {
-  const mission = describeMission(areas);
-  if (!mission) {
-    return null;
-  }
-  const { name, pct, remaining, done } = mission;
-
-  if (done) {
-    return `${name} is done. Every street.`;
-  }
-  if (remaining !== null && remaining > 0) {
-    return `${name} is ${pct.toFixed(1)}% driven. ${remaining.toFixed(1)} miles of streets to go.`;
-  }
-  return `${name} is ${pct.toFixed(1)}% driven.`;
+export function buildAreaSummary(areas) {
+  const area = describeRecentArea(areas);
+  return area ? `${area.name}${formatAreaFigures(area)}` : null;
 }

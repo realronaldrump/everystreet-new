@@ -1,8 +1,7 @@
 /**
  * Landing Page Controller
- * Fills the home page (a printed field guide) with live data: the mission
- * sentence and hero plate, the mileage ledger, survey scales, the index, and
- * the logbook of recent trips.
+ * Fills the home page with live data: the recent-area line and hero plate,
+ * range totals, coverage scales, index figures, and recent trips.
  */
 
 import { CONFIG as APP_CONFIG } from "../../core/config.js";
@@ -23,7 +22,7 @@ import {
   isAbortError,
 } from "../../utils.js";
 import { animateValue } from "./animations.js";
-import { describeMission, updateMastheadDate } from "./hero.js";
+import { describeRecentArea, formatAreaFigures, updateMastheadDate } from "./hero.js";
 
 // Configuration
 const CONFIG = {
@@ -33,7 +32,6 @@ const CONFIG = {
   animationDuration: 500,
   activityLimit: 5,
   coverageRows: 3,
-  recordNewWindowMs: 7 * 24 * 60 * 60 * 1000,
   signTextWidth: 134,
   mapTitleWidth: 100,
 };
@@ -110,18 +108,14 @@ function cacheElements() {
   const byId = (id) => document.getElementById(id);
   elements = {
     mastheadDate: byId("manual-date"),
-    missionLine: byId("home-mission"),
-    missionNote: byId("mission-note"),
-    missionNoteText: byId("mission-note-text"),
+    areaLine: byId("home-area"),
     heroSignName: byId("hero-sign-name"),
     heroSignMiles: byId("hero-sign-miles"),
     heroMapTitle: byId("hero-map-title"),
-    plateCaption: byId("plate-caption-text"),
     coverageSection: byId("home-coverage"),
     coverageRegister: byId("coverage-register"),
     weatherChip: byId("weather-chip"),
     logHeading: byId("log-heading"),
-    logRange: byId("log-range"),
     statMiles: byId("stat-miles"),
     statTrips: byId("stat-trips"),
     statTime: byId("stat-time"),
@@ -139,7 +133,6 @@ function cacheElements() {
     recordValue: byId("record-value"),
     recordTitle: byId("record-title"),
     recordDate: byId("record-date"),
-    recordNote: byId("record-note"),
 
     navTiles: Array.from(document.querySelectorAll(".nav-tile")),
   };
@@ -328,7 +321,7 @@ async function loadCoverageStats() {
     if (data?.areas) {
       setRecordSource("coverage", data);
       renderCoverageRegister(data.areas);
-      renderMission(data.areas);
+      renderRecentArea(data.areas);
       renderAreaCount(data.areas);
     }
   } catch (error) {
@@ -339,74 +332,47 @@ async function loadCoverageStats() {
 }
 
 /**
- * The title-page sentence, its pencilled margin note, and the hero plate's
- * road sign, map cartouche, and caption all follow the area driven last.
+ * The line under the title and the hero plate's road sign and map label
+ * follow the coverage area driven most recently.
  */
-function renderMission(areas) {
-  const mission = describeMission(areas);
-  renderMissionLine(mission);
-  renderHeroPlate(mission);
+function renderRecentArea(areas) {
+  const area = describeRecentArea(areas);
+  renderAreaLine(area);
+  renderHeroPlate(area);
 }
 
-function renderMissionLine(mission) {
-  const { missionLine, missionNote, missionNoteText } = elements;
-  if (!missionLine) {
+function renderAreaLine(area) {
+  const line = elements.areaLine;
+  if (!line) {
     return;
   }
-  if (!mission) {
-    missionLine.hidden = true;
-    if (missionNote) {
-      missionNote.hidden = true;
-    }
+  if (!area) {
+    line.hidden = true;
     return;
   }
-
-  const { name, pct, remaining, done, nearlyDone } = mission;
   const nameEl = document.createElement("strong");
-  nameEl.textContent = name;
-
-  if (done) {
-    missionLine.replaceChildren(nameEl, " is done. Every street.");
-  } else if (remaining !== null && remaining > 0) {
-    const leftEl = document.createElement("span");
-    leftEl.className = "mission-left";
-    leftEl.textContent = `${remaining.toFixed(1)} miles of streets to go.`;
-    missionLine.replaceChildren(nameEl, ` is ${pct.toFixed(1)}% driven. `, leftEl);
-  } else {
-    missionLine.replaceChildren(nameEl, ` is ${pct.toFixed(1)}% driven.`);
-  }
-  missionLine.hidden = false;
-
-  if (missionNote && missionNoteText) {
-    missionNoteText.textContent = nearlyDone ? "almost there!" : "";
-    missionNote.hidden = !nearlyDone;
-  }
+  nameEl.textContent = area.name;
+  line.replaceChildren(nameEl, formatAreaFigures(area));
+  line.hidden = false;
 }
 
-function renderHeroPlate(mission) {
-  const { heroSignName, heroSignMiles, heroMapTitle, plateCaption } = elements;
+function renderHeroPlate(area) {
+  const { heroSignName, heroSignMiles, heroMapTitle } = elements;
 
   if (heroSignName) {
-    heroSignName.textContent = mission ? mission.name.toUpperCase() : "EVERY STREET";
+    heroSignName.textContent = area ? area.name.toUpperCase() : "EVERY STREET";
   }
   if (heroSignMiles) {
     let miles = "";
-    if (mission?.done) {
-      miles = "ALL DRIVEN";
-    } else if (mission && mission.remaining !== null) {
-      miles = `${mission.remaining.toFixed(1)} MI`;
-    } else if (mission) {
-      miles = `${Math.floor(mission.pct)}%`;
+    if (area && !area.done && area.remaining !== null) {
+      miles = `${area.remaining.toFixed(1)} MI`;
+    } else if (area) {
+      miles = `${Math.floor(area.pct)}%`;
     }
     heroSignMiles.textContent = miles;
   }
   if (heroMapTitle) {
-    heroMapTitle.textContent = mission?.region || mission?.name || "Road Map";
-  }
-  if (plateCaption) {
-    plateCaption.textContent = mission
-      ? `The 2014 Murano, bound for ${mission.name}.`
-      : "The 2014 Murano, on the road.";
+    heroMapTitle.textContent = area?.region || area?.name || "Road Map";
   }
 
   fitPlateText();
@@ -530,10 +496,7 @@ function renderCoverageRegister(areas) {
     const leftEl = document.createElement("span");
     leftEl.className = "coverage-register-left";
     if (done) {
-      const doneEl = document.createElement("span");
-      doneEl.className = "pencil-done";
-      doneEl.textContent = "done ✓";
-      leftEl.appendChild(doneEl);
+      leftEl.textContent = "Complete";
     } else {
       leftEl.textContent = remaining !== null ? `${remaining.toFixed(1)} mi left` : "";
     }
@@ -783,7 +746,6 @@ function addRecordEntry(entries, { id, title, value, date, datePrefix }) {
     id,
     title,
     value,
-    timestamp: parsedDate.getTime(),
     dateText: datePrefix ? `${datePrefix} ${dateText}` : dateText,
   });
 }
@@ -805,10 +767,6 @@ function renderRecordEntry(entry) {
   if (elements.recordCount) {
     elements.recordCount.textContent =
       recordEntries.length > 1 ? `${recordIndex + 1} of ${recordEntries.length}` : "";
-  }
-  if (elements.recordNote) {
-    const age = Date.now() - entry.timestamp;
-    elements.recordNote.hidden = !(age >= 0 && age < CONFIG.recordNewWindowMs);
   }
   if (entry.id !== currentRecordId) {
     currentRecordId = entry.id;
@@ -833,9 +791,6 @@ function renderEmptyRecord() {
 function clearRecordMarginalia() {
   if (elements.recordCount) {
     elements.recordCount.textContent = "";
-  }
-  if (elements.recordNote) {
-    elements.recordNote.hidden = true;
   }
 }
 
@@ -1085,24 +1040,17 @@ function getSelectedRangeStatusText() {
   return "Checking all time";
 }
 
-/**
- * "Today's log" for the default range; otherwise a plain heading with the
- * picker's own label for the range printed opposite.
- */
+/** Name the totals after the selected range, as the date picker labels it. */
 function updateLogHeading() {
-  const { logHeading, logRange } = elements;
+  const { logHeading } = elements;
   if (!logHeading) {
     return;
   }
   const today = DateUtils.getCurrentDate();
   const isToday =
     DateUtils.getStartDate() === today && DateUtils.getEndDate() === today;
-  logHeading.textContent = isToday ? "Today\u2019s log" : "The log";
-  if (logRange) {
-    const label = document.getElementById("date-display")?.textContent?.trim() || "";
-    logRange.textContent = isToday ? "" : label;
-    logRange.hidden = isToday || !label;
-  }
+  const label = document.getElementById("date-display")?.textContent?.trim();
+  logHeading.textContent = isToday ? "Today" : label || "Selected range";
 }
 
 /** Keep the log heading in step with the header's date-range label. */
@@ -1379,8 +1327,7 @@ function populateActivityFeed(trips) {
     row.className = "logbook-empty";
     const cell = document.createElement("td");
     cell.colSpan = 5;
-    cell.textContent =
-      "No trips logged in this range yet. Drives appear here as Bouncie reports them.";
+    cell.textContent = "No trips in this range.";
     row.appendChild(cell);
     feed.replaceChildren(row);
     if (elements.logbookFoot) {
@@ -1445,7 +1392,7 @@ function populateActivityFeed(trips) {
   if (elements.logbookFoot && elements.logbookTotal) {
     elements.logbookTotal.textContent = `${totalMiles.toFixed(1)} mi`;
     if (elements.logbookTotalLabel) {
-      elements.logbookTotalLabel.textContent = `Page total · ${entries.length} ${
+      elements.logbookTotalLabel.textContent = `Total, ${entries.length} ${
         entries.length === 1 ? "trip" : "trips"
       }`;
     }
