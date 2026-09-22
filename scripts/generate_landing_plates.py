@@ -4,14 +4,15 @@
 The home page is set like a 1960s motorist's manual. Its drawings are inline
 SVG so they take the page's ink and paper colours in both themes; this script
 draws them (with seeded randomness for trees, grass, and hatching) and writes
-Jinja partials to templates/partials/landing/.
+Jinja partials to templates/partials/landing/. The car on the hero plate is an
+engraved image laid over the drawing; see scripts/engrave_landing_car.py.
 
 Run from the repository root:
 
     python scripts/generate_landing_plates.py
 
 Class names map to rules in static/css/landing.css: ``pl-*`` for plate
-elements and ``mn-*`` for the Murano.
+elements and ``plate-car*`` for the engraved car.
 """
 
 from __future__ import annotations
@@ -130,93 +131,6 @@ def tuft(x, y, s, rnd):
         mx, my = x + math.cos(a) * L * 0.5 + (ex - x) * 0.15, y + math.sin(a) * L * 0.6
         d += f"M{n(x + rnd.uniform(-1.2, 1.2))} {n(y)}Q{n(mx)} {n(my)} {n(ex)} {n(ey)}"
     return d
-
-
-# ---------------------------------------------------------------------------
-# The 2014 Nissan Murano
-# ---------------------------------------------------------------------------
-
-# 2014 Nissan Murano (Z51), side profile facing right. Local box ~200 x 72, ground at y=70.
-BODY = (
-    "M8 59C4.5 57.5 3 52 3 46C3 39 4.6 33.4 8.2 28.4C11.2 23 15.8 17.6 22.4 13.4"
-    "C38 6.4 66 3 92 3C104 3 112 4.5 118 7.5C127 13 134 20 141 27.5"
-    "C156 29.5 175 31.5 189 35C195 36.8 198.5 40.5 199 46L199 54.5"
-    "C199 57.5 197.5 59.5 194 60L181.5 60"
-    "A18.5 18.5 0 0 0 144.5 60L61 60A18.5 18.5 0 0 0 24 60Z"
-)
-WINDOW_FRONT = (
-    "M136.5 28.8C129 21.2 121.5 13.8 115.5 9.6C111 8.2 106 7.6 101 7.4L100.2 28.2Z"
-)
-WINDOW_REAR = (
-    "M96.4 7.3L95.8 28C84 27.6 72 27.2 63.2 26.9L65.2 7.1C76 6.8 87 7 96.4 7.3Z"
-)
-WINDOW_QUARTER = "M60.8 7.3L58.8 26.6C52.5 24.4 45.5 20.2 39.5 16.6C36 14.6 33 13.6 30.6 13.3C39.5 9.6 50 7.7 60.8 7.3Z"
-DETAILS = [
-    # hood/cowl, headlamp, grille bars, bumper
-    "M182.6 37.6C190.6 37.8 196.6 40.8 198.4 45.8L189.6 45.4C185.2 44.7 181.4 42.2 179.4 38.8Z",
-    "M197 47.5H199M196.6 50.2H199M196.8 52.8H199",
-    "M188 60C188.8 57 191 55.6 194.5 55.4",
-    # tail lamp boomerang
-    "M8.6 28.6C11.6 27.4 15.6 27.2 18.4 28.2L13.6 34.6C11.4 38.2 9.6 42 8.6 46.4L4.2 45.6C4.1 39.4 5.6 33.2 8.6 28.6Z",
-    # character line and sill
-    "M24 39.5C60 42.5 110 44.5 148 43.2",
-    "M63 55.2C90 56 118 56 142.5 55.2",
-    # door shut lines
-    "M137 29.2C139.5 38 141 47 143.2 58.6",
-    "M98.6 28.4C98.8 38.4 98.9 48.5 99 59.6",
-    "M61.6 27C60 36 59.5 42 61 50",
-    # handles
-    "M121.5 35.2h7.2M84.5 34.6h7",
-    # rear glass edge and spoiler lip
-    "M24.8 13.4C19.6 17.4 14.8 22.2 11.8 27.6",
-    "M19.6 15.4L28.4 11.6",
-    # lower intake, fender flare
-    "M184.5 56.8H197.5",
-    "M141.5 45.4C146 40.4 151.5 37.8 157 37.2",
-]
-MIRROR = "M130.5 29.6L137.2 26.2C140.2 25.6 141.8 28 140.2 30.6L133.2 31.6Z"
-GLINTS = "M126 25L131.5 16M121 26.5L128 15.5M88 25L93 12M50 22L56 12"
-
-
-def wheel(cx, cy):
-    import math
-
-    r_t, r_r = 14.2, 9.4
-    spokes = []
-    for i in range(5):
-        a = math.radians(-90 + i * 72)
-        a1, a2 = a - 0.16, a + 0.16
-        spokes.append(
-            f"M{cx + 2.4 * math.cos(a1):.2f} {cy + 2.4 * math.sin(a1):.2f}"
-            f"L{cx + 8.6 * math.cos(a - 0.2):.2f} {cy + 8.6 * math.sin(a - 0.2):.2f}"
-            f"M{cx + 2.4 * math.cos(a2):.2f} {cy + 2.4 * math.sin(a2):.2f}"
-            f"L{cx + 8.6 * math.cos(a + 0.2):.2f} {cy + 8.6 * math.sin(a + 0.2):.2f}"
-        )
-    return (
-        f'<circle class="mn-solid" cx="{cx}" cy="{cy}" r="{r_t}"/>'
-        f'<circle class="mn-paper mn-line" cx="{cx}" cy="{cy}" r="{r_r}"/>'
-        f'<path class="mn-line mn-thin" d="{"".join(spokes)}"/>'
-        f'<circle class="mn-line mn-thin" cx="{cx}" cy="{cy}" r="2.2"/>'
-        f'<path class="mn-line mn-hair" d="M{cx - 12.2} {cy - 3}A12.6 12.6 0 0 1 {cx + 3} {cy - 12.2}"/>'
-    )
-
-
-def murano():
-    parts = [
-        '<g class="mn">',
-        '<ellipse class="mn-shadow" cx="100" cy="70.5" rx="98" ry="3.6"/>',
-        f'<path class="mn-paper mn-line mn-body" d="{BODY}"/>',
-        f'<path class="mn-glass" d="{WINDOW_FRONT}"/>',
-        f'<path class="mn-glass" d="{WINDOW_REAR}"/>',
-        f'<path class="mn-glass" d="{WINDOW_QUARTER}"/>',
-        f'<path class="mn-glint" d="{GLINTS}"/>',
-        f'<path class="mn-line mn-thin" d="{"".join(DETAILS)}"/>',
-        f'<path class="mn-solid" d="{MIRROR}"/>',
-        wheel(42.5, 56),
-        wheel(163, 56),
-        "</g>",
-    ]
-    return "".join(parts)
 
 
 # ---------------------------------------------------------------------------
@@ -406,32 +320,50 @@ def sample_path(pts, steps=10):
     return out
 
 
+# The engraved car (static/images/landing/murano-*.webp, made by
+# scripts/engrave_landing_car.py) sits over the plate in this box, in plate
+# units: x, y, width. The masks are 600 x 408.
+CAR_BOX = (84, 244, 304)
+CAR_ASPECT = 408 / 600
+
+# Road centre line with its width at each point: wide under the car in the
+# foreground, heading up and away, then winding into the notch in the hills.
+ROAD = [
+    (-60, 520, 470),
+    (40, 470, 400),
+    (150, 420, 310),
+    (250, 378, 220),
+    (330, 346, 150),
+    (384, 322, 100),
+    (414, 304, 68),
+    (412, 291, 48),
+    (392, 281, 35),
+    (388, 271, 26),
+    (410, 262, 18),
+    (436, 255, 13),
+    (451, 248, 9),
+    (447, 243, 5.5),
+    (451, 239, 3),
+]
+
+
+def sample_road(ctrl, steps=12):
+    pts = sample_path([(x, y) for x, y, _ in ctrl], steps)
+    widths = []
+    for i in range(len(ctrl) - 1):
+        w0, w1 = ctrl[i][2], ctrl[i + 1][2]
+        widths += [w0 + (w1 - w0) * s / steps for s in range(steps)]
+    widths.append(ctrl[-1][2])
+    return pts, widths
+
+
 def road(rnd):
-    # foreground crossing, then a bend away and switchbacks into the notch in the hills
-    center = [
-        (-20, 408),
-        (120, 402),
-        (260, 392),
-        (380, 378),
-        (452, 360),
-        (478, 336),
-        (462, 314),
-        (420, 298),
-        (396, 284),
-        (408, 270),
-        (440, 261),
-        (452, 252),
-        (446, 245),
-        (452, 240),
-    ]
-    pts = sample_path(center, 12)
-    horizon = 236
-    widths = [max(2.2, min(62, (y - horizon) * 0.37)) for (x, y) in pts]
-    left, right = road_edges(pts, widths)
-    surface = poly(left + right[::-1])
+    pts, widths = sample_road(ROAD)
+    near, far = road_edges(pts, widths)
+    surface = poly(near + far[::-1])
     out = [f'<path class="pl-road" d="{surface}"/>']
-    out.append(f'<path class="pl-line pl-med" d="{poly(left, close=False)}"/>')
-    out.append(f'<path class="pl-line pl-med" d="{poly(right, close=False)}"/>')
+    out.append(f'<path class="pl-line pl-med" d="{poly(near, close=False)}"/>')
+    out.append(f'<path class="pl-line pl-med" d="{poly(far, close=False)}"/>')
     # centre dashes, spaced by perspective
     dashes = ""
     acc = 0.0
@@ -439,7 +371,7 @@ def road(rnd):
         (x0, y0), (x1, y1) = pts[i - 1], pts[i]
         seg = math.hypot(x1 - x0, y1 - y0)
         w = widths[i]
-        period = max(3.0, w * 0.5)
+        period = max(3.0, w * 0.22)
         acc += seg
         if acc > period and w > 5:
             acc = 0
@@ -447,65 +379,85 @@ def road(rnd):
             L = period * 0.5
             dashes += f"M{n(x1)} {n(y1)}l{n(dx * L)} {n(dy * L)}"
     out.append(f'<path class="pl-dash" d="{dashes}"/>')
-    # shoulder texture on the near edge
+    # a few strokes of surface texture near each edge
     tex = ""
-    for i in range(0, len(right), 3):
-        x, y = right[i]
-        w = widths[i]
-        if w > 20:
-            tex += f"M{n(x + rnd.uniform(-2, 2))} {n(y - 2)}l{n(rnd.uniform(6, 14))} {n(rnd.uniform(-0.5, 0.5))}"
+    for edge, sign in ((near, -1), (far, 1)):
+        for i in range(0, len(edge), 4):
+            x, y = edge[i]
+            if widths[i] > 30 and y < 470:
+                length = rnd.uniform(0.04, 0.08) * widths[i]
+                tex += f"M{n(x + rnd.uniform(4, 12))} {n(y + sign * rnd.uniform(3, 7))}l{n(length)} {n(-length * 0.34)}"
     out.append(f'<path class="pl-line pl-hair" d="{tex}"/>')
-    return "".join(out), pts, widths
+    return "".join(out), near, far
 
 
-def meadow(rnd):
-    out = []
-    # mid ground band between hills and road, with scattered tufts
+def car_shadow():
+    x, y, w = CAR_BOX
+    h = w * CAR_ASPECT
+    cx, cy = x + w * 0.54, y + h * 0.93
+    return (
+        f'<ellipse class="pl-shadow pl-car-shadow" cx="{n(cx)}" cy="{n(cy)}" '
+        f'rx="{n(w * 0.52)}" ry="{n(h * 0.1)}" transform="rotate(-9 {n(cx)} {n(cy)})"/>'
+    )
+
+
+def car_overlay():
+    x, y, w = CAR_BOX
+    style = f"left:{x / W * 100:.3f}%;top:{y / H * 100:.3f}%;width:{w / W * 100:.3f}%"
+    return (
+        f'<div class="plate-car" style="{style}" aria-hidden="true">'
+        '<span class="plate-car-base"></span>'
+        '<span class="plate-car-ink"></span>'
+        '<span class="plate-car-lamps"></span>'
+        "</div>"
+    )
+
+
+def meadow(rnd, near, far):
     tufts = ""
     for x, y in (
         (236, 300),
         (262, 286),
         (318, 296),
-        (352, 312),
         (500, 298),
         (512, 276),
-        (286, 318),
+        (470, 318),
     ):
         for _ in range(rnd.randint(1, 3)):
             tufts += tuft(
                 x + rnd.uniform(-8, 8), y + rnd.uniform(-3, 3), rnd.uniform(3, 5), rnd
             )
-    for _ in range(34):
-        x = rnd.uniform(-10, 420)
-        y = 360 - x * 0.07 + rnd.uniform(-4, 4)
-        tufts += tuft(x, y, rnd.uniform(4, 8), rnd)
-    for _ in range(46):
-        x = rnd.uniform(0, 470)
-        y = rnd.uniform(430, 466)
-        tufts += tuft(x, y, rnd.uniform(6, 12), rnd)
-    out.append(f'<path class="pl-line pl-hair" d="{tufts}"/>')
-    return "".join(out)
+    # grass along the far verge, and along the near verge where it is on the plate
+    for edge, offset, size in ((far, -5, (3, 7)), (near, 6, (6, 11))):
+        for _ in range(38):
+            x, y = edge[rnd.randrange(len(edge))]
+            if 0 < x < 470 and 250 < y < 466:
+                tufts += tuft(
+                    x + rnd.uniform(-6, 6), y + offset, rnd.uniform(*size), rnd
+                )
+    out = f'<path class="pl-line pl-hair" d="{tufts}"/>'
+    return out
 
 
 def tree_clusters(rnd):
     out = []
     specs = []
-    # left stand behind the car
+    # left stand, back from the road and behind the car
     for x, h in [
-        (28, 118),
-        (52, 150),
+        (30, 118),
+        (54, 148),
         (78, 104),
-        (104, 132),
-        (132, 92),
-        (156, 70),
-        (178, 56),
-        (12, 84),
-        (200, 44),
+        (102, 128),
+        (126, 92),
+        (148, 70),
+        (170, 58),
+        (18, 84),
+        (192, 46),
     ]:
         specs.append(
             (
                 x + rnd.uniform(-4, 4),
-                372 + rnd.uniform(-6, 2),
+                330 + rnd.uniform(-6, 2),
                 h * rnd.uniform(0.92, 1.05),
             )
         )
@@ -648,25 +600,27 @@ def compass():
 
 def hero():
     rnd = random.Random(11)
+    road_svg, near, far = road(rnd)
     parts = [
+        '<div class="plate-hero-art">',
         f'<svg class="plate plate-hero" viewBox="0 0 {W} {H}" role="img" aria-labelledby="hero-plate-title">',
-        '<title id="hero-plate-title">Pen-and-ink drawing of a 2014 Nissan Murano on a mountain road, with a road sign, a folded map, and a compass.</title>',
+        '<title id="hero-plate-title">Engraving of a black 2014 Nissan Murano SL heading up a '
+        "mountain road, the driver waving from the window, with a road sign, a folded map, "
+        "and a compass.</title>",
         '<g class="plate-ink">',
         mountains(rnd),
         far_hills(rnd),
+        tree_clusters(rnd),
+        sign(),
+        road_svg,
+        meadow(rnd, near, far),
+        car_shadow(),
+        folded_map(rnd),
+        compass(),
+        "</g></svg>",
+        car_overlay(),
+        "</div>",
     ]
-    road_svg, _pts, _widths = road(rnd)
-    parts.append(meadow(rnd))
-    parts.append(tree_clusters(rnd))
-    parts.append(sign())
-    parts.append(road_svg)
-    # the car, climbing gently along the crossing
-    parts.append(
-        '<g transform="translate(92 318) rotate(-2.4) scale(1.3)">' + murano() + "</g>"
-    )
-    parts.append(folded_map(rnd))
-    parts.append(compass())
-    parts.append("</g></svg>")
     return "".join(parts)
 
 
