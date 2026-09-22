@@ -31,162 +31,281 @@
 
 
 {% block extra_css %}
+  {# The field-guide faces load only on the home page: one condensed cut of
+     Roboto Serif for titles and figures, a Franklin gothic for printed
+     labels, and a pencil hand for the margin notes. Running text stays in
+     the app's Source Serif 4. #}
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600&family=Libre+Franklin:wght@500..800&family=Roboto+Serif:opsz,wdth,wght@144,72,800&display=swap"
+        rel="stylesheet" />
   {{ static_css("landing.css") }}
 {% endblock %}
 
 
 {% block content %}
 
-  <div class="home">
+  <div class="home manual">
+    {% include "partials/landing/_plate_defs.html" %}
 
-    <!-- Masthead -->
-    <header class="home-masthead">
-      <div class="masthead-lead">
-        <h1 class="masthead-title">Every street, eventually.</h1>
-        <p class="masthead-sub" id="home-mission" hidden></p>
-      </div>
-      <div class="masthead-aside">
-        {% if auth_context.is_owner and app_settings.get('bouncieLiveTrackingEnabled', false) %}
-          <span class="status-chip" aria-live="polite">
-            <span class="live-dot" id="live-indicator" title="Live tracking"></span>
-            <span class="status-label status-off">Idle</span>
-            <span class="status-label status-on">Live now</span>
+    <!-- Title page -->
+    <header class="manual-title">
+      <div class="manual-title-copy">
+        <p class="manual-kicker">
+          <span>A Motorist&rsquo;s Field Guide</span>
+          <span class="manual-kicker-rule" aria-hidden="true"></span>
+          <span class="manual-kicker-meta">
+            No.&nbsp;{{ repo_version.commit_count }}
+            <span aria-hidden="true">&middot;</span>
+            <time id="manual-date"></time>
           </span>
-        {% endif %}
-        <span class="weather-chip" id="weather-chip" data-value-flash hidden></span>
+        </p>
+        <h1 class="manual-headline">Every street, eventually.</h1>
+        <p class="manual-mission" id="home-mission" hidden></p>
+        <p class="pencil-note pencil-note-mission" id="mission-note" aria-hidden="true" hidden>
+          <svg class="pencil-arrow" viewBox="0 0 64 40" focusable="false">
+            <path d="M60 30C48 36 26 36 12 22C9 19 7 15 6 10" />
+            <path d="M1.5 16L6 9.5L11 15.5" />
+          </svg>
+          <span class="pencil-note-text" id="mission-note-text"></span>
+        </p>
+        <div class="manual-status">
+          {% if auth_context.is_owner and app_settings.get('bouncieLiveTrackingEnabled', false) %}
+            <span class="status-chip" aria-live="polite">
+              <span class="live-dot" id="live-indicator" title="Live tracking"></span>
+              <span class="status-label status-off">Parked</span>
+              <span class="status-label status-on">On the road now</span>
+            </span>
+          {% endif %}
+          <span class="weather-chip" id="weather-chip" data-value-flash hidden></span>
+        </div>
       </div>
+
+      <figure class="manual-plate manual-plate-hero">
+        {% include "partials/landing/_plate_hero.html" %}
+        <figcaption class="plate-caption">
+          <span class="plate-caption-no">Plate 1.</span>
+          <span id="plate-caption-text">The Murano, on the road.</span>
+        </figcaption>
+      </figure>
     </header>
 
-    <!-- Snapshot -->
-    <section class="home-snapshot" aria-label="Driving snapshot">
-      <div class="snapshot-figure">
-        <span class="snapshot-label">Miles driven</span>
-        <span class="snapshot-readout">
-          <span class="snapshot-value" id="stat-miles" data-value-flash>--</span>
-          <span class="snapshot-unit">mi</span>
-        </span>
+    <!-- The log -->
+    <section class="manual-section manual-log" aria-labelledby="log-heading">
+      <div class="section-head">
+        <h2 class="section-eyebrow" id="log-heading">Today&rsquo;s log</h2>
+        <span class="section-meta" id="log-range" hidden></span>
       </div>
+      <div class="ledger">
+        <div class="ledger-cell snapshot-figure">
+          <span class="snapshot-label">Miles driven</span>
+          <span class="snapshot-readout">
+            <span class="snapshot-value" id="stat-miles" data-value-flash>--</span>
+            <span class="snapshot-unit">mi</span>
+          </span>
+        </div>
 
-      <span class="snapshot-rule" aria-hidden="true"></span>
+        <div class="ledger-cell snapshot-figure">
+          <span class="snapshot-label">Trips logged</span>
+          <span class="snapshot-readout">
+            <span class="snapshot-value" id="stat-trips" data-value-flash>--</span>
+          </span>
+        </div>
 
-      <div class="snapshot-figure">
-        <span class="snapshot-label">Trips logged</span>
-        <span class="snapshot-readout">
-          <span class="snapshot-value" id="stat-trips" data-value-flash>--</span>
-        </span>
-      </div>
+        <div class="ledger-cell snapshot-figure">
+          <span class="snapshot-label">Time at the wheel</span>
+          <span class="snapshot-readout">
+            <span class="snapshot-value" id="stat-time" data-value-flash>--</span>
+            <span class="snapshot-unit" id="stat-time-unit">hr</span>
+          </span>
+        </div>
 
-      <span class="snapshot-rule" aria-hidden="true"></span>
-
-      <div class="snapshot-record"
-           id="record-card"
-           role="button"
-           tabindex="0"
-           aria-label="Rotate personal record">
-        <span class="record-eyebrow">
-          Personal record
-          <i class="fas fa-arrows-rotate" aria-hidden="true"></i>
-        </span>
-        <span class="record-value" id="record-value" data-value-flash>--</span>
-        <span class="record-title" id="record-title">--</span>
-        <span class="record-date" id="record-date">--</span>
+        <div class="ledger-cell snapshot-record"
+             id="record-card"
+             role="button"
+             tabindex="0">
+          <span class="record-eyebrow">
+            <span>Personal record</span>
+            <span class="record-count" id="record-count" aria-hidden="true"></span>
+          </span>
+          <span class="record-value" id="record-value" data-value-flash>--</span>
+          <span class="record-title" id="record-title">--</span>
+          <span class="record-date" id="record-date">--</span>
+          <span class="pencil-note pencil-note-record" id="record-note" aria-hidden="true" hidden>new!</span>
+          <span class="visually-hidden">Activate to show the next record.</span>
+        </div>
       </div>
     </section>
 
-    <!-- Coverage progress -->
-    <section class="home-coverage" id="home-coverage" aria-label="Coverage progress" hidden>
+    <!-- 01 / The mission -->
+    <section class="manual-section home-coverage" id="home-coverage" aria-labelledby="mission-heading" hidden>
       <div class="section-head">
-        <span class="section-eyebrow">The mission</span>
-        <a class="section-link" href="/coverage-management">All areas</a>
+        <h2 class="section-eyebrow" id="mission-heading">
+          <span class="section-no">01</span> The mission
+        </h2>
+        <a class="section-link" href="/coverage-management">All areas <span aria-hidden="true">&rarr;</span></a>
       </div>
-      <ol class="coverage-register" id="coverage-register"></ol>
+      <div class="manual-spread">
+        <figure class="survey">
+          <div class="survey-scale" aria-hidden="true">
+            <span class="survey-scale-track">
+              <span style="--at: 0">0</span>
+              <span style="--at: 25">25</span>
+              <span style="--at: 50">50</span>
+              <span style="--at: 75">75</span>
+              <span style="--at: 100">100%</span>
+            </span>
+          </div>
+          <ol class="coverage-register" id="coverage-register"></ol>
+          <figcaption class="figure-caption">
+            <span class="figure-no">Fig. 1.</span>
+            Share of driveable street miles driven, largest areas first. Hatched portion is done.
+          </figcaption>
+        </figure>
+        <div class="manual-vignette manual-vignette-transit" aria-hidden="true">
+          {% include "partials/landing/_vignette_transit.html" %}
+        </div>
+      </div>
     </section>
 
     <!-- Primary actions -->
-    <section class="home-actions" aria-label="Primary actions">
-      <a href="/map" class="action-card nav-tile" data-tile="map">
+    <section class="manual-actions" aria-label="Primary actions">
+      <a href="/map" class="manual-action nav-tile" data-tile="map">
+        <span class="action-art" aria-hidden="true">
+          {% include "partials/landing/_plate_map.html" %}
+        </span>
         <span class="action-text">
           <span class="action-title">Open the map</span>
           <span class="action-sub">Trips, coverage, heat, and your live position</span>
         </span>
-        <span class="action-arrow" aria-hidden="true">&rarr;</span>
+        <svg class="action-arrow" viewBox="0 0 48 16" aria-hidden="true" focusable="false">
+          <path d="M1 8.5C14 7.6 30 8.2 45 8" />
+          <path d="M38 2.5L45.5 8L38 13.5" />
+        </svg>
       </a>
 
-      <a href="/coverage-route-planner" class="action-card nav-tile" data-tile="navigate">
+      <a href="/coverage-route-planner" class="manual-action nav-tile" data-tile="navigate">
+        <span class="action-art" aria-hidden="true">
+          {% include "partials/landing/_plate_pencil.html" %}
+        </span>
         <span class="action-text">
           <span class="action-title">Plan a route</span>
-          <span class="action-sub">The shortest loop through streets you haven't driven</span>
+          <span class="action-sub">The shortest loop through streets you haven&rsquo;t driven</span>
         </span>
-        <span class="action-arrow" aria-hidden="true">&rarr;</span>
+        <svg class="action-arrow" viewBox="0 0 48 16" aria-hidden="true" focusable="false">
+          <path d="M1 8.5C14 7.6 30 8.2 45 8" />
+          <path d="M38 2.5L45.5 8L38 13.5" />
+        </svg>
       </a>
     </section>
 
-    <!-- Index -->
-    <section class="home-index" aria-label="Index">
+    <!-- 02 / Index -->
+    <section class="manual-section home-index" aria-labelledby="index-heading">
       <div class="section-head">
-        <span class="section-eyebrow">Index</span>
+        <h2 class="section-eyebrow" id="index-heading">
+          <span class="section-no">02</span> Index
+        </h2>
       </div>
+      <div class="manual-spread">
+        <nav class="index-columns" aria-label="All pages">
+          <a href="/trips" class="index-row nav-tile" data-tile="trips">
+            <span class="index-no">01</span>
+            <span class="index-title">Trips</span>
+            <span class="index-leader" aria-hidden="true"></span>
+            <span class="index-meta" id="recent-trip"><span class="meta-value">--</span> <span class="meta-label">ago</span></span>
+          </a>
 
-      <nav class="index-columns" aria-label="All pages">
-        <a href="/trips" class="index-row nav-tile" data-tile="trips">
-          <span class="index-title">Trips</span>
-          <span class="index-leader" aria-hidden="true"></span>
-          <span class="index-meta" id="recent-trip"><span class="meta-value">--</span> <span class="meta-label">ago</span></span>
-        </a>
+          <a href="/insights" class="index-row nav-tile" data-tile="insights">
+            <span class="index-no">02</span>
+            <span class="index-title">Insights</span>
+            <span class="index-leader" aria-hidden="true"></span>
+            <span class="index-meta"></span>
+          </a>
 
-        <a href="/insights" class="index-row nav-tile" data-tile="insights">
-          <span class="index-title">Insights</span>
-          <span class="index-leader" aria-hidden="true"></span>
-          <span class="index-meta"></span>
-        </a>
+          <a href="/gas-tracking" class="index-row nav-tile" data-tile="gas">
+            <span class="index-no">03</span>
+            <span class="index-title">Fuel log</span>
+            <span class="index-leader" aria-hidden="true"></span>
+            <span class="index-meta" id="last-fillup"><span class="meta-value">--</span> <span class="meta-label">mpg avg</span></span>
+          </a>
 
-        <a href="/gas-tracking" class="index-row nav-tile" data-tile="gas">
-          <span class="index-title">Fuel log</span>
-          <span class="index-leader" aria-hidden="true"></span>
-          <span class="index-meta" id="last-fillup"><span class="meta-value">--</span> <span class="meta-label">mpg avg</span></span>
-        </a>
+          <a href="/visits" class="index-row nav-tile" data-tile="visits">
+            <span class="index-no">04</span>
+            <span class="index-title">Visits</span>
+            <span class="index-leader" aria-hidden="true"></span>
+            <span class="index-meta"></span>
+          </a>
 
-        <a href="/visits" class="index-row nav-tile" data-tile="visits">
-          <span class="index-title">Visits</span>
-          <span class="index-leader" aria-hidden="true"></span>
-          <span class="index-meta"></span>
-        </a>
+          <a href="/coverage-management" class="index-row nav-tile" data-tile="areas">
+            <span class="index-no">05</span>
+            <span class="index-title">Coverage areas</span>
+            <span class="index-leader" aria-hidden="true"></span>
+            <span class="index-meta" id="index-areas" hidden><span class="meta-value">--</span> <span class="meta-label">areas</span></span>
+          </a>
 
-        <a href="/map-matching" class="index-row nav-tile" data-tile="map-matching">
-          <span class="index-title">Map matching</span>
-          <span class="index-leader" aria-hidden="true"></span>
-          <span class="index-meta"></span>
-        </a>
+          <a href="/map-matching" class="index-row nav-tile" data-tile="map-matching">
+            <span class="index-no">06</span>
+            <span class="index-title">Map matching</span>
+            <span class="index-leader" aria-hidden="true"></span>
+            <span class="index-meta"></span>
+          </a>
 
-        <a href="/coverage-management" class="index-row nav-tile" data-tile="areas">
-          <span class="index-title">Coverage areas</span>
-          <span class="index-leader" aria-hidden="true"></span>
-          <span class="index-meta"></span>
-        </a>
+          <a href="/export" class="index-row nav-tile" data-tile="export">
+            <span class="index-no">07</span>
+            <span class="index-title">Export</span>
+            <span class="index-leader" aria-hidden="true"></span>
+            <span class="index-meta"></span>
+          </a>
 
-        <a href="/export" class="index-row nav-tile" data-tile="export">
-          <span class="index-title">Export</span>
-          <span class="index-leader" aria-hidden="true"></span>
-          <span class="index-meta"></span>
-        </a>
-
-        <a href="/control-center" class="index-row nav-tile" data-tile="settings">
-          <span class="index-title">Settings</span>
-          <span class="index-leader" aria-hidden="true"></span>
-          <span class="index-meta"></span>
-        </a>
-      </nav>
+          <a href="/control-center" class="index-row nav-tile" data-tile="settings">
+            <span class="index-no">08</span>
+            <span class="index-title">Settings</span>
+            <span class="index-leader" aria-hidden="true"></span>
+            <span class="index-meta"></span>
+          </a>
+        </nav>
+        <div class="manual-vignette manual-vignette-pump" aria-hidden="true">
+          {% include "partials/landing/_vignette_pump.html" %}
+        </div>
+      </div>
     </section>
 
-    <!-- Recent trips -->
-    <section class="home-activity" aria-label="Recent trips">
+    <!-- 03 / Recent trips -->
+    <section class="manual-section home-activity" aria-labelledby="activity-heading">
       <div class="section-head">
-        <span class="section-eyebrow">Recent trips</span>
-        <span class="activity-live-dot" aria-hidden="true"></span>
+        <h2 class="section-eyebrow" id="activity-heading">
+          <span class="section-no">03</span> Recent trips
+          <span class="activity-live-dot" aria-hidden="true"></span>
+        </h2>
+        <a class="section-link" href="/trips">Full log <span aria-hidden="true">&rarr;</span></a>
       </div>
-      <div class="activity-feed" id="activity-feed">
-        <div class="activity-loading">
-          <div class="loading-pulse"></div>
+      <div class="manual-spread">
+        <table class="logbook">
+          <caption class="visually-hidden">The five most recent trips in the selected range</caption>
+          <thead>
+            <tr>
+              <th scope="col">Date</th>
+              <th scope="col" class="logbook-time">Time</th>
+              <th scope="col">Destination</th>
+              <th scope="col" class="logbook-num logbook-duration">Duration</th>
+              <th scope="col" class="logbook-num">Miles</th>
+            </tr>
+          </thead>
+          <tbody id="activity-feed">
+            <tr class="logbook-placeholder">
+              <td colspan="5"><span class="loading-pulse" aria-hidden="true"></span><span class="visually-hidden">Loading recent trips</span></td>
+            </tr>
+          </tbody>
+          <tfoot id="logbook-foot" hidden>
+            <tr>
+              <td></td>
+              <td class="logbook-time"></td>
+              <th scope="row" class="logbook-total-label" id="logbook-total-label">Page total</th>
+              <td class="logbook-duration"></td>
+              <td class="logbook-num logbook-total" id="logbook-total"></td>
+            </tr>
+          </tfoot>
+        </table>
+        <div class="manual-vignette manual-vignette-pines" aria-hidden="true">
+          {% include "partials/landing/_vignette_pines.html" %}
         </div>
       </div>
     </section>

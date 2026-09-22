@@ -1,6 +1,8 @@
 /**
  * Landing Page Controller
- * Fetches live data and animates the landing page
+ * Fills the home page (a printed field guide) with live data: the mission
+ * sentence and hero plate, the mileage ledger, survey scales, the index, and
+ * the logbook of recent trips.
  */
 
 import { CONFIG as APP_CONFIG } from "../../core/config.js";
@@ -9,11 +11,9 @@ import {
   isBouncieLiveTrackingEnabled,
 } from "../tracking/availability.js";
 import { createFeatureApi } from "../../core/feature-api.js";
-import { navigate } from "../../core/navigation.js";
 import store from "../../core/store.js";
 import { getRemainingDriveableMiles } from "../navigation-core/coverage-areas.js";
 import metricAnimator from "../../ui/metric-animator.js";
-import notificationManager from "../../ui/notifications.js";
 import { formatDurationCompact } from "../../utils/formatting.js";
 import {
   DateUtils,
@@ -23,7 +23,7 @@ import {
   isAbortError,
 } from "../../utils.js";
 import { animateValue } from "./animations.js";
-import { buildMissionLine, updateMastheadDate } from "./hero.js";
+import { describeMission, updateMastheadDate } from "./hero.js";
 
 // Configuration
 const CONFIG = {
@@ -32,14 +32,19 @@ const CONFIG = {
   recordRotationStorageKey: "es:record-rotation",
   animationDuration: 500,
   activityLimit: 5,
+  coverageRows: 3,
+  recordNewWindowMs: 7 * 24 * 60 * 60 * 1000,
+  signTextWidth: 134,
+  mapTitleWidth: 100,
 };
+
+const SVG_NS = "http://www.w3.org/2000/svg";
 
 // DOM Elements (cached after DOMContentLoaded)
 let elements = {};
 let refreshIntervalId = null;
 let liveTrackingIntervalId = null;
 let recordRotationIntervalId = null;
-let swipeActionsBound = false;
 let recordEntries = [];
 let recordIndex = 0;
 let recordInitialized = false;
@@ -77,15 +82,15 @@ export default function initLandingPage({ signal, cleanup, api } = {}) {
   loadAllData();
   setupRefreshInterval();
   checkLiveTracking();
-  bindSwipeActions();
   bindRecordCard();
   removeFilterRefreshListener = bindFilterRefresh();
+  const stopWatchingRange = watchDateRangeLabel();
 
   const teardown = () => {
     clearIntervals();
+    stopWatchingRange();
     removeFilterRefreshListener?.();
     removeFilterRefreshListener = null;
-    swipeActionsBound = false;
     pageSignal = null;
   };
 
@@ -102,21 +107,39 @@ export default function initLandingPage({ signal, cleanup, api } = {}) {
  * Cache DOM elements for performance
  */
 function cacheElements() {
+  const byId = (id) => document.getElementById(id);
   elements = {
-    missionLine: document.getElementById("home-mission"),
-    coverageSection: document.getElementById("home-coverage"),
-    coverageRegister: document.getElementById("coverage-register"),
-    weatherChip: document.getElementById("weather-chip"),
-    statMiles: document.getElementById("stat-miles"),
-    statTrips: document.getElementById("stat-trips"),
-    liveIndicator: document.getElementById("live-indicator"),
-    recentTrip: document.getElementById("recent-trip"),
-    lastFillup: document.getElementById("last-fillup"),
-    activityFeed: document.getElementById("activity-feed"),
-    recordCard: document.getElementById("record-card"),
-    recordValue: document.getElementById("record-value"),
-    recordTitle: document.getElementById("record-title"),
-    recordDate: document.getElementById("record-date"),
+    mastheadDate: byId("manual-date"),
+    missionLine: byId("home-mission"),
+    missionNote: byId("mission-note"),
+    missionNoteText: byId("mission-note-text"),
+    heroSignName: byId("hero-sign-name"),
+    heroSignMiles: byId("hero-sign-miles"),
+    heroMapTitle: byId("hero-map-title"),
+    plateCaption: byId("plate-caption-text"),
+    coverageSection: byId("home-coverage"),
+    coverageRegister: byId("coverage-register"),
+    weatherChip: byId("weather-chip"),
+    logHeading: byId("log-heading"),
+    logRange: byId("log-range"),
+    statMiles: byId("stat-miles"),
+    statTrips: byId("stat-trips"),
+    statTime: byId("stat-time"),
+    statTimeUnit: byId("stat-time-unit"),
+    liveIndicator: byId("live-indicator"),
+    recentTrip: byId("recent-trip"),
+    lastFillup: byId("last-fillup"),
+    indexAreas: byId("index-areas"),
+    activityFeed: byId("activity-feed"),
+    logbookFoot: byId("logbook-foot"),
+    logbookTotal: byId("logbook-total"),
+    logbookTotalLabel: byId("logbook-total-label"),
+    recordCard: byId("record-card"),
+    recordCount: byId("record-count"),
+    recordValue: byId("record-value"),
+    recordTitle: byId("record-title"),
+    recordDate: byId("record-date"),
+    recordNote: byId("record-note"),
 
     navTiles: Array.from(document.querySelectorAll(".nav-tile")),
   };
@@ -128,6 +151,7 @@ function cacheElements() {
 async function loadAllData() {
   try {
     updateMastheadDate(elements);
+    updateLogHeading();
 
     highlightFrequentTiles();
 
@@ -169,6 +193,7 @@ function highlightFrequentTiles() {
     "/visits": "visits",
     "/export": "export",
     "/coverage-management": "areas",
+    "/map-matching": "map-matching",
     "/control-center": "settings",
   };
 
@@ -303,7 +328,8 @@ async function loadCoverageStats() {
     if (data?.areas) {
       setRecordSource("coverage", data);
       renderCoverageRegister(data.areas);
-      renderMissionLine(data.areas);
+      renderMission(data.areas);
+      renderAreaCount(data.areas);
     }
   } catch (error) {
     if (!isPageAbortError(error)) {
@@ -312,17 +338,136 @@ async function loadCoverageStats() {
   }
 }
 
-function renderMissionLine(areas) {
-  if (!elements.missionLine) {
+/**
+ * The title-page sentence, its pencilled margin note, and the hero plate's
+ * road sign, map cartouche, and caption all follow the area driven last.
+ */
+function renderMission(areas) {
+  const mission = describeMission(areas);
+  renderMissionLine(mission);
+  renderHeroPlate(mission);
+}
+
+function renderMissionLine(mission) {
+  const { missionLine, missionNote, missionNoteText } = elements;
+  if (!missionLine) {
     return;
   }
-  const line = buildMissionLine(areas);
-  if (!line) {
-    elements.missionLine.hidden = true;
+  if (!mission) {
+    missionLine.hidden = true;
+    if (missionNote) {
+      missionNote.hidden = true;
+    }
     return;
   }
-  elements.missionLine.textContent = line;
-  elements.missionLine.hidden = false;
+
+  const { name, pct, remaining, done, nearlyDone } = mission;
+  const nameEl = document.createElement("strong");
+  nameEl.textContent = name;
+
+  if (done) {
+    missionLine.replaceChildren(nameEl, " is done. Every street.");
+  } else if (remaining !== null && remaining > 0) {
+    const leftEl = document.createElement("span");
+    leftEl.className = "mission-left";
+    leftEl.textContent = `${remaining.toFixed(1)} miles of streets to go.`;
+    missionLine.replaceChildren(nameEl, ` is ${pct.toFixed(1)}% driven. `, leftEl);
+  } else {
+    missionLine.replaceChildren(nameEl, ` is ${pct.toFixed(1)}% driven.`);
+  }
+  missionLine.hidden = false;
+
+  if (missionNote && missionNoteText) {
+    missionNoteText.textContent = nearlyDone ? "almost there!" : "";
+    missionNote.hidden = !nearlyDone;
+  }
+}
+
+function renderHeroPlate(mission) {
+  const { heroSignName, heroSignMiles, heroMapTitle, plateCaption } = elements;
+
+  if (heroSignName) {
+    heroSignName.textContent = mission ? mission.name.toUpperCase() : "EVERY STREET";
+  }
+  if (heroSignMiles) {
+    let miles = "";
+    if (mission?.done) {
+      miles = "ALL DRIVEN";
+    } else if (mission && mission.remaining !== null) {
+      miles = `${mission.remaining.toFixed(1)} MI`;
+    } else if (mission) {
+      miles = `${Math.floor(mission.pct)}%`;
+    }
+    heroSignMiles.textContent = miles;
+  }
+  if (heroMapTitle) {
+    heroMapTitle.textContent = mission?.region || mission?.name || "Road Map";
+  }
+  if (plateCaption) {
+    plateCaption.textContent = mission
+      ? `The 2014 Murano, bound for ${mission.name}.`
+      : "The 2014 Murano, on the road.";
+  }
+
+  fitPlateText();
+  document.fonts?.ready?.then(fitPlateText).catch(() => {});
+}
+
+/** Squeeze long place names so they stay inside the sign and cartouche. */
+function fitPlateText() {
+  fitSvgText(elements.heroSignName, CONFIG.signTextWidth);
+  fitSvgText(elements.heroMapTitle, CONFIG.mapTitleWidth);
+}
+
+function fitSvgText(el, maxWidth) {
+  if (!el?.getComputedTextLength) {
+    return;
+  }
+  el.removeAttribute("textLength");
+  el.removeAttribute("lengthAdjust");
+  try {
+    if (el.getComputedTextLength() > maxWidth) {
+      el.setAttribute("textLength", String(maxWidth));
+      el.setAttribute("lengthAdjust", "spacingAndGlyphs");
+    }
+  } catch {
+    // Not rendered yet (hidden or detached); the fonts.ready pass retries.
+  }
+}
+
+function renderAreaCount(areas) {
+  const meta = elements.indexAreas;
+  if (!meta) {
+    return;
+  }
+  const count = Array.isArray(areas) ? areas.length : 0;
+  const valueEl = meta.querySelector(".meta-value");
+  const labelEl = meta.querySelector(".meta-label");
+  if (valueEl) {
+    valueEl.textContent = formatNumber(count);
+  }
+  if (labelEl) {
+    labelEl.textContent = count === 1 ? "area" : "areas";
+  }
+  meta.hidden = count === 0;
+}
+
+/** A hand-drawn loop in pencil, stretched around a figure. */
+function createPencilRing() {
+  const svg = document.createElementNS(SVG_NS, "svg");
+  svg.setAttribute("class", "pencil-ring");
+  svg.setAttribute("viewBox", "0 0 100 40");
+  svg.setAttribute("preserveAspectRatio", "none");
+  svg.setAttribute("aria-hidden", "true");
+  svg.setAttribute("focusable", "false");
+  const path = document.createElementNS(SVG_NS, "path");
+  path.setAttribute(
+    "d",
+    "M62 4C38 1 8 6 4 19c-3 11 18 18 44 18s49-6 48-18C95 8 70 3 46 5c-10 1-19 3-26 6"
+  );
+  path.setAttribute("vector-effect", "non-scaling-stroke");
+  svg.appendChild(path);
+  return svg;
 }
 
 function renderCoverageRegister(areas) {
@@ -336,21 +481,22 @@ function renderCoverageRegister(areas) {
       (a, b) =>
         (Number(b?.total_length_miles) || 0) - (Number(a?.total_length_miles) || 0)
     )
-    .slice(0, 3);
+    .slice(0, CONFIG.coverageRows);
 
   if (rows.length === 0) {
     elements.coverageSection.hidden = true;
     return;
   }
 
-  elements.coverageRegister.innerHTML = "";
-  rows.forEach((area) => {
+  const fills = [];
+  const items = rows.map((area) => {
     const pct = Math.max(0, Math.min(100, Number(area.coverage_percentage)));
     const remaining = getRemainingDriveableMiles(area);
     const name = area.display_name?.split(",")[0]?.trim() || "Unnamed area";
+    const done = pct >= 100;
 
     const item = document.createElement("li");
-    item.className = "coverage-register-row";
+    item.className = `coverage-register-row${done ? " is-complete" : ""}`;
 
     const link = document.createElement("a");
     link.className = "coverage-register-link";
@@ -366,28 +512,57 @@ function renderCoverageRegister(areas) {
     nameEl.className = "coverage-register-name";
     nameEl.textContent = name;
 
-    const track = document.createElement("span");
-    track.className = "coverage-register-track";
-    track.setAttribute("aria-hidden", "true");
+    const bar = document.createElement("span");
+    bar.className = "survey-bar";
+    bar.setAttribute("aria-hidden", "true");
     const fill = document.createElement("span");
-    fill.className = "coverage-register-fill";
-    fill.style.width = `${pct}%`;
-    track.appendChild(fill);
+    fill.className = "survey-fill";
+    bar.appendChild(fill);
+    fills.push([fill, pct]);
 
     const pctEl = document.createElement("span");
     pctEl.className = "coverage-register-pct";
     pctEl.textContent = `${pct.toFixed(1)}%`;
+    if (pct >= 80 && !done) {
+      pctEl.appendChild(createPencilRing());
+    }
 
     const leftEl = document.createElement("span");
     leftEl.className = "coverage-register-left";
-    leftEl.textContent = remaining !== null ? `${remaining.toFixed(1)} mi left` : "";
+    if (done) {
+      const doneEl = document.createElement("span");
+      doneEl.className = "pencil-done";
+      doneEl.textContent = "done ✓";
+      leftEl.appendChild(doneEl);
+    } else {
+      leftEl.textContent = remaining !== null ? `${remaining.toFixed(1)} mi left` : "";
+    }
 
-    link.append(nameEl, track, pctEl, leftEl);
+    link.append(nameEl, bar, pctEl, leftEl);
     item.appendChild(link);
-    elements.coverageRegister.appendChild(item);
+    return item;
   });
 
+  // Periodic refreshes update the figures in place; only the first render
+  // draws the scales and pencil rings in.
+  const register = elements.coverageRegister;
+  const redraw = register.dataset.drawn === "true";
+  register.classList.toggle("is-settled", redraw);
+  register.replaceChildren(...items);
   elements.coverageSection.hidden = false;
+
+  const setWidths = () => {
+    fills.forEach(([fill, pct]) => {
+      fill.style.width = `${pct}%`;
+    });
+  };
+  if (redraw) {
+    setWidths();
+    return;
+  }
+  register.dataset.drawn = "true";
+  // Let the hatching run out along each scale once the rows are painted.
+  requestAnimationFrame(() => requestAnimationFrame(setWidths));
 }
 
 function setRecordSource(key, data) {
@@ -424,6 +599,7 @@ function renderRecordLoading() {
   if (elements.recordDate) {
     elements.recordDate.textContent = getSelectedRangeStatusText();
   }
+  clearRecordMarginalia();
   currentRecordId = null;
 }
 
@@ -607,6 +783,7 @@ function addRecordEntry(entries, { id, title, value, date, datePrefix }) {
     id,
     title,
     value,
+    timestamp: parsedDate.getTime(),
     dateText: datePrefix ? `${datePrefix} ${dateText}` : dateText,
   });
 }
@@ -625,6 +802,14 @@ function renderRecordEntry(entry) {
   if (elements.recordDate) {
     elements.recordDate.textContent = entry.dateText;
   }
+  if (elements.recordCount) {
+    elements.recordCount.textContent =
+      recordEntries.length > 1 ? `${recordIndex + 1} of ${recordEntries.length}` : "";
+  }
+  if (elements.recordNote) {
+    const age = Date.now() - entry.timestamp;
+    elements.recordNote.hidden = !(age >= 0 && age < CONFIG.recordNewWindowMs);
+  }
   if (entry.id !== currentRecordId) {
     currentRecordId = entry.id;
     storeRecordIndex(recordIndex);
@@ -641,7 +826,17 @@ function renderEmptyRecord() {
   if (elements.recordDate) {
     elements.recordDate.textContent = "--";
   }
+  clearRecordMarginalia();
   currentRecordId = null;
+}
+
+function clearRecordMarginalia() {
+  if (elements.recordCount) {
+    elements.recordCount.textContent = "";
+  }
+  if (elements.recordNote) {
+    elements.recordNote.hidden = true;
+  }
 }
 
 function advanceRecord({ manual = false } = {}) {
@@ -890,8 +1085,55 @@ function getSelectedRangeStatusText() {
   return "Checking all time";
 }
 
+/**
+ * "Today's log" for the default range; otherwise a plain heading with the
+ * picker's own label for the range printed opposite.
+ */
+function updateLogHeading() {
+  const { logHeading, logRange } = elements;
+  if (!logHeading) {
+    return;
+  }
+  const today = DateUtils.getCurrentDate();
+  const isToday =
+    DateUtils.getStartDate() === today && DateUtils.getEndDate() === today;
+  logHeading.textContent = isToday ? "Today\u2019s log" : "The log";
+  if (logRange) {
+    const label = document.getElementById("date-display")?.textContent?.trim() || "";
+    logRange.textContent = isToday ? "" : label;
+    logRange.hidden = isToday || !label;
+  }
+}
+
+/** Keep the log heading in step with the header's date-range label. */
+function watchDateRangeLabel() {
+  const display = document.getElementById("date-display");
+  if (!display || typeof MutationObserver !== "function") {
+    return () => {};
+  }
+  const observer = new MutationObserver(() => updateLogHeading());
+  observer.observe(display, { childList: true, characterData: true, subtree: true });
+  return () => observer.disconnect();
+}
+
+/** Hours at the wheel, as a ledger figure and its unit. */
+function formatWheelTime(seconds) {
+  const numeric = Number(seconds);
+  if (!Number.isFinite(numeric) || numeric <= 0) {
+    return { value: "0", unit: "hr" };
+  }
+  const hours = numeric / 3600;
+  if (hours >= 10) {
+    return { value: formatNumber(Math.round(hours)), unit: "hr" };
+  }
+  if (hours >= 1) {
+    return { value: hours.toFixed(1), unit: "hr" };
+  }
+  return { value: String(Math.max(1, Math.round(numeric / 60))), unit: "min" };
+}
+
 function setMetricsLoading(isLoading) {
-  [elements.statMiles, elements.statTrips].forEach((el) => {
+  [elements.statMiles, elements.statTrips, elements.statTime].forEach((el) => {
     const figure = el?.closest?.(".snapshot-figure");
     if (!figure) {
       return;
@@ -922,12 +1164,26 @@ async function loadMetrics({ showLoading = false } = {}) {
     const miles = parseFloat(data.total_distance) || 0;
     const trips = parseInt(data.total_trips, 10) || 0;
 
+    const milesDecimals = miles > 0 && miles < 10 ? 1 : 0;
     if (metricAnimator?.animate) {
-      metricAnimator.animate(elements.statMiles, miles, { decimals: 0 });
+      metricAnimator.animate(elements.statMiles, miles, { decimals: milesDecimals });
       metricAnimator.animate(elements.statTrips, trips, { decimals: 0 });
     } else {
-      animateValue(elements.statMiles, miles, formatNumber, CONFIG.animationDuration);
+      animateValue(
+        elements.statMiles,
+        miles,
+        (value) => formatNumber(value, milesDecimals),
+        CONFIG.animationDuration
+      );
       animateValue(elements.statTrips, trips, formatNumber, CONFIG.animationDuration);
+    }
+
+    const wheelTime = formatWheelTime(data.total_duration_seconds);
+    if (elements.statTime) {
+      elements.statTime.textContent = wheelTime.value;
+    }
+    if (elements.statTimeUnit) {
+      elements.statTimeUnit.textContent = wheelTime.unit;
     }
   } catch (error) {
     if (requestId !== metricsLoadRequestId || isPageAbortError(error)) {
@@ -938,6 +1194,9 @@ async function loadMetrics({ showLoading = false } = {}) {
     }
     if (elements.statTrips) {
       elements.statTrips.textContent = "--";
+    }
+    if (elements.statTime) {
+      elements.statTime.textContent = "--";
     }
   } finally {
     if (requestId === metricsLoadRequestId && !pageSignal?.aborted) {
@@ -984,6 +1243,7 @@ async function loadRecentTrips() {
           ? formatRelativeTimeShort(new Date(lastTripTime))
           : "--";
       }
+      elements.recentTrip.hidden = !lastTripTime;
     }
 
     // Populate activity feed
@@ -995,6 +1255,9 @@ async function loadRecentTrips() {
     const valueEl = elements.recentTrip?.querySelector(".meta-value");
     if (valueEl) {
       valueEl.textContent = "--";
+    }
+    if (elements.recentTrip) {
+      elements.recentTrip.hidden = true;
     }
     populateActivityFeed([]);
   }
@@ -1101,91 +1364,101 @@ async function checkLiveTracking() {
 }
 
 /**
- * Populate the activity feed with recent trips
+ * Write the most recent trips into the logbook: date, departure time,
+ * destination, duration, and miles, with a page total underneath.
  */
 function populateActivityFeed(trips) {
-  if (!elements.activityFeed) {
+  const feed = elements.activityFeed;
+  if (!feed) {
     return;
   }
 
-  if (!trips || trips.length === 0) {
-    elements.activityFeed.innerHTML = `
-      <div class="activity-empty">
-        No trips yet in this range &mdash; drives appear here as Bouncie reports them.
-      </div>
-    `;
+  const entries = (Array.isArray(trips) ? trips : []).slice(0, CONFIG.activityLimit);
+  if (entries.length === 0) {
+    const row = document.createElement("tr");
+    row.className = "logbook-empty";
+    const cell = document.createElement("td");
+    cell.colSpan = 5;
+    cell.textContent =
+      "No trips logged in this range yet. Drives appear here as Bouncie reports them.";
+    row.appendChild(cell);
+    feed.replaceChildren(row);
+    if (elements.logbookFoot) {
+      elements.logbookFoot.hidden = true;
+    }
     return;
   }
 
-  const activityHtml = trips
-    .slice(0, CONFIG.activityLimit)
-    .map((trip) => {
-      const distance = trip.distance ? parseFloat(trip.distance).toFixed(1) : "?";
-      const destination = formatDestination(trip.destination);
-      const time = trip.endTime || trip.startTime;
-      const timeAgo = time ? formatRelativeTimeShort(new Date(time)) : "";
+  let totalMiles = 0;
+  const rows = entries.map((trip) => {
+    const miles = Number.parseFloat(trip.distance);
+    if (Number.isFinite(miles)) {
+      totalMiles += miles;
+    }
+    const start = parseTripTime(trip.startTime);
+    const end = parseTripTime(trip.endTime);
+    const when = start || end;
 
-      return `
-      <div class="swipe-item" data-swipe-actions data-trip-id="${trip.transactionId || ""}">
-        <div class="swipe-actions">
-          <button class="swipe-action-btn secondary" data-action="share" aria-label="Share trip">
-            <i class="fas fa-share-alt"></i>
-          </button>
-          <button class="swipe-action-btn" data-action="view" aria-label="View trips">
-            <i class="fas fa-route"></i>
-          </button>
-        </div>
-        <div class="swipe-content">
-          <div class="activity-item">
-            <div class="activity-text">
-              <div class="activity-description">
-                ${distance} mi to ${destination}
-              </div>
-              <div class="activity-time">${timeAgo}</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    `;
-    })
-    .join("");
+    const row = document.createElement("tr");
+    row.className = "logbook-row";
 
-  elements.activityFeed.innerHTML = activityHtml;
+    const dateCell = document.createElement("td");
+    dateCell.className = "logbook-date";
+    dateCell.textContent = when
+      ? when.toLocaleDateString(undefined, { month: "short", day: "numeric" })
+      : "--";
+
+    const timeCell = document.createElement("td");
+    timeCell.className = "logbook-time";
+    timeCell.textContent = when
+      ? when.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })
+      : "";
+
+    const destCell = document.createElement("td");
+    destCell.className = "logbook-dest";
+    const destination = formatDestination(trip.destination);
+    if (trip.transactionId) {
+      const link = document.createElement("a");
+      link.href = `/trips/${encodeURIComponent(trip.transactionId)}`;
+      link.textContent = destination;
+      link.title = destination;
+      destCell.appendChild(link);
+    } else {
+      destCell.textContent = destination;
+    }
+
+    const durationCell = document.createElement("td");
+    durationCell.className = "logbook-num logbook-duration";
+    durationCell.textContent =
+      start && end ? formatDurationCompact((end - start) / 1000) || "" : "";
+
+    const milesCell = document.createElement("td");
+    milesCell.className = "logbook-num logbook-miles";
+    milesCell.textContent = Number.isFinite(miles) ? miles.toFixed(1) : "--";
+
+    row.append(dateCell, timeCell, destCell, durationCell, milesCell);
+    return row;
+  });
+
+  feed.replaceChildren(...rows);
+
+  if (elements.logbookFoot && elements.logbookTotal) {
+    elements.logbookTotal.textContent = `${totalMiles.toFixed(1)} mi`;
+    if (elements.logbookTotalLabel) {
+      elements.logbookTotalLabel.textContent = `Page total · ${entries.length} ${
+        entries.length === 1 ? "trip" : "trips"
+      }`;
+    }
+    elements.logbookFoot.hidden = false;
+  }
 }
 
-function bindSwipeActions() {
-  if (swipeActionsBound || !elements.activityFeed) {
-    return;
+function parseTripTime(value) {
+  if (!value) {
+    return null;
   }
-  elements.activityFeed.addEventListener(
-    "click",
-    (event) => {
-      const button = event.target.closest(".swipe-action-btn");
-      if (!button) {
-        return;
-      }
-      const { action } = button.dataset;
-      const item = button.closest("[data-trip-id]");
-      const tripId = item?.dataset.tripId;
-
-      if (action === "view" && tripId) {
-        void navigate(`/trips/${encodeURIComponent(tripId)}`);
-      } else if (action === "share" && tripId) {
-        const shareData = {
-          title: "Every Street Trip",
-          text: "Check out this recent trip.",
-          url: `${window.location.origin}/trips/${encodeURIComponent(tripId)}`,
-        };
-        if (navigator.share) {
-          navigator.share(shareData).catch(() => {});
-        } else {
-          notificationManager.show("Share is not available on this device", "info");
-        }
-      }
-    },
-    pageSignal ? { signal: pageSignal } : false
-  );
-  swipeActionsBound = true;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
 }
 
 /**

@@ -148,6 +148,7 @@
   --font-size-2xl: clamp(1.5rem, 1.36rem + 0.7vw, 1.875rem); /* 24 → 30px */
   --font-size-3xl: clamp(1.875rem, 1.61rem + 1.32vw, 2.5rem); /* 30 → 40px */
   --font-size-4xl: clamp(2.25rem, 1.66rem + 2.95vw, 3.5rem); /* 36 → 56px */
+  --font-size-5xl: clamp(2.75rem, 1.55rem + 5.4vw, 5.25rem); /* 44 → 84px */
   --font-weight-regular: 400;
   --font-weight-normal: var(--font-weight-regular);
   --font-weight-medium: 500;
@@ -167,6 +168,26 @@
   --tracking-normal: 0;
   --tracking-wide: 0.02em;
   --tracking-caps: 0.06em;
+  --tracking-display: -0.035em; /* condensed display headlines */
+  --tracking-label: 0.16em; /* printed-manual running labels */
+
+  /* Motorist's manual (home page). A printed field guide: warm stock,
+     dark ink, and three spot inks. Dark mode is the night edition,
+     cream ink on dark stock; "solid" is the heaviest fill either way. */
+  --manual-paper: #1c1a16;
+  --manual-paper-rgb: 28 26 22;
+  --manual-paper-shade: #25221c;
+  --manual-ink: #ece2cb;
+  --manual-ink-rgb: 236 226 203;
+  --manual-ink-soft: #c2b79f;
+  --manual-ink-faint: #9b917c;
+  --manual-solid: #0f0e0b;
+  --manual-navy: #8fa6b4;
+  --manual-navy-rgb: 143 166 180;
+  --manual-rust: #d5805f;
+  --manual-rust-ink: #dd8d6c;
+  --manual-mustard: #cfae5c;
+  --manual-mustard-rgb: 207 174 92;
 
   /* Comfortable measure for running text */
   --measure: 68ch;
@@ -342,6 +363,22 @@ html.light-mode body {
   --text-primary: rgb(30 28 22 / 95%);
   --text-secondary: rgb(74 70 58 / 85%);
   --text-tertiary: rgb(92 87 72 / 88%);
+
+  /* Motorist's manual, day edition */
+  --manual-paper: #f1e8d5;
+  --manual-paper-rgb: 241 232 213;
+  --manual-paper-shade: #e7dbc1;
+  --manual-ink: #302d25;
+  --manual-ink-rgb: 48 45 37;
+  --manual-ink-soft: #564f41;
+  --manual-ink-faint: #6b6353;
+  --manual-solid: #302d25;
+  --manual-navy: #465b68;
+  --manual-navy-rgb: 70 91 104;
+  --manual-rust: #a6533d;
+  --manual-rust-ink: #954632;
+  --manual-mustard: #b39343;
+  --manual-mustard-rgb: 179 147 67;
 
   /* Deeper survey blue so small text and links clear AA on paper. */
   --primary: #3f5f9c;

@@ -22,7 +22,7 @@ test("coverage mileage excludes undriveable streets from total and remaining", (
   assert.equal(getRemainingDriveableMiles(area), 40);
   assert.equal(
     buildMissionLine([area]),
-    "Testville is 50.0% driven — 40.0 miles of streets to go."
+    "Testville is 50.0% driven. 40.0 miles of streets to go."
   );
 });
 
@@ -46,7 +46,7 @@ test("mission line follows the most recently driven coverage area", () => {
 
   assert.equal(
     buildMissionLine([largerOlderArea, smallerNewerArea]),
-    "Austin is 25.0% driven — 30.0 miles of streets to go."
+    "Austin is 25.0% driven. 30.0 miles of streets to go."
   );
 });
 
