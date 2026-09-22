@@ -11,7 +11,8 @@ masks the page colours with CSS:
     murano-highlight   night edition: light tones printed as cream lines
     murano-lamps       tail lights and reflectors, printed in rust
 
-The plate number is painted out before engraving so it is never published.
+The licence plate is printed without the line screen so its characters stay
+legible at the small size the plate is shown.
 
 Usage (needs Pillow and NumPy, which the app itself does not install):
 
@@ -31,18 +32,13 @@ OUT = ROOT / "static" / "images" / "landing"
 WIDTH = 600
 SUPERSAMPLE = 2
 LINE_PERIOD = 4.6  # output pixels between engraving lines
-# Plate number, in source pixels once the image is cropped to its content.
-PLATE_NUMBER_BOX = (258, 525, 413, 576)
-PLATE_PAPER = (232, 230, 220)
+# Licence plate, in source pixels once the image is cropped to its content.
+PLATE_BOX = (249, 501, 422, 607)
 
 
 def load_source(path: Path) -> Image.Image:
     image = Image.open(path).convert("RGBA")
-    image = image.crop(image.getbbox())
-    pixels = np.array(image)
-    x0, y0, x1, y1 = PLATE_NUMBER_BOX
-    pixels[y0:y1, x0:x1, :3] = PLATE_PAPER
-    return Image.fromarray(pixels, "RGBA")
+    return image.crop(image.getbbox())
 
 
 def morph(mask: np.ndarray, size: int, *, grow: bool) -> np.ndarray:
@@ -54,6 +50,7 @@ def morph(mask: np.ndarray, size: int, *, grow: bool) -> np.ndarray:
 def engrave(source: Image.Image) -> dict[str, np.ndarray]:
     width = WIDTH * SUPERSAMPLE
     height = round(source.height * width / source.width)
+    scale = width / source.width
     big = source.resize((width, height), Image.LANCZOS)
     rgba = np.array(big).astype(np.float32) / 255.0
     red, green, blue, alpha = (rgba[..., i] for i in range(4))
@@ -73,9 +70,16 @@ def engrave(source: Image.Image) -> dict[str, np.ndarray]:
     period = LINE_PERIOD * SUPERSAMPLE * np.sqrt(2)
     screen = 0.5 + 0.5 * np.sin(2 * np.pi * (xs - ys) / period)
 
+    # Inside the plate, print flat tones instead of lines so it stays readable.
+    x0, y0, x1, y1 = (round(v * scale) for v in PLATE_BOX)
+    plate = np.zeros_like(solid)
+    plate[y0:y1, x0:x1] = True
+    ink_threshold = np.where(plate, 0.62, 0.14 + 0.52 * screen)
+    highlight_threshold = np.where(plate, 0.62, 0.30 + 0.45 * screen)
+
     outline = solid & ~morph(solid, 2 * SUPERSAMPLE + 1, grow=False)
-    ink = ((tone < 0.14 + 0.52 * screen) & solid & ~lamps) | outline
-    highlight = ((tone > 0.30 + 0.45 * screen) & solid & ~lamps) | outline
+    ink = ((tone < ink_threshold) & solid & ~lamps) | outline
+    highlight = ((tone > highlight_threshold) & solid & ~lamps) | outline
     return {
         "murano-silhouette": solid,
         "murano-ink": ink,
