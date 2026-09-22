@@ -366,7 +366,7 @@ async function ensureSelectedSegments(ids) {
 
 function renderSummary() {
   const { summary, area } = state.metadata;
-  $("journal-title").textContent = area.display_name || "Coverage field journal";
+  $("journal-title").textContent = area.display_name || "Coverage history";
   $("journal-subtitle").textContent = `${formatNumber(
     area.coverage_percentage,
     1
