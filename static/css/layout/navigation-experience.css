@@ -1,31 +1,32 @@
 .detail-drawer {
   position: fixed;
-  inset: 0 0 0 auto;
+  inset: var(--header-height) 0 0 auto;
   margin: 0;
   width: min(1050px, 92vw);
   max-width: none;
-  height: 100dvh;
+  height: calc(100dvh - var(--header-height));
   max-height: none;
   padding: 0;
   border: 0;
-  border-left: 1px solid var(--border-color);
-  background: var(--surface-0);
+  border-left: 1.5px solid var(--manual-ink);
+  background: var(--manual-paper);
   color: var(--text-primary);
   overscroll-behavior: contain;
   view-transition-name: detail-drawer;
+  box-shadow: -4px 0 0 var(--manual-rule-faint);
 }
 
 .detail-drawer::backdrop {
-  background: rgb(var(--backdrop-rgb) / 45%);
+  background: rgb(var(--manual-solid-rgb) / 55%);
 }
 
 .detail-drawer-toolbar {
   position: sticky;
   top: 0;
   z-index: 10;
-  padding: max(12px, env(safe-area-inset-top)) 16px 12px;
-  background: var(--surface-0);
-  border-bottom: 1px solid var(--border-color);
+  padding: 12px 16px;
+  background: var(--manual-paper);
+  border-bottom: 1px solid var(--manual-rule);
 }
 
 .trip-detail {
@@ -34,30 +35,53 @@
 
 .trip-detail-journey {
   font-size: var(--font-size-lg);
+  font-style: italic;
 }
 
 .trip-detail-metrics {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 20px;
+  gap: 0;
   margin: 28px 0;
+  border-top: 2px solid var(--manual-ink);
+  border-bottom: 1px solid var(--manual-ink);
+}
+
+/* A ledger row: ruled cells, labels over headline figures. */
+.trip-detail-metrics > div {
+  padding: var(--space-4);
+}
+
+.trip-detail-metrics > div:first-child {
+  padding-left: 0;
+}
+
+.trip-detail-metrics > div + div {
+  border-left: 1px solid var(--manual-rule);
 }
 
 .trip-detail-metrics dt {
   font-size: var(--font-size-xs);
-  color: var(--text-secondary);
-  font-weight: 400;
+  color: var(--manual-ink);
+  font-weight: var(--font-weight-bold);
+  font-family: var(--font-family-label);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-label);
 }
 
 .trip-detail-metrics dd {
-  font-size: var(--font-size-xl);
+  font-size: var(--font-size-2xl);
   margin: 6px 0 0;
+  font-family: var(--font-family-display);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums lining-nums;
 }
 
 .trip-detail-map {
   min-height: 340px;
   height: 42dvh;
-  border-radius: var(--radius-lg);
+  border-radius: 0;
+  border: 1px solid var(--manual-ink);
 }
 
 .trip-detail-actions {

@@ -1130,7 +1130,7 @@ const tripMapRenderer = {
       // tier the same red with a cool cast on top and no sense of frequency.
       return {
         halo: "#6d2029",
-        glow: colors.default || "#c45454",
+        glow: colors.default || "#b5523f",
         core: "#ffdcd2",
       };
     }

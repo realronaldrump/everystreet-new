@@ -67,7 +67,7 @@ const LEGEND_PRESETS = {
       color: CONFIG.LAYER_DEFAULTS.coverageAreaBoundingBox.color,
     },
   ],
-  places: [{ label: "Destinations", type: "dot", color: "#6f8fce" }],
+  places: [{ label: "Destinations", type: "dot", color: "#5f82a0" }],
   flow: [
     {
       label: "Flow",

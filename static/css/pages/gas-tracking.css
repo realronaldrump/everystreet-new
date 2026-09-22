@@ -342,7 +342,7 @@
   width: 18px;
   height: 18px;
   margin: 0;
-  accent-color: var(--primary);
+  accent-color: var(--manual-ink);
   cursor: pointer;
 }
 
@@ -628,7 +628,8 @@
   font-size: var(--font-size-xs);
   color: var(--text-tertiary);
   text-transform: uppercase;
-  letter-spacing: var(--tracking-caps);
+  letter-spacing: var(--tracking-label);
+  font-family: var(--font-family-label);
 }
 
 .fillup-detail-value {

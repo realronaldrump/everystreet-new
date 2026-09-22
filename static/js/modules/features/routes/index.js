@@ -145,7 +145,7 @@ function formatTripsPerWeekLabel(value) {
 
 function routeStrokeColor(route) {
   const raw = (route?.color || "").trim();
-  return raw.startsWith("#") && raw.length === 7 ? raw : "#6f8fce";
+  return raw.startsWith("#") && raw.length === 7 ? raw : "#5f82a0";
 }
 
 /* ───── insight computations ───── */
@@ -1079,7 +1079,7 @@ function ensureModalMap() {
         filter: ["==", ["get", "kind"], "route"],
         paint: {
           "line-width": ["interpolate", ["linear"], ["zoom"], 10, 3, 14, 5, 18, 8],
-          "line-color": ["coalesce", ["get", "color"], "#6f8fce"],
+          "line-color": ["coalesce", ["get", "color"], "#5f82a0"],
           "line-opacity": 0.9,
         },
         layout: { "line-cap": "round", "line-join": "round" },
@@ -1095,7 +1095,7 @@ function ensureModalMap() {
           "circle-radius": 7,
           "circle-color": "#ffffff",
           "circle-stroke-width": 3,
-          "circle-stroke-color": ["coalesce", ["get", "color"], "#6f8fce"],
+          "circle-stroke-color": ["coalesce", ["get", "color"], "#5f82a0"],
         },
       });
     }
@@ -1107,7 +1107,7 @@ function ensureModalMap() {
         filter: ["==", ["get", "kind"], "end"],
         paint: {
           "circle-radius": 7,
-          "circle-color": ["coalesce", ["get", "color"], "#d4a24a"],
+          "circle-color": ["coalesce", ["get", "color"], "#c49d4c"],
           "circle-stroke-width": 3,
           "circle-stroke-color": "#ffffff",
         },
@@ -1256,7 +1256,7 @@ function syncModalControls(route) {
     nameInput.placeholder = route?.auto_name || "(auto)";
   }
   if (colorInput) {
-    const c = route?.color || "#6f8fce";
+    const c = route?.color || "#5f82a0";
     colorInput.value = c.startsWith("#") ? c : `#${c}`;
   }
   if (pinBtn) {
@@ -1547,7 +1547,7 @@ function renderDistanceTrendChart(data) {
         {
           label: "Duration (min)",
           data: durations,
-          borderColor: "#d4a24a",
+          borderColor: "#c49d4c",
           backgroundColor: "transparent",
           borderDash: [4, 3],
           tension: 0.3,
@@ -2236,12 +2236,12 @@ function renderExplorerVariantShareChart(items) {
         {
           data: source.map((entry) => Number(entry.share || 0) * 100),
           backgroundColor: [
-            "#6f8fce",
-            "#d4a24a",
-            "#6290ad",
-            "#c47050",
-            "#727a84",
-            "#8a7ab0",
+            "#5f82a0",
+            "#c49d4c",
+            "#7893a6",
+            "#c26a4a",
+            "#857d6e",
+            "#8b6f8a",
           ],
           borderRadius: 8,
           barPercentage: 0.8,
@@ -2298,7 +2298,7 @@ function renderExplorerMonthlyChart(byMonth) {
         {
           data: source.map((entry) => entry.count),
           backgroundColor: "rgba(111,143,206,0.48)",
-          borderColor: "#6f8fce",
+          borderColor: "#5f82a0",
           borderWidth: 1.5,
           borderRadius: 5,
           barPercentage: 0.75,
@@ -2335,7 +2335,7 @@ function renderExplorerHourChart(byHour) {
         {
           data: source.map((entry) => entry.count),
           backgroundColor: "rgba(98,144,173,0.48)",
-          borderColor: "#6290ad",
+          borderColor: "#7893a6",
           borderWidth: 1.2,
           borderRadius: 4,
           barPercentage: 0.86,
@@ -2372,7 +2372,7 @@ function renderExplorerDayChart(byDay) {
         {
           data: source.map((entry) => entry.count),
           backgroundColor: "rgba(212,162,74,0.45)",
-          borderColor: "#d4a24a",
+          borderColor: "#c49d4c",
           borderWidth: 1.2,
           borderRadius: 4,
           barPercentage: 0.74,

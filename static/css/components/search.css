@@ -3,7 +3,7 @@
 #map-search-input {
   padding-right: 2rem;
   background-color: rgb(var(--surface-rgb) / 90%);
-  border: 1px solid rgb(var(--border-rgb) / 30%);
+  border: 1px solid var(--manual-rule);
   color: var(--text-primary);
   transition: all 0.2s ease;
   position: relative;
@@ -28,11 +28,10 @@
   max-height: min(400px, 50vh);
   overflow: hidden auto;
   background-color: rgb(var(--surface-rgb) / 96%);
-  border: 1px solid rgb(var(--border-rgb) / 35%);
+  border: 1px solid var(--manual-rule);
   border-radius: var(--radius-lg);
   box-shadow:
-    0 8px 24px rgb(0 0 0 / 40%),
-    0 4px 12px rgb(0 0 0 / 30%);
+    var(--shadow-xs);
   z-index: var(--z-dropdown);
   animation: slideInDown 0.2s ease-out;
   min-width: 280px;
@@ -51,7 +50,7 @@
 .search-result-item {
   padding: 0.875rem 1.125rem;
   cursor: pointer;
-  border-bottom: 1px solid rgb(var(--border-rgb) / 20%);
+  border-bottom: 1px solid var(--manual-rule);
   transition: all 0.2s ease;
   color: var(--text-primary);
   position: relative;
@@ -109,7 +108,8 @@
   margin-bottom: 0.35rem;
   text-transform: uppercase;
   font-weight: 700;
-  letter-spacing: var(--tracking-wide);
+  letter-spacing: var(--tracking-label);
+  font-family: var(--font-family-label);
 }
 
 .search-result-type.place {
@@ -189,7 +189,7 @@
   display: inline-block;
   width: 1rem;
   height: 1rem;
-  border: 2px solid rgb(var(--text-rgb) / 28%);
+  border: 2px solid var(--manual-rule);
   border-top-color: var(--primary);
   border-radius: 50%;
   animation: spin 0.6s linear infinite;
@@ -288,7 +288,7 @@ html.light-mode body .search-result-item:hover,
 html.light-mode body .search-result-item.active,
 [data-bs-theme="light"] .search-result-item:hover,
 [data-bs-theme="light"] .search-result-item.active {
-  background-color: rgb(var(--primary-rgb) / 12%);
+  background-color: var(--manual-paper-shade);
 }
 
 html.light-mode body .search-result-title,

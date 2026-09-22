@@ -225,7 +225,7 @@ html.light-mode body .live-navigation {
 .nav-progress-bar {
   width: 100%;
   height: 6px;
-  background: rgb(var(--text-rgb) / 8%);
+  background: var(--manual-paper-shade);
   border-radius: var(--radius-sm);
   overflow: hidden;
 }
@@ -258,9 +258,10 @@ html.light-mode body .live-navigation {
 .nav-stat .label {
   font-size: var(--font-size-xs);
   text-transform: uppercase;
-  letter-spacing: var(--tracking-caps);
+  letter-spacing: var(--tracking-label);
   color: var(--nav-muted);
   font-weight: 600;
+  font-family: var(--font-family-label);
 }
 
 .nav-stat .value {
@@ -348,9 +349,10 @@ html.light-mode body .live-navigation {
 .nav-label {
   font-size: var(--font-size-sm);
   text-transform: uppercase;
-  letter-spacing: var(--tracking-caps);
+  letter-spacing: var(--tracking-label);
   color: var(--nav-muted);
   font-weight: 600;
+  font-family: var(--font-family-label);
 }
 
 .nav-select {
@@ -456,7 +458,7 @@ html.light-mode body .live-navigation {
   align-items: center;
   padding: var(--nav-space-xs) var(--nav-space-sm);
   border-radius: var(--nav-radius-sm);
-  background: rgb(var(--primary-rgb) / 12%);
+  background: var(--manual-paper-shade);
   font-weight: var(--font-weight-semibold);
 }
 
@@ -617,7 +619,7 @@ html.light-mode body .live-navigation {
   padding-bottom: calc(var(--nav-space-lg) + env(safe-area-inset-bottom));
   position: relative;
   z-index: 1;
-  box-shadow: 0 -4px 20px rgb(0 0 0 / 15%);
+  box-shadow: var(--shadow-xs);
   pointer-events: auto;
 }
 
@@ -648,9 +650,10 @@ html.light-mode body .live-navigation {
 .preview-stat-label {
   font-size: var(--font-size-xs);
   text-transform: uppercase;
-  letter-spacing: var(--tracking-caps);
+  letter-spacing: var(--tracking-label);
   color: var(--nav-muted);
   font-weight: var(--font-weight-semibold);
+  font-family: var(--font-family-label);
 }
 
 .nav-preview-start {
@@ -658,7 +661,7 @@ html.light-mode body .live-navigation {
   align-items: center;
   gap: var(--nav-space-sm);
   padding: var(--nav-space-sm) var(--nav-space-md);
-  background: rgb(var(--primary-rgb) / 10%);
+  background: var(--manual-paper-shade);
   border-radius: var(--nav-radius-md);
   margin-bottom: var(--nav-space-md);
   color: var(--nav-text);
@@ -729,9 +732,10 @@ html.light-mode body .live-navigation {
 .nav-progress-item .progress-label {
   font-size: var(--font-size-xs);
   text-transform: uppercase;
-  letter-spacing: var(--tracking-caps);
+  letter-spacing: var(--tracking-label);
   color: var(--nav-muted);
   font-weight: var(--font-weight-semibold);
+  font-family: var(--font-family-label);
 }
 
 .nav-progress-item .progress-value {

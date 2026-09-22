@@ -146,7 +146,7 @@ const getGoogleColorScheme = (theme = "dark") => {
 };
 
 const GOOGLE_DEFAULTS = MapStyles.MAP_LAYER_COLORS?.googleDefaults || {};
-const DEFAULT_LINE_COLOR = GOOGLE_DEFAULTS.line || "#d4a24a";
+const DEFAULT_LINE_COLOR = GOOGLE_DEFAULTS.line || "#c49d4c";
 const DEFAULT_LINE_OPACITY = 0.85;
 const DEFAULT_LINE_WIDTH = 2.5;
 const DEFAULT_CIRCLE_COLOR = GOOGLE_DEFAULTS.circle || "#b68433";
@@ -2538,7 +2538,7 @@ const createMarkerIconFromColor = (color) => {
   return {
     path: google.maps.SymbolPath.CIRCLE,
     scale: 7,
-    fillColor: color || "#d4a24a",
+    fillColor: color || "#c49d4c",
     fillOpacity: 1,
     strokeColor: "#ffffff",
     strokeWeight: 2,

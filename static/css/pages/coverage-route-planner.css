@@ -865,7 +865,7 @@ body[data-route="/coverage-route-planner"] .app-footer {
 .coverage-route-planner .layer-main input {
   width: 18px;
   height: 18px;
-  accent-color: var(--primary);
+  accent-color: var(--manual-ink);
 }
 
 .coverage-route-planner .layer-opacity .form-range {
@@ -1277,9 +1277,10 @@ body[data-route="/coverage-route-planner"] .app-footer {
 .coverage-route-planner .sim-stat-label {
   font-size: var(--font-size-xs);
   text-transform: uppercase;
-  letter-spacing: var(--tracking-wide);
+  letter-spacing: var(--tracking-label);
   color: var(--text-tertiary);
   font-weight: 500;
+  font-family: var(--font-family-label);
 }
 
 .coverage-route-planner .sim-stat-value {
@@ -1310,9 +1311,10 @@ body[data-route="/coverage-route-planner"] .app-footer {
 .coverage-route-planner .sim-cov-label {
   font-size: var(--font-size-xs);
   text-transform: uppercase;
-  letter-spacing: var(--tracking-wide);
+  letter-spacing: var(--tracking-label);
   color: var(--text-tertiary);
   font-weight: 500;
+  font-family: var(--font-family-label);
 }
 
 .coverage-route-planner .sim-cov-value {
@@ -1465,9 +1467,10 @@ body[data-route="/coverage-route-planner"] .app-footer {
 .coverage-route-planner .target-label {
   font-size: var(--font-size-xs);
   font-weight: 700;
-  letter-spacing: var(--tracking-wide);
+  letter-spacing: var(--tracking-label);
   text-transform: uppercase;
   color: var(--text-tertiary);
+  font-family: var(--font-family-label);
 }
 
 .coverage-route-planner .target-name {

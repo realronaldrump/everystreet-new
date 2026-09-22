@@ -869,7 +869,7 @@ const layerManager = {
   _updateLayerPaintProperties(layerId, layerInfo) {
     const colorValue = Array.isArray(layerInfo.color)
       ? layerInfo.color
-      : layerInfo.color || "#727a84";
+      : layerInfo.color || "#857d6e";
 
     store.map.setPaintProperty(layerId, "line-color", colorValue);
     store.map.setPaintProperty(layerId, "line-opacity", layerInfo.opacity);
@@ -1410,7 +1410,7 @@ const layerManager = {
       paint: {
         "line-color": Array.isArray(layerInfo.color)
           ? layerInfo.color
-          : layerInfo.color || "#727a84",
+          : layerInfo.color || "#857d6e",
         "line-opacity": layerInfo.opacity,
         "line-width": [
           "interpolate",
@@ -1442,7 +1442,7 @@ const layerManager = {
 
     const matchedTripColors = MapStyles.MAP_LAYER_COLORS?.matchedTrips || {};
     const fallbackPalette = {
-      glow: "#c45454",
+      glow: "#b5523f",
       core: "#8aa7df",
     };
 

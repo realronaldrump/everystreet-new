@@ -21,7 +21,7 @@
   border: 1px solid rgb(255 206 135 / 18%);
   border-radius: 1rem;
   background: rgb(13 12 11 / 96%);
-  box-shadow: 0 20px 40px rgb(0 0 0 / 24%);
+  box-shadow: var(--shadow-xs);
   color: rgb(247 235 212);
   font-size: var(--font-size-sm);
   line-height: 1.35;

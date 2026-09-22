@@ -53,8 +53,9 @@
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
-  letter-spacing: var(--tracking-caps);
+  letter-spacing: var(--tracking-label);
   color: var(--success);
+  font-family: var(--font-family-label);
 }
 
 .live-trip-hud.data-stale .live-trip-hud-label {
@@ -121,7 +122,7 @@
 .live-trip-hud-follow.is-active {
   color: var(--primary);
   background: rgb(var(--primary-rgb) / 14%);
-  border-color: rgb(var(--primary-rgb) / 45%);
+  border-color: var(--manual-rule);
 }
 
 .live-trip-hud-follow:disabled {

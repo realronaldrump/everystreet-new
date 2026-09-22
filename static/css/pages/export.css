@@ -157,8 +157,9 @@
   font-weight: var(--font-weight-semibold);
   color: var(--text-tertiary);
   text-transform: uppercase;
-  letter-spacing: var(--tracking-caps);
+  letter-spacing: var(--tracking-label);
   margin-bottom: var(--space-3);
+  font-family: var(--font-family-label);
 }
 
 .export-subsection-hint {

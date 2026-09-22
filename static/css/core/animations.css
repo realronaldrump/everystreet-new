@@ -262,7 +262,7 @@ html.swup-native::view-transition-new(route-content) {
 
 @keyframes value-flash {
   0% {
-    background-color: rgb(var(--primary-rgb) / 12%);
+    background-color: var(--manual-paper-shade);
   }
 
   100% {

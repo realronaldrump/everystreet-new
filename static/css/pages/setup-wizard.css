@@ -49,7 +49,7 @@
 
 .setup-progress-step.is-active .setup-progress-dot {
   background: rgb(var(--primary-rgb) / 18%);
-  border-color: rgb(var(--primary-rgb) / 70%);
+  border-color: var(--manual-rule);
   color: rgb(var(--primary-rgb));
   box-shadow: 0 0 0 4px rgb(var(--primary-rgb) / 12%);
 }
@@ -65,9 +65,10 @@
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
-  letter-spacing: var(--tracking-caps);
+  letter-spacing: var(--tracking-label);
   color: var(--text-tertiary);
   transition: color 0.3s ease;
+  font-family: var(--font-family-label);
 }
 
 .setup-progress-step.is-active .setup-progress-label {
@@ -88,8 +89,9 @@
 .setup-eyebrow {
   font-size: var(--font-size-xs);
   text-transform: uppercase;
-  letter-spacing: var(--tracking-caps);
+  letter-spacing: var(--tracking-label);
   color: var(--text-tertiary);
+  font-family: var(--font-family-label);
 }
 
 .setup-title {
@@ -527,8 +529,9 @@ details[open] .setup-help-toggle::after {
 .setup-import-meta-label {
   font-size: var(--font-size-xs);
   text-transform: uppercase;
-  letter-spacing: var(--tracking-caps);
+  letter-spacing: var(--tracking-label);
   color: var(--text-tertiary);
+  font-family: var(--font-family-label);
 }
 
 .setup-import-meta-value {
@@ -565,10 +568,11 @@ details[open] .setup-help-toggle::after {
   background: var(--surface-2);
   font-size: var(--font-size-xs);
   text-transform: uppercase;
-  letter-spacing: var(--tracking-caps);
+  letter-spacing: var(--tracking-label);
   font-weight: var(--font-weight-semibold);
   color: var(--text-secondary);
   border-bottom: 1px solid var(--border-color);
+  font-family: var(--font-family-label);
 }
 
 .setup-import-activity-log {
@@ -703,7 +707,8 @@ details[open] .setup-help-toggle::after {
   font-size: var(--font-size-xs);
   color: var(--text-tertiary);
   text-transform: uppercase;
-  letter-spacing: var(--tracking-caps);
+  letter-spacing: var(--tracking-label);
+  font-family: var(--font-family-label);
 }
 
 /* ─── Build Progress ────────────────────────────────────────────── */

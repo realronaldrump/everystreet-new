@@ -1947,7 +1947,7 @@ async function loadStreets(areaId, areaSyncToken = null, retry = true) {
         type: "line",
         source: "streets",
         filter: ["==", ["get", "status"], "undriven"],
-        paint: { "line-color": "#c47050", "line-width": 4, "line-opacity": 0.85 },
+        paint: { "line-color": "#c26a4a", "line-width": 4, "line-opacity": 0.85 },
       });
 
       // Driven streets
@@ -1956,7 +1956,7 @@ async function loadStreets(areaId, areaSyncToken = null, retry = true) {
         type: "line",
         source: "streets",
         filter: ["==", ["get", "status"], "driven"],
-        paint: { "line-color": "#6f8fce", "line-width": 4, "line-opacity": 0.85 },
+        paint: { "line-color": "#5f82a0", "line-width": 4, "line-opacity": 0.85 },
       });
 
       // Undriveable streets (dashed)
@@ -1966,7 +1966,7 @@ async function loadStreets(areaId, areaSyncToken = null, retry = true) {
         source: "streets",
         filter: ["==", ["get", "status"], "undriveable"],
         paint: {
-          "line-color": "#727a84",
+          "line-color": "#857d6e",
           "line-width": 2,
           "line-opacity": 0.5,
           "line-dasharray": [2, 2],
@@ -1988,7 +1988,7 @@ async function loadStreets(areaId, areaSyncToken = null, retry = true) {
         type: "line",
         source: "streets",
         filter: ["==", ["get", "segment_id"], ""],
-        paint: { "line-color": "#d4a24a", "line-width": 6, "line-opacity": 0.95 },
+        paint: { "line-color": "#c49d4c", "line-width": 6, "line-opacity": 0.95 },
       });
 
       setupStreetInteractivity();

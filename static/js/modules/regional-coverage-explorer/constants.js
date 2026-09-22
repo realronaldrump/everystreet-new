@@ -29,12 +29,12 @@ export const MAP_CONFIG = {
 /** Map layer colors */
 export const COLORS = {
   visited: {
-    fill: colorOr(COUNTY_COLORS.visitedFill, "#6f8fce"),
+    fill: colorOr(COUNTY_COLORS.visitedFill, "#5f82a0"),
     border: colorOr(COUNTY_COLORS.visitedBorder, "#526fae"),
     opacity: 0.6,
   },
   stopped: {
-    fill: colorOr(COUNTY_COLORS.stoppedFill, "#6290ad"),
+    fill: colorOr(COUNTY_COLORS.stoppedFill, "#7893a6"),
     border: colorOr(COUNTY_COLORS.stoppedBorder, "#44688a"),
     opacity: 0.55,
   },
@@ -57,8 +57,8 @@ export const COLORS = {
       high: colorOr(COUNTY_COLORS.stateHigh, "rgba(82, 111, 174, 0.75)"),
     },
     city: {
-      visited: colorOr(COUNTY_COLORS.visitedFill, "#6f8fce"),
-      stopped: colorOr(COUNTY_COLORS.stoppedFill, "#6290ad"),
+      visited: colorOr(COUNTY_COLORS.visitedFill, "#5f82a0"),
+      stopped: colorOr(COUNTY_COLORS.stoppedFill, "#7893a6"),
       unvisited: colorOr(COUNTY_COLORS.cityUnvisited, "rgba(245, 242, 236, 0.08)"),
       visitedBorder: colorOr(COUNTY_COLORS.visitedBorder, "#526fae"),
       stoppedBorder: colorOr(COUNTY_COLORS.stoppedBorder, "#44688a"),

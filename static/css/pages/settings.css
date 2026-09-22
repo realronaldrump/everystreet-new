@@ -296,10 +296,11 @@
   font-weight: var(--font-weight-semibold);
   font-size: var(--font-size-sm);
   text-transform: uppercase;
-  letter-spacing: var(--tracking-caps);
+  letter-spacing: var(--tracking-label);
   padding: var(--space-3);
   border-bottom: 2px solid var(--border-color);
   white-space: nowrap;
+  font-family: var(--font-family-label);
 }
 
 .settings-group .table td {
@@ -404,9 +405,10 @@
 
 .storage-metric-label {
   font-size: var(--font-size-xs);
-  letter-spacing: var(--tracking-caps);
+  letter-spacing: var(--tracking-label);
   text-transform: uppercase;
   color: var(--text-secondary);
+  font-family: var(--font-family-label);
 }
 
 .storage-metric-value {
@@ -505,7 +507,8 @@
   font-size: var(--font-size-xs);
   color: var(--text-secondary);
   text-transform: uppercase;
-  letter-spacing: var(--tracking-caps);
+  letter-spacing: var(--tracking-label);
+  font-family: var(--font-family-label);
 }
 
 .storage-source-status {
@@ -667,7 +670,8 @@
   font-size: var(--font-size-xs);
   color: var(--text-secondary);
   text-transform: uppercase;
-  letter-spacing: var(--tracking-caps);
+  letter-spacing: var(--tracking-label);
+  font-family: var(--font-family-label);
 }
 
 .collection-card-actions {
@@ -1021,7 +1025,8 @@
   font-size: var(--font-size-xs);
   color: var(--text-tertiary);
   text-transform: uppercase;
-  letter-spacing: var(--tracking-wide);
+  letter-spacing: var(--tracking-label);
+  font-family: var(--font-family-label);
 }
 
 /* === Task Status Badge Colors === */
@@ -1050,7 +1055,7 @@
   width: 21px;
   height: 21px;
   left: 3px;
-  box-shadow: 0 2px 4px rgb(0 0 0 / 20%);
+  box-shadow: var(--shadow-xs);
 }
 
 .form-check.form-switch .form-check-input:checked::before {
@@ -1383,8 +1388,9 @@
   font-size: var(--font-size-xs);
   color: var(--text-secondary);
   text-transform: uppercase;
-  letter-spacing: var(--tracking-caps);
+  letter-spacing: var(--tracking-label);
   font-weight: var(--font-weight-semibold);
+  font-family: var(--font-family-label);
 }
 
 .map-services-coverage-hint-list {
@@ -1401,7 +1407,7 @@
   color: var(--text-primary);
   border-radius: var(--radius-md);
   padding: var(--space-2) var(--space-3);
-  border: 1px solid rgb(var(--text-rgb) / 12%);
+  border: 1px solid var(--manual-rule-faint);
   background: rgb(var(--surface-rgb) / 72%);
 }
 
@@ -1516,8 +1522,9 @@
   align-items: center;
   font-size: var(--font-size-xs);
   color: var(--text-tertiary);
-  letter-spacing: var(--tracking-wide);
+  letter-spacing: var(--tracking-label);
   text-transform: uppercase;
+  font-family: var(--font-family-label);
 }
 
 .map-services-progress .progress-bar-container {
@@ -1529,7 +1536,7 @@
 
 .map-services-progress .progress-bar-container.is-secondary {
   height: 6px;
-  background: rgb(var(--primary-rgb) / 12%);
+  background: var(--manual-paper-shade);
 }
 
 .map-services-progress .progress-bar {
@@ -1594,7 +1601,8 @@
   font-size: var(--font-size-xs);
   color: var(--text-tertiary);
   text-transform: uppercase;
-  letter-spacing: var(--tracking-wide);
+  letter-spacing: var(--tracking-label);
+  font-family: var(--font-family-label);
 }
 
 .map-services-progress .progress-activity.is-stale {
@@ -1733,7 +1741,7 @@
 }
 
 .geo-coverage-status-card {
-  border: 1px solid rgb(var(--text-rgb) / 12%);
+  border: 1px solid var(--manual-rule-faint);
   border-radius: var(--radius-lg);
   padding: var(--space-3);
   background: var(--surface-1);
@@ -1790,7 +1798,7 @@
   display: inline-flex;
   align-items: center;
   border-radius: var(--radius-sm);
-  border: 1px solid rgb(var(--text-rgb) / 14%);
+  border: 1px solid var(--manual-rule-faint);
   background: rgb(var(--surface-rgb) / 70%);
   color: var(--text-secondary);
   font-size: var(--font-size-xs);
@@ -1813,7 +1821,7 @@
   height: 9px;
   border-radius: var(--radius-sm);
   overflow: hidden;
-  background: rgb(var(--text-rgb) / 8%);
+  background: var(--manual-paper-shade);
 }
 
 .geo-coverage-progress-fill {
@@ -1834,7 +1842,7 @@
   display: flex;
   flex-direction: column;
   gap: 0.2rem;
-  border: 1px solid rgb(var(--text-rgb) / 12%);
+  border: 1px solid var(--manual-rule-faint);
   border-radius: var(--radius-md);
   background: rgb(var(--surface-rgb) / 62%);
   padding: var(--space-2);
@@ -1954,8 +1962,8 @@
 }
 
 .trip-import-step-indicator.is-active {
-  border-color: rgb(var(--primary-rgb) / 40%);
-  background: rgb(var(--primary-rgb) / 10%);
+  border-color: var(--manual-rule);
+  background: var(--manual-paper-shade);
   color: var(--text-primary);
 }
 
@@ -2034,7 +2042,8 @@
   font-size: var(--font-size-xs);
   color: var(--text-tertiary);
   text-transform: uppercase;
-  letter-spacing: var(--tracking-caps);
+  letter-spacing: var(--tracking-label);
+  font-family: var(--font-family-label);
 }
 
 .trip-import-plan-v {
@@ -2129,13 +2138,14 @@
   align-items: center;
   padding: 0.2rem 0.6rem;
   border-radius: var(--radius-sm);
-  border: 1px solid rgb(var(--primary-rgb) / 28%);
-  background: rgb(var(--primary-rgb) / 10%);
+  border: 1px solid var(--manual-rule);
+  background: var(--manual-paper-shade);
   color: rgb(var(--primary-rgb));
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
-  letter-spacing: var(--tracking-caps);
+  letter-spacing: var(--tracking-label);
   text-transform: uppercase;
+  font-family: var(--font-family-label);
 }
 
 .trip-import-message {
@@ -2167,8 +2177,9 @@
 .trip-import-window-label {
   color: var(--text-tertiary);
   text-transform: uppercase;
-  letter-spacing: var(--tracking-caps);
+  letter-spacing: var(--tracking-label);
   font-weight: var(--font-weight-medium);
+  font-family: var(--font-family-label);
 }
 
 .trip-import-window-sep {
@@ -2204,13 +2215,14 @@
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
-  letter-spacing: var(--tracking-caps);
+  letter-spacing: var(--tracking-label);
   color: var(--text-tertiary);
   display: flex;
   align-items: center;
   gap: var(--space-2);
   padding-bottom: var(--space-2);
   border-bottom: 1px solid var(--border-color);
+  font-family: var(--font-family-label);
 }
 
 .trip-import-pipeline-card-title i {
@@ -2409,8 +2421,9 @@
 .trip-import-event-level {
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
-  letter-spacing: var(--tracking-caps);
+  letter-spacing: var(--tracking-label);
   color: var(--text-secondary);
+  font-family: var(--font-family-label);
 }
 
 .trip-import-event--error .trip-import-event-level {
@@ -2516,7 +2529,7 @@
 }
 
 .trip-data-health-nav .nav-link:focus-visible {
-  outline: 2px solid rgb(var(--primary-rgb) / 45%);
+  outline: var(--focus-outline);
   outline-offset: 2px;
 }
 
@@ -2541,7 +2554,7 @@
 
 .trip-data-health-nav .nav-link.active .trip-data-health-count,
 .trip-data-health-nav .show > .nav-link .trip-data-health-count {
-  border-color: rgb(var(--primary-rgb) / 35%);
+  border-color: var(--manual-rule);
   background: rgb(var(--primary-rgb) / 16%);
   color: rgb(var(--primary-rgb));
 }
@@ -2596,13 +2609,13 @@
 }
 
 .trip-issues-chip:focus-visible {
-  outline: 2px solid rgb(var(--primary-rgb) / 45%);
+  outline: var(--focus-outline);
   outline-offset: 2px;
 }
 
 .trip-issues-chip.is-active {
   background: rgb(var(--primary-rgb) / 14%);
-  border-color: rgb(var(--primary-rgb) / 45%);
+  border-color: var(--manual-rule);
   color: rgb(var(--primary-rgb));
   box-shadow: inset 0 0 0 1px rgb(var(--primary-rgb) / 16%);
 }
@@ -2618,7 +2631,7 @@
 
 .trip-issues-chip.is-active .trip-issues-chip-count {
   color: rgb(var(--primary-rgb));
-  border-left-color: rgb(var(--primary-rgb) / 35%);
+  border-left-color: var(--manual-rule);
 }
 
 .trip-issues-chip:disabled {
@@ -2665,7 +2678,7 @@
 
 .trip-issues-controls .form-control:focus {
   background: var(--surface-2);
-  border-color: rgb(var(--primary-rgb) / 45%);
+  border-color: var(--manual-rule);
   box-shadow: 0 0 0 2px rgb(var(--primary-rgb) / 18%);
 }
 
@@ -2704,7 +2717,7 @@
 }
 
 .trip-issues-controls .btn:focus-visible {
-  outline: 2px solid rgb(var(--primary-rgb) / 45%);
+  outline: var(--focus-outline);
   outline-offset: 2px;
 }
 
@@ -2817,7 +2830,7 @@
 
 .settings-group .trip-issues-table tbody tr:hover td,
 .settings-group .trip-invalid-table tbody tr:hover td {
-  background: rgb(var(--primary-rgb) / 8%);
+  background: var(--manual-paper-shade);
 }
 
 .settings-group .trip-issues-table tbody .trip-issues-state-row:hover td,
@@ -2855,7 +2868,7 @@
   height: 0.7rem;
   margin-right: 0.45rem;
   border-radius: 999px;
-  border: 2px solid rgb(var(--primary-rgb) / 25%);
+  border: 2px solid var(--manual-rule);
   border-top-color: rgb(var(--primary-rgb));
   display: inline-block;
   vertical-align: middle;
@@ -2885,10 +2898,11 @@
   color: var(--text-secondary);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
-  letter-spacing: var(--tracking-caps);
+  letter-spacing: var(--tracking-label);
   line-height: 1;
   text-transform: uppercase;
   white-space: nowrap;
+  font-family: var(--font-family-label);
 }
 
 .trip-issue-badge--fetch {
@@ -2904,8 +2918,8 @@
 }
 
 .trip-issue-badge--process {
-  border-color: rgb(var(--primary-rgb) / 30%);
-  background: rgb(var(--primary-rgb) / 10%);
+  border-color: var(--manual-rule);
+  background: var(--manual-paper-shade);
   color: rgb(var(--primary-rgb));
 }
 
@@ -2928,7 +2942,7 @@
 }
 
 .trip-issue-link:focus-visible {
-  outline: 2px solid rgb(var(--primary-rgb) / 45%);
+  outline: var(--focus-outline);
   outline-offset: 2px;
   border-radius: var(--radius-sm);
 }
@@ -3020,7 +3034,7 @@
 }
 
 .trip-issues-actions .btn:focus-visible {
-  outline: 2px solid rgb(var(--primary-rgb) / 45%);
+  outline: var(--focus-outline);
   outline-offset: 2px;
 }
 
@@ -3060,8 +3074,9 @@
   color: var(--info);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
-  letter-spacing: var(--tracking-caps);
+  letter-spacing: var(--tracking-label);
   text-transform: uppercase;
+  font-family: var(--font-family-label);
 }
 
 .trip-invalid-source {
@@ -3114,7 +3129,7 @@
 
 .trip-issues-pagination .page-item.active .page-link {
   color: var(--text-primary);
-  border-color: rgb(var(--primary-rgb) / 45%);
+  border-color: var(--manual-rule);
   background: rgb(var(--primary-rgb) / 16%);
   box-shadow: inset 0 0 0 1px rgb(var(--primary-rgb) / 16%);
 }
@@ -3126,7 +3141,7 @@
 }
 
 .trip-issues-pagination .page-link:focus-visible {
-  outline: 2px solid rgb(var(--primary-rgb) / 45%);
+  outline: var(--focus-outline);
   outline-offset: 2px;
 }
 
@@ -3232,12 +3247,12 @@
 .trip-import-summary-item--interactive:hover:not(:disabled),
 .trip-import-summary-item--interactive:focus-visible,
 .trip-import-summary-item--interactive.is-active {
-  border-color: rgb(var(--primary-rgb) / 60%);
-  background: rgb(var(--primary-rgb) / 8%);
+  border-color: var(--manual-rule);
+  background: var(--manual-paper-shade);
 }
 
 .trip-import-summary-item--interactive:focus-visible {
-  outline: 2px solid rgb(var(--primary-rgb) / 65%);
+  outline: var(--focus-outline);
   outline-offset: 2px;
 }
 
@@ -3262,7 +3277,8 @@
   font-size: var(--font-size-xs);
   color: var(--text-tertiary);
   text-transform: uppercase;
-  letter-spacing: var(--tracking-caps);
+  letter-spacing: var(--tracking-label);
+  font-family: var(--font-family-label);
 }
 
 .trip-import-summary-v {
@@ -3306,8 +3322,9 @@
   color: var(--danger);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
-  letter-spacing: var(--tracking-caps);
+  letter-spacing: var(--tracking-label);
   text-transform: uppercase;
+  font-family: var(--font-family-label);
 }
 
 .trip-import-error-details-title {
@@ -3479,10 +3496,10 @@
   align-items: center;
   gap: var(--space-2);
   color: var(--text-secondary);
-  font-family: var(--font-numeric);
+  font-family: var(--font-family-label);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
-  letter-spacing: var(--tracking-wide);
+  letter-spacing: var(--tracking-label);
   text-transform: uppercase;
 }
 
@@ -3544,10 +3561,10 @@
 
 .control-center-service-detail-row dt {
   color: var(--text-tertiary);
-  font-family: var(--font-numeric);
+  font-family: var(--font-family-label);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-regular);
-  letter-spacing: var(--tracking-wide);
+  letter-spacing: var(--tracking-label);
   text-transform: uppercase;
 }
 
@@ -3600,7 +3617,7 @@
 }
 
 .control-center-service-copy-btn:focus-visible {
-  outline: 2px solid rgb(var(--primary-rgb) / 60%);
+  outline: var(--focus-outline);
   outline-offset: 2px;
 }
 
@@ -3694,8 +3711,9 @@
 .control-center-chatgpt-details dt {
   color: var(--text-tertiary);
   font-size: var(--font-size-xs);
-  letter-spacing: var(--tracking-wide);
+  letter-spacing: var(--tracking-label);
   text-transform: uppercase;
+  font-family: var(--font-family-label);
 }
 
 .control-center-chatgpt-details dd {
@@ -3733,9 +3751,9 @@
     padding: var(--space-2) var(--space-3);
     border-bottom: 1px solid var(--border-color-light);
     color: var(--text-tertiary);
-    font-family: var(--font-numeric);
+    font-family: var(--font-family-label);
     font-size: var(--font-size-xs);
-    letter-spacing: var(--tracking-caps);
+    letter-spacing: var(--tracking-label);
     text-transform: uppercase;
   }
 
@@ -3745,7 +3763,7 @@
   }
 
   .control-center-service-row:hover {
-    background: rgb(var(--text-rgb) / 2%);
+    background: var(--manual-paper-shade);
   }
 
   .control-center-service-identity,

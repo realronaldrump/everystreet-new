@@ -64,7 +64,7 @@
 
 .map-search-input:focus {
   outline: none;
-  border-color: rgb(var(--primary-rgb) / 55%);
+  border-color: var(--manual-rule);
   box-shadow: var(--focus-ring);
 }
 
@@ -161,8 +161,9 @@ button.view-popover-row:focus-visible {
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
-  letter-spacing: var(--tracking-caps);
+  letter-spacing: var(--tracking-label);
   color: var(--text-tertiary);
+  font-family: var(--font-family-label);
 }
 
 .view-popover-select {
@@ -185,7 +186,7 @@ button.view-popover-row:focus-visible {
   flex: 0 0 auto;
   width: 26px;
   height: 14px;
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   border: 1px solid var(--border-color);
   background: var(--surface-1);
   position: relative;
@@ -208,7 +209,7 @@ button.view-popover-row:focus-visible {
 
 .view-popover-switch[aria-pressed="true"] .view-switch-mark {
   background: rgb(var(--primary-rgb) / 22%);
-  border-color: rgb(var(--primary-rgb) / 55%);
+  border-color: var(--manual-rule);
 }
 
 .view-popover-switch[aria-pressed="true"] .view-switch-mark::after {
@@ -243,9 +244,9 @@ button.view-popover-row:focus-visible {
   border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
   background: var(--surface-1);
-  font-family: var(--font-numeric);
+  font-family: var(--font-family-label);
   font-size: var(--font-size-xs);
-  letter-spacing: var(--tracking-caps);
+  letter-spacing: var(--tracking-label);
   text-transform: uppercase;
   color: var(--text-tertiary);
   font-variant-numeric: tabular-nums;
@@ -277,12 +278,13 @@ button.view-popover-row:focus-visible {
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
-  letter-spacing: var(--tracking-caps);
+  letter-spacing: var(--tracking-label);
   cursor: pointer;
   z-index: var(--z-dropdown);
   transition:
     color var(--transition-fast),
     border-color var(--transition-fast);
+  font-family: var(--font-family-label);
 }
 
 .atlas-rail-reopen:hover {

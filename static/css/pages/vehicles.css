@@ -189,8 +189,9 @@
 .detail-chip-label {
   color: var(--text-tertiary);
   text-transform: uppercase;
-  letter-spacing: var(--tracking-wide);
+  letter-spacing: var(--tracking-label);
   font-weight: var(--font-weight-medium);
+  font-family: var(--font-family-label);
 }
 
 .detail-chip-value {
@@ -288,8 +289,9 @@
   font-size: var(--font-size-xs);
   color: var(--text-tertiary);
   text-transform: uppercase;
-  letter-spacing: var(--tracking-wide);
+  letter-spacing: var(--tracking-label);
   font-weight: var(--font-weight-medium);
+  font-family: var(--font-family-label);
 }
 
 .odometer-action-value {
@@ -410,7 +412,7 @@
    Light mode
    ============================================================ */
 html.light-mode body .vehicle-list-card.is-selected {
-  background: rgb(var(--primary-rgb) / 8%);
+  background: var(--manual-paper-shade);
 }
 
 html.light-mode body .detail-chip,

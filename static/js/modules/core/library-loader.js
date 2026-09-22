@@ -99,18 +99,64 @@ async function ensureMap() {
   document.dispatchEvent(new CustomEvent("es:mapbox-gl-ready"));
 }
 
-// Chart.js defaults to its own Helvetica/Arial stack, so every chart spoke
-// in a different voice than the page around it. Adopt the app's text face
-// once, at load, rather than repeating it in each chart config.
+// Chart.js ships its own type, greys, and rounded tooltips. Print charts
+// like the rest of the manual instead: the text face for ticks, Franklin
+// labels in legends and tooltips, ink rules for axes, and square marks.
+// Colours are read from the theme tokens, so a theme switch re-applies them.
+function readToken(name) {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+
+function applyChartTheme(chart) {
+  const defaults = chart?.defaults;
+  if (!defaults?.font) {
+    return;
+  }
+  const text = readToken("--font-family-text") || readToken("--font-family");
+  const label = readToken("--font-family-label") || text;
+  const ink = readToken("--manual-ink");
+  const paper = readToken("--manual-paper");
+  const rule = readToken("--manual-rule");
+  const faint = readToken("--manual-rule-faint");
+
+  defaults.font.family = text;
+  defaults.color = readToken("--text-secondary") || defaults.color;
+  defaults.borderColor = faint || defaults.borderColor;
+  if (defaults.scale) {
+    defaults.scale.grid.color = faint || defaults.scale.grid.color;
+    defaults.scale.border.color = rule || defaults.scale.border.color;
+  }
+  const { legend, tooltip } = defaults.plugins;
+  legend.labels.font = { family: label, size: 11, weight: "600" };
+  legend.labels.boxWidth = 12;
+  legend.labels.boxHeight = 12;
+  Object.assign(tooltip, {
+    backgroundColor: ink,
+    titleColor: paper,
+    bodyColor: paper,
+    footerColor: paper,
+    borderWidth: 0,
+    cornerRadius: 0,
+    caretSize: 5,
+    padding: 8,
+    titleFont: { family: label, size: 11, weight: "700" },
+    bodyFont: { family: text, size: 12 },
+  });
+  defaults.elements.bar.borderRadius = 0;
+  defaults.elements.line.borderWidth = 2;
+  defaults.elements.point.radius = 0;
+  defaults.elements.point.hoverRadius = 4;
+}
+
 async function ensureChart() {
   await loadScript("chartjs", "es-chart-js", () => globalThis.Chart);
   const chart = globalThis.Chart;
-  const family = getComputedStyle(document.documentElement)
-    .getPropertyValue("--font-family")
-    .trim();
-  if (chart?.defaults?.font && family) {
-    chart.defaults.font.family = family;
+  if (!chart?.defaults || chart.__esThemed) {
+    return;
   }
+  chart.__esThemed = true;
+  applyChartTheme(chart);
+  document.addEventListener("themeChanged", () => applyChartTheme(chart));
 }
 
 const loaders = {

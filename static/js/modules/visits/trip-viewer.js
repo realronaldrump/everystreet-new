@@ -197,7 +197,7 @@ class TripViewer {
           type: "line",
           source: "trip",
           paint: {
-            "line-color": "#d4a24a",
+            "line-color": "#c49d4c",
             "line-width": 6,
             "line-opacity": 0.6,
           },
@@ -220,7 +220,7 @@ class TripViewer {
 
         if (Array.isArray(startCoord) && startCoord.length >= 2) {
           this.startMarker = new mapboxgl.Marker({
-            color: "#6f8fce",
+            color: "#5f82a0",
             scale: 1.2,
           })
             .setLngLat(startCoord)
@@ -230,7 +230,7 @@ class TripViewer {
 
         if (Array.isArray(endCoord) && endCoord.length >= 2) {
           this.endMarker = new mapboxgl.Marker({
-            color: "#c45454",
+            color: "#b5523f",
             scale: 1.2,
           })
             .setLngLat(endCoord)

@@ -40,10 +40,10 @@
 .journal-kicker {
   margin: 0;
   color: var(--text-tertiary);
-  font-family: var(--font-numeric);
+  font-family: var(--font-family-label);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
-  letter-spacing: var(--tracking-caps);
+  letter-spacing: var(--tracking-label);
   text-transform: uppercase;
 }
 
@@ -91,9 +91,9 @@
 .journal-figure-band dt {
   margin-bottom: var(--space-2);
   color: var(--text-tertiary);
-  font-family: var(--font-numeric);
+  font-family: var(--font-family-label);
   font-size: var(--font-size-xs);
-  letter-spacing: var(--tracking-caps);
+  letter-spacing: var(--tracking-label);
   text-transform: uppercase;
 }
 
@@ -128,7 +128,7 @@
 .journal-state-mark {
   width: 11px;
   height: 11px;
-  border: 2px solid rgb(var(--primary-rgb) / 42%);
+  border: 2px solid var(--manual-rule);
   border-top-color: var(--journal-cobalt);
   border-radius: 50%;
   animation: journal-spin 0.9s linear infinite;
@@ -292,7 +292,7 @@
   align-items: center;
   padding: 0;
   border: 0;
-  border-bottom: 1px solid rgb(var(--primary-rgb) / 45%);
+  border-bottom: 1px solid var(--manual-rule);
   color: var(--journal-cobalt);
   background: transparent;
   font: inherit;
@@ -306,7 +306,7 @@
 .journal-street-link:focus-visible {
   border-bottom-color: currentcolor;
   color: var(--text-primary);
-  background: rgb(var(--primary-rgb) / 7%);
+  background: var(--manual-paper-shade);
 }
 
 .journal-street-link i {
@@ -331,7 +331,7 @@
 }
 
 .journal-map-folio:focus-visible {
-  outline: 3px solid rgb(var(--primary-rgb) / 62%);
+  outline: var(--focus-outline);
   outline-offset: 4px;
 }
 
@@ -372,7 +372,7 @@
 .journal-route-link:hover {
   border-color: var(--journal-cobalt);
   color: var(--journal-cobalt);
-  background: rgb(var(--primary-rgb) / 8%);
+  background: var(--manual-paper-shade);
 }
 
 .journal-map {
@@ -477,7 +477,7 @@
 .journal-segmented button:focus-visible,
 .journal-segmented button.is-active {
   color: var(--journal-cobalt);
-  background: rgb(var(--primary-rgb) / 10%);
+  background: var(--manual-paper-shade);
 }
 
 .journal-segmented button.is-active {
@@ -530,7 +530,7 @@
 .journal-chart-pan-controls button:hover,
 .journal-chart-pan-controls button:focus-visible {
   color: var(--journal-cobalt);
-  background: rgb(var(--primary-rgb) / 8%);
+  background: var(--manual-paper-shade);
 }
 
 .journal-chart-pan-controls button:disabled {
@@ -721,7 +721,7 @@
 .journal-chart-event:hover,
 .journal-chart-event:focus-visible,
 .journal-chart-event.is-active {
-  background: rgb(var(--primary-rgb) / 8%);
+  background: var(--manual-paper-shade);
 }
 
 .journal-chart-event.is-active {
@@ -738,8 +738,9 @@
 }
 
 .journal-chart-event > span {
-  letter-spacing: var(--tracking-caps);
+  letter-spacing: var(--tracking-label);
   text-transform: uppercase;
+  font-family: var(--font-family-label);
 }
 
 .journal-chart-event strong {
@@ -957,7 +958,7 @@
 .journal-ranking-row:hover,
 .journal-ranking-row:focus-within,
 .journal-ranking-row.is-active {
-  background: rgb(var(--primary-rgb) / 8%);
+  background: var(--manual-paper-shade);
 }
 
 .journal-ranking-row.is-active {
@@ -1128,6 +1129,8 @@
   color: var(--text-tertiary);
   font-size: var(--font-size-xs);
   text-transform: uppercase;
+  font-family: var(--font-family-label);
+  letter-spacing: var(--tracking-label);
 }
 
 .journal-forecast dd {

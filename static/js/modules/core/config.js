@@ -146,7 +146,7 @@ export const CONFIG = {
     },
     matchedTrips: {
       order: 3,
-      color: "#c45454",
+      color: "#b5523f",
       opacity: 1,
       visible: false,
       highlightColor: "#8aa7df",
@@ -160,7 +160,7 @@ export const CONFIG = {
     },
     undrivenStreets: {
       order: 2,
-      color: "#c47050",
+      color: "#c26a4a",
       opacity: 0.8,
       visible: false,
       name: "Undriven Streets",
@@ -170,7 +170,7 @@ export const CONFIG = {
     },
     drivenStreets: {
       order: 2,
-      color: "#6f8fce",
+      color: "#5f82a0",
       opacity: 0.8,
       visible: false,
       name: "Driven Streets",
@@ -180,7 +180,7 @@ export const CONFIG = {
     },
     allStreets: {
       order: 2,
-      color: "#6a72a0",
+      color: "#5e6789",
       opacity: 0.7,
       visible: false,
       name: "All Streets",

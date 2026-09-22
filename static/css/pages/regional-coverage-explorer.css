@@ -26,7 +26,7 @@
   max-height: calc(100vh - 2rem);
   background: var(--surface-1);
   border-radius: var(--radius-2xl);
-  box-shadow: 0 8px 32px rgb(0 0 0 / 30%);
+  box-shadow: var(--shadow-xs);
   border: 1px solid var(--border-color);
   overflow: hidden;
   display: flex;
@@ -116,7 +116,7 @@
   min-height: 3.1rem;
   background: var(--surface-elevated);
   border-radius: var(--radius-lg);
-  border: 1px solid rgb(var(--text-rgb) / 8%);
+  border: 1px solid var(--manual-rule-faint);
   transition: all 0.2s ease;
   cursor: pointer;
   min-width: 0;
@@ -162,8 +162,9 @@
   font-size: var(--font-size-xs);
   color: var(--text-tertiary);
   text-transform: uppercase;
-  letter-spacing: var(--tracking-wide);
+  letter-spacing: var(--tracking-label);
   line-height: 1.2;
+  font-family: var(--font-family-label);
 }
 
 /* =============================================================================
@@ -176,9 +177,9 @@
   gap: 0.5rem;
   margin: 0;
   padding: 0.35rem;
-  background: rgb(var(--text-rgb) / 4%);
+  background: var(--manual-paper-shade);
   border-radius: var(--radius-lg);
-  border: 1px solid rgb(var(--text-rgb) / 6%);
+  border: 1px solid var(--manual-rule-faint);
 }
 
 .coverage-level-btn {
@@ -196,7 +197,7 @@
 
 .coverage-level-btn:hover {
   color: var(--text-primary);
-  background: rgb(var(--text-rgb) / 5%);
+  background: var(--manual-paper-shade);
 }
 
 .coverage-level-btn--active {
@@ -312,8 +313,9 @@
   font-size: var(--font-size-sm);
   color: var(--text-secondary);
   text-transform: uppercase;
-  letter-spacing: var(--tracking-wide);
+  letter-spacing: var(--tracking-label);
   margin-top: 0.2rem;
+  font-family: var(--font-family-label);
 }
 
 /* =============================================================================
@@ -394,8 +396,8 @@
 }
 
 .legend-swatch--unvisited {
-  background: rgb(var(--text-rgb) / 5%);
-  border: 1px solid rgb(var(--text-rgb) / 20%);
+  background: var(--manual-paper-shade);
+  border: 1px solid var(--manual-rule);
 }
 
 .legend-swatch--state-low {
@@ -442,7 +444,7 @@
   max-width: 100%;
   min-height: 2.35rem;
   background-color: var(--surface-elevated);
-  border: 1px solid rgb(var(--text-rgb) / 10%);
+  border: 1px solid var(--manual-rule-faint);
   color: var(--text-primary);
   font-size: var(--font-size-sm);
   line-height: 1.25;
@@ -461,7 +463,7 @@
 
 .state-stat-item {
   background: var(--surface-elevated);
-  border: 1px solid rgb(var(--text-rgb) / 10%);
+  border: 1px solid var(--manual-rule-faint);
   border-radius: var(--radius-lg);
   padding: 0.88rem 0.95rem;
   cursor: pointer;
@@ -479,7 +481,7 @@
 
 .state-stat-item:hover {
   background: var(--surface-3);
-  border-color: rgb(var(--text-rgb) / 10%);
+  border-color: var(--manual-rule-faint);
   transform: translateY(-1px);
 }
 
@@ -580,7 +582,7 @@
 
 .city-stat-item {
   background: var(--surface-elevated);
-  border: 1px solid rgb(var(--text-rgb) / 10%);
+  border: 1px solid var(--manual-rule-faint);
   border-radius: var(--radius-lg);
   padding: 0.88rem 0.95rem;
   cursor: pointer;
@@ -598,7 +600,7 @@
 
 .city-stat-item:hover {
   background: var(--surface-3);
-  border-color: rgb(var(--text-rgb) / 10%);
+  border-color: var(--manual-rule-faint);
   transform: translateY(-1px);
 }
 
@@ -657,7 +659,7 @@
 .city-filters .form-select,
 .city-filters .form-control {
   background-color: var(--surface-elevated);
-  border: 1px solid rgb(var(--text-rgb) / 10%);
+  border: 1px solid var(--manual-rule-faint);
   color: var(--text-primary);
   min-height: 2.35rem;
   font-size: var(--font-size-sm);
@@ -703,7 +705,7 @@
   padding: 0.85rem 0.95rem;
   background: var(--surface-elevated);
   border-radius: var(--radius-lg);
-  border: 1px solid rgb(var(--text-rgb) / 10%);
+  border: 1px solid var(--manual-rule-faint);
   margin-top: 0.2rem;
   gap: 0.85rem;
 }
@@ -721,8 +723,9 @@
 .last-updated-label {
   font-size: var(--font-size-sm);
   text-transform: uppercase;
-  letter-spacing: var(--tracking-wide);
+  letter-spacing: var(--tracking-label);
   color: var(--text-tertiary);
+  font-family: var(--font-family-label);
 }
 
 .last-updated-value {
@@ -781,7 +784,7 @@
   height: 7px;
   border-radius: var(--radius-sm);
   overflow: hidden;
-  background: rgb(var(--text-rgb) / 8%);
+  background: var(--manual-paper-shade);
 }
 
 .recalc-progress-fill {
@@ -806,8 +809,8 @@
   font-size: var(--font-size-sm);
   padding: 0.17rem 0.45rem;
   border-radius: var(--radius-sm);
-  border: 1px solid rgb(var(--text-rgb) / 13%);
-  background: rgb(var(--text-rgb) / 5%);
+  border: 1px solid var(--manual-rule-faint);
+  background: var(--manual-paper-shade);
   color: var(--text-secondary);
 }
 
@@ -835,7 +838,7 @@
   font-weight: 600;
   line-height: 1.3;
   padding: 0.2rem 0.48rem;
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
   display: inline-block;
   white-space: nowrap;
 }
@@ -847,9 +850,9 @@
 }
 
 .tooltip-status--unvisited {
-  background: rgb(var(--text-rgb) / 5%);
+  background: var(--manual-paper-shade);
   color: var(--text-secondary);
-  border: 1px solid rgb(var(--text-rgb) / 10%);
+  border: 1px solid var(--manual-rule-faint);
 }
 
 .tooltip-status--stopped {
@@ -867,7 +870,7 @@
   background: var(--surface-1);
   padding: 0.65rem 0.85rem;
   border-radius: var(--radius-lg);
-  box-shadow: 0 4px 16px rgb(0 0 0 / 30%);
+  box-shadow: var(--shadow-xs);
   border: 1px solid var(--border-color);
   pointer-events: none;
   z-index: 200;
@@ -892,7 +895,7 @@
 .tooltip-dates {
   margin-top: 0.4rem;
   padding-top: 0.4rem;
-  border-top: 1px solid rgb(var(--text-rgb) / 10%);
+  border-top: 1px solid var(--manual-rule-faint);
 }
 
 .tooltip-date {
@@ -1083,7 +1086,7 @@
 [data-bs-theme="light"] .county-stats-panel {
   background: var(--surface-1);
   border-color: var(--border-color);
-  box-shadow: 0 8px 32px var(--border-color);
+  box-shadow: var(--shadow-xs);
 }
 
 [data-bs-theme="light"] .county-tooltip {

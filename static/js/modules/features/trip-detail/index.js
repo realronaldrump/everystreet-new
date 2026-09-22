@@ -115,8 +115,8 @@ export default async function initTripDetail({ api, signal, cleanup } = {}) {
           type: isPoint ? "circle" : "line",
           source: "detail-trip",
           paint: isPoint
-            ? { "circle-radius": 7, "circle-color": "#c47050" }
-            : { "line-width": 4, "line-color": "#c47050" },
+            ? { "circle-radius": 7, "circle-color": "#c26a4a" }
+            : { "line-width": 4, "line-color": "#c26a4a" },
         });
         const coordinates = isPoint
           ? [geometry.coordinates]

@@ -32,15 +32,15 @@ const IMPERIAL_CONFIG = {
 const PLACE_ICON = "📍";
 
 const DISCOVERY_PREVIEW_COLORS = {
-  fill: "#6290ad",
-  line: "#6290ad",
+  fill: "#7893a6",
+  line: "#7893a6",
 };
 
 const PLACE_PREVIEW_COLORS = {
-  cobalt: { fill: "#6f8fce", line: "#8aa7df" },
-  purple: { fill: "#8a7ab0", line: "#8a7ab0" },
-  sky: { fill: "#72a6c4", line: "#72a6c4" },
-  slate: { fill: "#727a84", line: "#8c949e" },
+  cobalt: { fill: "#5f82a0", line: "#8aa7df" },
+  purple: { fill: "#8b6f8a", line: "#8b6f8a" },
+  sky: { fill: "#93acbf", line: "#93acbf" },
+  slate: { fill: "#857d6e", line: "#8c949e" },
 };
 
 // Day names for pattern detection
