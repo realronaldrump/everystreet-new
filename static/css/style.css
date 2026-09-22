@@ -41,3 +41,6 @@
 @import url("components/icons.css");
 @import url("components/setup-required.css");
 @import url("components/date-picker.css");
+
+/* === Manual chrome (shared header, menus, date picker) === */
+@import url("components/manual-chrome.css");

@@ -188,6 +188,11 @@
   --manual-rust-ink: #dd8d6c;
   --manual-mustard: #cfae5c;
   --manual-mustard-rgb: 207 174 92;
+  --manual-rule: rgb(var(--manual-ink-rgb) / 42%);
+  --manual-rule-faint: rgb(var(--manual-ink-rgb) / 22%);
+  --manual-font-display: "Roboto Serif", var(--font-family-display);
+  --manual-font-text: var(--font-family-display);
+  --manual-font-label: "Libre Franklin", var(--font-family);
 
   /* Comfortable measure for running text */
   --measure: 68ch;
