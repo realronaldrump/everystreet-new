@@ -7,7 +7,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 CSS_ROOT = ROOT / "static" / "css"
 VARIABLES_CSS = CSS_ROOT / "core" / "variables.css"
-PAGE_CSS = tuple(sorted(CSS_ROOT.glob("*.css")))
+PAGE_CSS = tuple(sorted((CSS_ROOT / "pages").glob("*.css")))
 ALL_CSS = tuple(sorted(CSS_ROOT.rglob("*.css")))
 TEMPLATES = tuple(sorted((ROOT / "templates").glob("*.html")))
 

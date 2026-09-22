@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% from "partials/_map_assets.html" import include_mapbox_css, static_css with context %}
+{% from "partials/_assets.html" import include_mapbox_css, static_css with context %}
 
 {% block title %}
 Route Planner
@@ -8,7 +8,7 @@ Route Planner
 
 {% block extra_css %}
   {{ include_mapbox_css() }}
-  {{ static_css("coverage-route-planner.css") }}
+  {{ static_css("pages/coverage-route-planner.css") }}
 {% endblock %}
 
 {% block content %}

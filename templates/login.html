@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% from "partials/_map_assets.html" import static_css with context %}
+{% from "partials/_assets.html" import static_css with context %}
 
 {% block title %}
   Owner Login
@@ -8,7 +8,7 @@
 
 
 {% block extra_css %}
-  {{ static_css("login.css") }}
+  {{ static_css("pages/login.css") }}
 {% endblock %}
 
 

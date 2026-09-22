@@ -1317,17 +1317,17 @@ html.light-mode .pl-shadow {
 
 .plate-car-base {
   background-color: var(--manual-solid);
-  mask-image: url("../images/landing/murano-silhouette.webp");
+  mask-image: url("../../images/landing/murano-silhouette.webp");
 }
 
 .plate-car-ink {
   background-color: var(--manual-ink);
-  mask-image: url("../images/landing/murano-highlight.webp");
+  mask-image: url("../../images/landing/murano-highlight.webp");
 }
 
 .plate-car-lamps {
   background-color: var(--manual-rust);
-  mask-image: url("../images/landing/murano-lamps.webp");
+  mask-image: url("../../images/landing/murano-lamps.webp");
 }
 
 html.light-mode .plate-car-base {
@@ -1335,7 +1335,7 @@ html.light-mode .plate-car-base {
 }
 
 html.light-mode .plate-car-ink {
-  mask-image: url("../images/landing/murano-ink.webp");
+  mask-image: url("../../images/landing/murano-ink.webp");
 }
 
 .plate-car-shadow {

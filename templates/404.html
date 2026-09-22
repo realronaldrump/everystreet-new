@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% from "partials/_map_assets.html" import static_css with context %}
+{% from "partials/_assets.html" import static_css with context %}
 
 {% block title %}
   Page Not Found
@@ -9,7 +9,7 @@
 
 {% block extra_css %}
 
-  {{ static_css("not-found.css") }}
+  {{ static_css("pages/not-found.css") }}
 {% endblock %}
 
 

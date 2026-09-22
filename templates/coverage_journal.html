@@ -2,7 +2,7 @@
 {% set detail_page = true %}
 {% set detail_parent = '/coverage-management' %}
 
-{% from "partials/_map_assets.html" import include_mapbox_css, static_css with context %}
+{% from "partials/_assets.html" import include_mapbox_css, static_css with context %}
 
 {% block title %}
 Coverage Field Journal
@@ -10,7 +10,7 @@ Coverage Field Journal
 
 {% block extra_css %}
   {{ include_mapbox_css() }}
-  {{ static_css("coverage-journal.css") }}
+  {{ static_css("pages/coverage-journal.css") }}
 {% endblock %}
 
 {% block detail_content %}

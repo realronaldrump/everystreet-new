@@ -91,7 +91,7 @@ test("map coverage dropdown placeholder avoids bootstrap placeholder utility", (
 });
 
 test("route planner legend matches the optimal route map color", () => {
-  const plannerCss = readRepoFile("static", "css", "coverage-route-planner.css");
+  const plannerCss = readRepoFile("static", "css", "pages", "coverage-route-planner.css");
   const mapStylesSource = readStaticJs("modules", "map-styles.js");
 
   assert.match(

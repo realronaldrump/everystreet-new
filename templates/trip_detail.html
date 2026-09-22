@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% set detail_page = true %}
 {% set detail_parent = '/trips' %}
-{% from "partials/_map_assets.html" import include_mapbox_css with context %}
+{% from "partials/_assets.html" import include_mapbox_css with context %}
 {% block title %}Trip details · Every Street{% endblock %}
 {% block extra_css %}{{ include_mapbox_css() }}{% endblock %}
 {% block detail_content %}

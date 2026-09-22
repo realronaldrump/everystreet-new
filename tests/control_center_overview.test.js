@@ -54,7 +54,7 @@ test("typed details render dates and copyable URLs without prose separators", ()
 
 test("service ledger is mobile-first and contains long values", async () => {
   const css = await readFile(
-    new URL("../static/css/settings.css", import.meta.url),
+    new URL("../static/css/pages/settings.css", import.meta.url),
     "utf8"
   );
 

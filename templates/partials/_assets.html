@@ -1,0 +1,83 @@
+{#- Stylesheet manifests. Each file gets its own <link> so the browser
+    discovers them all at once (no @import chains), and files under the
+    versioned prefix are cached for the life of a deploy. Order is cascade
+    order. -#}
+
+{% set global_stylesheets = [
+  "core/variables.css",
+  "core/reset.css",
+  "core/typography.css",
+  "core/utilities.css",
+  "layout/header.css",
+  "layout/layout.css",
+  "layout/mobile.css",
+  "layout/footer.css",
+  "components/buttons.css",
+  "components/cards.css",
+  "components/masthead.css",
+  "components/forms.css",
+  "components/navigation-controls.css",
+  "components/stepper.css",
+  "components/status.css",
+  "components/app-select.css",
+  "components/tables.css",
+  "components/notifications.css",
+  "components/modals.css",
+  "components/pagination.css",
+  "components/mapbox-overrides.css",
+  "components/immersive.css",
+  "components/icons.css",
+  "components/setup-required.css",
+  "components/date-picker.css",
+  "components/manual-chrome.css",
+  "core/animations.css",
+  "layout/navigation-experience.css",
+  "components/loading.css",
+  "components/route-tracer.css",
+] %}
+
+{% set map_feature_stylesheets = [
+  "features/map/base.css",
+  "features/map/atlas-rail.css",
+  "features/map/map-plate.css",
+  "features/map/layers.css",
+  "features/map/popups.css",
+  "features/map/live-tracking.css",
+  "features/simulator.css",
+  "features/map/particle-flow.css",
+  "features/map/destination-bloom.css",
+  "features/map/trip-replay.css",
+] %}
+
+{% set live_navigation_stylesheets = [
+  "features/navigation/steps.css",
+  "features/navigation/mobile.css",
+  "features/navigation/experience.css",
+] %}
+
+{% macro static_css(path) -%}
+  <link rel="stylesheet"
+        href="/static-v/{{ repo_version.commit_count }}/css/{{ path }}" />
+{%- endmacro %}
+
+{% macro stylesheets(paths) -%}
+  {% for path in paths %}
+    {{ static_css(path) }}
+  {% endfor %}
+{%- endmacro %}
+
+{% macro global_styles() -%}
+  {{ stylesheets(global_stylesheets) }}
+{%- endmacro %}
+
+{% macro map_feature_styles() -%}
+  {{ stylesheets(map_feature_stylesheets) }}
+{%- endmacro %}
+
+{% macro live_navigation_styles() -%}
+  {{ stylesheets(live_navigation_stylesheets) }}
+{%- endmacro %}
+
+{% macro include_mapbox_css() -%}
+  <link rel="stylesheet" href="{{ CDN.mapbox_gl_css }}" data-es-map-style />
+{%- endmacro %}

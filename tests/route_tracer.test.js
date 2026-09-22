@@ -6,17 +6,19 @@ import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const baseHtml = readFileSync(join(root, "templates/base.html"), "utf8");
-const tracerCss = readFileSync(join(root, "static/css/route-tracer.css"), "utf8");
+const assetsHtml = readFileSync(join(root, "templates/partials/_assets.html"), "utf8");
+const tracerCss = readFileSync(join(root, "static/css/components/route-tracer.css"), "utf8");
 const loadingManagerJs = readFileSync(
   join(root, "static/js/modules/ui/loading-manager.js"),
   "utf8"
 );
-const loadingStyles = readFileSync(join(root, "static/css/loading-styles.css"), "utf8");
+const loadingStyles = readFileSync(join(root, "static/css/components/loading.css"), "utf8");
 
 const ROUTE_D = "M6 25 H20 V11 H38 V21 H52 V7 H66";
 
 test("global loader stylesheet is wired into the shell", () => {
-  assert.match(baseHtml, /route-tracer\.css/);
+  assert.match(baseHtml, /global_styles\(\)/);
+  assert.match(assetsHtml, /"components\/route-tracer\.css"/);
 });
 
 test("global overlay renders the route tracer, not a bare spinner", () => {

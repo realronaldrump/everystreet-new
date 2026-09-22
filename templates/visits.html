@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% from "partials/_map_assets.html" import include_mapbox_css, static_css with context %}
+{% from "partials/_assets.html" import include_mapbox_css, static_css, map_feature_styles with context %}
 
 {% block title %}
 
@@ -13,9 +13,9 @@ Every Street - Places & Visits
   <link rel="stylesheet" href="{{ CDN.mapbox_draw_css }}" crossorigin="anonymous" />
   {{ include_mapbox_css() }}
   <link rel="stylesheet" href="{{ CDN.datatables_css }}" />
-  {{ static_css("features/map/index.css") }}
-  {{ static_css("search.css") }}
-  {{ static_css("visits-redesign.css") }}
+  {{ map_feature_styles() }}
+  {{ static_css("components/search.css") }}
+  {{ static_css("pages/visits.css") }}
 {% endblock %}
 
 

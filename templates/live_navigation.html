@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% from "partials/_map_assets.html" import include_mapbox_css, static_css with context %}
+{% from "partials/_assets.html" import include_mapbox_css, static_css, live_navigation_styles with context %}
 
 {% block title %}
 
@@ -11,7 +11,7 @@ Live Navigation
 {% block extra_css %}
 
   {{ include_mapbox_css() }}
-  {{ static_css("features/navigation/index.css") }}
+  {{ live_navigation_styles() }}
 {% endblock %}
 
 

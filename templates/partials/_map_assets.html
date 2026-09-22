@@ -1,8 +1,0 @@
-{% macro static_css(path) -%}
-  <link rel="stylesheet"
-        href="/static-v/{{ repo_version.commit_count }}/css/{{ path }}" />
-{%- endmacro %}
-
-{% macro include_mapbox_css() -%}
-  <link rel="stylesheet" href="{{ CDN.mapbox_gl_css }}" data-es-map-style />
-{%- endmacro %}

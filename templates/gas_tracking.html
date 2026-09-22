@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% from "partials/_map_assets.html" import include_mapbox_css, static_css with context %}
+{% from "partials/_assets.html" import include_mapbox_css, static_css with context %}
 
 {% block title %}
 
@@ -11,7 +11,7 @@ Gas Tracking
 {% block extra_css %}
 
   {{ include_mapbox_css() }}
-  {{ static_css("gas_tracking.css") }}
+  {{ static_css("pages/gas-tracking.css") }}
 {% endblock %}
 
 

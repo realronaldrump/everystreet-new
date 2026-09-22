@@ -8,7 +8,6 @@ from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
-from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.routing import Route
@@ -29,7 +28,9 @@ from core.auth import (
     parse_cors_allowed_origins,
     session_cookie_https_only,
 )
+from core.repo_info import get_repo_version_info
 from core.startup import initialize_shared_runtime, shutdown_shared_runtime
+from core.static_files import CacheControlStaticFiles, versioned_cache_control
 from core.template_context import render_template
 from db.logging_handler import MongoDBHandler
 from db.models import AppSettings, MapProvider
@@ -100,25 +101,6 @@ async def app_lifespan(_app: FastAPI):
 app = FastAPI(title="Every Street", lifespan=app_lifespan)
 
 
-class CacheControlStaticFiles(StaticFiles):
-    """
-    StaticFiles with cache headers suitable for frequent deploys.
-
-    Most of our JS is loaded as ESM modules without versioned import
-    specifiers, so we force revalidation to avoid stale client-side
-    modules after updates.
-    """
-
-    async def get_response(self, path: str, scope):  # type: ignore[override]
-        response = await super().get_response(path, scope)
-
-        if response.status_code in {200, 304}:
-            lower = (path or "").lower()
-            if lower.endswith((".js", ".css", ".map")):
-                response.headers["Cache-Control"] = "no-cache"
-        return response
-
-
 # Mount static files
 static_files = CacheControlStaticFiles(directory="static")
 app.mount(
@@ -138,16 +120,21 @@ app.router.routes.append(
 app.mount("/mcp", mcp_http_app, name="every-street-mcp")
 
 
-@app.get("/static-v/{_version}/{path:path}", include_in_schema=False)
-async def static_versioned(_version: str, path: str, request: Request):
+@app.get("/static-v/{version}/{path:path}", include_in_schema=False)
+async def static_versioned(version: str, path: str, request: Request):
     """
     Serve static files under a versioned prefix.
 
-    This is primarily to avoid stale ESM module caching behind
-    CDNs/proxies. The version segment becomes part of the URL path, so
-    relative `import` paths stay within the same versioned prefix.
+    The version segment is part of the URL path, so relative `import` paths
+    stay within the same prefix and the current build's files can be cached
+    for good (see versioned_cache_control).
     """
-    return await static_files.get_response(path, request.scope)
+    response = await static_files.get_response(path, request.scope)
+    if response.status_code in {200, 304}:
+        response.headers["Cache-Control"] = versioned_cache_control(
+            version, get_repo_version_info().commit_count
+        )
+    return response
 
 
 # Root-level icon requests (browser defaults)

@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% from "partials/_map_assets.html" import include_mapbox_css, static_css with context %}
+{% from "partials/_assets.html" import include_mapbox_css, static_css, map_feature_styles with context %}
 
 {% block title %}
 
@@ -11,8 +11,8 @@ Trips - Every Street
 {% block extra_css %}
 
   {{ include_mapbox_css() }}
-  {{ static_css("features/map/index.css") }}
-  {{ static_css("trips.css") }}
+  {{ map_feature_styles() }}
+  {{ static_css("pages/trips.css") }}
 {% endblock %}
 
 

@@ -1,6 +1,6 @@
 {% set es_route_path = request.url.path %}
 {% from "partials/_navigation.html" import desktop_primary_nav, mobile_drawer, bottom_nav with context %}
-{% from "partials/_map_assets.html" import static_css with context %}
+{% from "partials/_assets.html" import global_styles, static_css with context %}
 <!DOCTYPE html>
 <html lang="en" data-bs-theme="dark">
   <head>
@@ -72,11 +72,7 @@ Every Street
           rel="stylesheet" />
     <link rel="stylesheet" href="{{ CDN.bootstrap_css }}" crossorigin="anonymous" />
     <link rel="stylesheet" href="{{ CDN.fontawesome }}" crossorigin="anonymous" />
-    {{ static_css("style.css") }}
-    {{ static_css("animations.css") }}
-    {{ static_css("navigation-experience.css") }}
-    {{ static_css("loading-styles.css") }}
-    {{ static_css("route-tracer.css") }}
+    {{ global_styles() }}
     <link rel="preload"
           href="{{ CDN.flatpickr_css }}"
           as="style"

@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { readRepoFile } from "../helpers/fs-smoke.js";
 
-const tripsCss = readRepoFile("static", "css", "trips.css");
+const tripsCss = readRepoFile("static", "css", "pages", "trips.css");
 
 function cssRule(selector) {
   const start = tripsCss.indexOf(`${selector} {`);

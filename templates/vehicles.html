@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% from "partials/_map_assets.html" import static_css with context %}
+{% from "partials/_assets.html" import static_css with context %}
 
 {% block title %}
 
@@ -10,7 +10,7 @@ My Vehicles
 
 {% block extra_css %}
 
-  {{ static_css("vehicles.css") }}
+  {{ static_css("pages/vehicles.css") }}
 {% endblock %}
 
 
