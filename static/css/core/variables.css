@@ -8,17 +8,13 @@
    - Honey:       #d4a24a (warning)
    - Cobalt:      #6f8fce (success / covered / live)
 
-   Surfaces
-   - Surface deep: #050507 (true-dark for modals/drawers)
-   - Surface 0:    #0c0c0f
-   - Surface 1:    #131317
-   - Surface 2:    #1b1b20
-   - Surface 3:    #24242a
-   - Light mode:   warm paper-map surfaces (#f4f1e8 family), not pure white
+   Surfaces (the motorist's manual stock)
+   - Night edition (dark): warm dark stock, #1c1a16 family, cream ink
+   - Day edition (light):  warm paper, #f1e8d5 family, dark ink
+   - Accent: faded navy; spot inks rust and mustard (--manual-*)
 
    Radii
-   - Containers/cards: 7-12px
-   - Controls: 5-7px
+   - Printed: 1-4px on containers and controls
    - Pills: 9999px
 
    Spacing
@@ -56,10 +52,10 @@
   --cat-indigo-rgb: 106 114 160;
 
   /* Semantic colors */
-  --primary: var(--cat-cobalt);
-  --primary-light: #8aa7df;
-  --primary-dark: #526fae;
-  --primary-rgb: var(--cat-cobalt-rgb);
+  --primary: #8fa6b4;
+  --primary-light: #a9bcc8;
+  --primary-dark: #6f8795;
+  --primary-rgb: 143 166 180;
   --secondary: var(--cat-slate);
   --secondary-rgb: var(--cat-slate-rgb);
   --success: var(--primary);
@@ -80,10 +76,10 @@
   --info-rgb: var(--cat-steel-rgb);
 
   /* UI actions are bone-on-ink in light mode and ink-on-bone in dark mode. */
-  --action: #edeae0;
-  --action-hover: #f8f6ef;
-  --action-rgb: 237 234 224;
-  --text-on-action: #16150f;
+  --action: #ece2cb;
+  --action-hover: #f6eedc;
+  --action-rgb: 236 226 203;
+  --text-on-action: #1c1a16;
   --text-on-warning: #16150f;
   --backdrop-rgb: 0 0 0;
   --print-bg: #fff;
@@ -98,26 +94,26 @@
   --success-gradient: var(--success);
   --danger-gradient: var(--danger);
 
-  /* Dark mode surfaces */
-  --surface-deep: #050507;
-  --surface-0: #0c0c0f;
-  --surface-1: #131317;
-  --surface-2: #1b1b20;
-  --surface-3: #24242a;
-  --surface-4: #2f2f37;
-  --surface-elevated: #16161b;
-  --surface-glass: rgb(19 19 23 / 74%);
-  --surface-rgb: 19 19 23;
-  --text-primary: rgb(248 246 242 / 96%);
-  --text-secondary: rgb(210 206 198 / 82%);
-  --text-tertiary: rgb(160 156 148 / 80%);
-  --text-on-primary: #050507;
-  --text-on-dark: #050507;
-  --border-color: rgb(150 142 132 / 20%);
-  --border-color-light: rgb(150 142 132 / 34%);
-  --divider-color: rgb(150 142 132 / 10%);
-  --border-rgb: 150 142 132;
-  --text-rgb: 248 246 242;
+  /* Night edition: warm dark stock and cream ink */
+  --surface-deep: #141210;
+  --surface-0: #1c1a16;
+  --surface-1: #22201b;
+  --surface-2: #2a2721;
+  --surface-3: #333029;
+  --surface-4: #3d3931;
+  --surface-elevated: #25221d;
+  --surface-glass: rgb(34 32 27 / 74%);
+  --surface-rgb: 34 32 27;
+  --text-primary: rgb(236 226 203 / 96%);
+  --text-secondary: rgb(214 204 182 / 84%);
+  --text-tertiary: rgb(176 166 146 / 84%);
+  --text-on-primary: #1c1a16;
+  --text-on-dark: #1c1a16;
+  --border-color: rgb(206 194 168 / 22%);
+  --border-color-light: rgb(206 194 168 / 36%);
+  --divider-color: rgb(206 194 168 / 12%);
+  --border-rgb: 206 194 168;
+  --text-rgb: 236 226 203;
 
   /* ---- Typography -------------------------------------------------
      One superfamily, two variable font files. Source Serif 4 carries
@@ -193,6 +189,7 @@
   --manual-font-display: "Roboto Serif", var(--font-family-display);
   --manual-font-text: var(--font-family-display);
   --manual-font-label: "Libre Franklin", var(--font-family);
+  --manual-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cfilter id='f'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 .96 0 0 0 0 .86 0 0 0 .075 0'/%3E%3C/filter%3E%3Cfilter id='m'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.012' numOctaves='2' seed='7' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 .96 0 0 0 0 .86 0 0 0 .05 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23m)'/%3E%3Crect width='100%25' height='100%25' filter='url(%23f)'/%3E%3C/svg%3E");
 
   /* Comfortable measure for running text */
   --measure: 68ch;
@@ -230,14 +227,15 @@
   /* Effects */
   --transition-fast: 180ms cubic-bezier(0.4, 0, 0.2, 1);
   --transition-normal: 260ms cubic-bezier(0.4, 0, 0.2, 1);
-  --shadow-xs: 0 1px 2px rgb(0 0 0 / 28%);
-  --shadow-sm: 0 1px 2px rgb(0 0 0 / 24%), 0 2px 5px rgb(0 0 0 / 18%);
-  --shadow-md: 0 2px 6px rgb(0 0 0 / 22%), 0 6px 16px rgb(0 0 0 / 26%);
-  --shadow-lg: 0 4px 10px rgb(0 0 0 / 24%), 0 14px 32px rgb(0 0 0 / 32%);
-  --shadow-xl: 0 8px 16px rgb(0 0 0 / 26%), 0 24px 48px rgb(0 0 0 / 38%);
-  --shadow-inset: inset 0 1px 2px rgb(0 0 0 / 16%);
-  --shadow-elevation-2: 0 2px 6px rgb(0 0 0 / 22%), 0 8px 18px rgb(0 0 0 / 28%);
-  --shadow-elevation-5: 0 12px 24px rgb(0 0 0 / 28%), 0 30px 56px rgb(0 0 0 / 40%);
+  /* Printed shadows: flat offsets, no blur */
+  --shadow-xs: 0 1px 0 rgb(0 0 0 / 30%);
+  --shadow-sm: 2px 2px 0 rgb(0 0 0 / 32%);
+  --shadow-md: 3px 3px 0 rgb(0 0 0 / 38%);
+  --shadow-lg: 4px 4px 0 rgb(0 0 0 / 42%);
+  --shadow-xl: 6px 6px 0 rgb(0 0 0 / 45%);
+  --shadow-inset: inset 0 1px 0 rgb(0 0 0 / 20%);
+  --shadow-elevation-2: 3px 3px 0 rgb(0 0 0 / 38%);
+  --shadow-elevation-5: 6px 6px 0 rgb(0 0 0 / 45%);
 
   /* Flat surfaces */
   --app-bg: none;
@@ -278,13 +276,13 @@
   --shadow-glass-md: var(--shadow-md);
   --shadow-glass-lg: var(--shadow-lg);
 
-  /* Border Radius - More subtle */
-  --radius-xs: 3px;
-  --radius-sm: 5px;
-  --radius-md: 7px;
-  --radius-lg: 9px;
-  --radius-xl: 12px;
-  --radius-2xl: 16px;
+  /* Border radius: printed corners, nearly square */
+  --radius-xs: 1px;
+  --radius-sm: 2px;
+  --radius-md: 2px;
+  --radius-lg: 3px;
+  --radius-xl: 3px;
+  --radius-2xl: 4px;
   --radius-full: 9999px;
   --radius-pill: 9999px;
 
@@ -356,18 +354,18 @@
 /* Light mode overrides — warm paper, like a printed street map */
 html.light-mode,
 html.light-mode body {
-  --surface-deep: #fcfbf7;
-  --surface-0: #f4f1e8;
-  --surface-1: #fbf9f3;
-  --surface-2: #efebe0;
-  --surface-3: #e5e0d2;
-  --surface-4: #d6d0bf;
-  --surface-elevated: #fdfcf8;
-  --surface-glass: rgb(251 249 243 / 92%);
-  --surface-rgb: 251 249 243;
-  --text-primary: rgb(30 28 22 / 95%);
-  --text-secondary: rgb(74 70 58 / 85%);
-  --text-tertiary: rgb(92 87 72 / 88%);
+  --surface-deep: #f7f0e1;
+  --surface-0: #f1e8d5;
+  --surface-1: #f5eddd;
+  --surface-2: #ebe1cb;
+  --surface-3: #e2d6bd;
+  --surface-4: #d5c7aa;
+  --surface-elevated: #f8f2e5;
+  --surface-glass: rgb(245 237 221 / 92%);
+  --surface-rgb: 245 237 221;
+  --text-primary: rgb(48 45 37 / 96%);
+  --text-secondary: rgb(72 66 54 / 90%);
+  --text-tertiary: rgb(92 85 70 / 92%);
 
   /* Motorist's manual, day edition */
   --manual-paper: #f1e8d5;
@@ -384,29 +382,30 @@ html.light-mode body {
   --manual-rust-ink: #954632;
   --manual-mustard: #b39343;
   --manual-mustard-rgb: 179 147 67;
+  --manual-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cfilter id='f'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .19 0 0 0 0 .17 0 0 0 0 .13 0 0 0 .11 0'/%3E%3C/filter%3E%3Cfilter id='m'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.012' numOctaves='2' seed='7' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .45 0 0 0 0 .36 0 0 0 0 .2 0 0 0 .07 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23m)'/%3E%3Crect width='100%25' height='100%25' filter='url(%23f)'/%3E%3C/svg%3E");
 
-  /* Deeper survey blue so small text and links clear AA on paper. */
-  --primary: #3f5f9c;
-  --primary-light: #5878b6;
-  --primary-dark: #304a7c;
-  --primary-rgb: 63 95 156;
-  --text-on-primary: #fff;
-  --action: #26241f;
-  --action-hover: #3a372f;
-  --action-rgb: 38 36 31;
-  --text-on-action: #f4f1e8;
-  --border-color: rgb(76 68 50 / 15%);
-  --border-color-light: rgb(76 68 50 / 26%);
-  --divider-color: rgb(76 68 50 / 9%);
-  --border-rgb: 76 68 50;
-  --text-rgb: 30 28 22;
-  --shadow-xs: 0 1px 2px rgb(56 48 30 / 8%);
-  --shadow-sm: 0 1px 2px rgb(56 48 30 / 8%), 0 2px 5px rgb(56 48 30 / 8%);
-  --shadow-md: 0 2px 6px rgb(56 48 30 / 8%), 0 6px 16px rgb(56 48 30 / 12%);
-  --shadow-lg: 0 4px 10px rgb(56 48 30 / 10%), 0 14px 32px rgb(56 48 30 / 14%);
-  --shadow-xl: 0 8px 16px rgb(56 48 30 / 12%), 0 24px 48px rgb(56 48 30 / 16%);
-  --shadow-elevation-2: 0 2px 6px rgb(56 48 30 / 8%), 0 8px 18px rgb(56 48 30 / 12%);
-  --shadow-elevation-5: 0 12px 24px rgb(56 48 30 / 14%), 0 30px 56px rgb(56 48 30 / 18%);
+  /* Faded navy: links and primary actions clear AA on the paper. */
+  --primary: #465b68;
+  --primary-light: #5a7282;
+  --primary-dark: #37495a;
+  --primary-rgb: 70 91 104;
+  --text-on-primary: #fbf7ee;
+  --action: #302d25;
+  --action-hover: #4a453a;
+  --action-rgb: 48 45 37;
+  --text-on-action: #f1e8d5;
+  --border-color: rgb(48 45 37 / 20%);
+  --border-color-light: rgb(48 45 37 / 32%);
+  --divider-color: rgb(48 45 37 / 11%);
+  --border-rgb: 48 45 37;
+  --text-rgb: 48 45 37;
+  --shadow-xs: 0 1px 0 rgb(48 45 37 / 10%);
+  --shadow-sm: 2px 2px 0 rgb(48 45 37 / 10%);
+  --shadow-md: 3px 3px 0 rgb(48 45 37 / 13%);
+  --shadow-lg: 4px 4px 0 rgb(48 45 37 / 15%);
+  --shadow-xl: 6px 6px 0 rgb(48 45 37 / 17%);
+  --shadow-elevation-2: 3px 3px 0 rgb(48 45 37 / 13%);
+  --shadow-elevation-5: 6px 6px 0 rgb(48 45 37 / 17%);
   --scrollbar-thumb-color: rgb(var(--border-rgb) / 28%);
   --scrollbar-track-color: rgb(var(--border-rgb) / 6%);
   --scrollbar-thumb-hover-color: rgb(var(--border-rgb) / 42%);

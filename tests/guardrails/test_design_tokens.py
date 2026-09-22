@@ -217,11 +217,12 @@ def test_theme_color_constants_match_surface_tokens() -> None:
     base = _read(ROOT / "templates" / "base.html")
     navigation = _read(ROOT / "static" / "js" / "modules" / "core" / "navigation.js")
 
-    assert "--surface-deep: #050507" in variables
-    assert "--surface-0: #f4f1e8" in variables
+    # The browser chrome matches the manual stock: night and day editions.
+    assert "--surface-0: #1c1a16" in variables
+    assert "--surface-0: #f1e8d5" in variables
     for source in (base, navigation):
-        assert "#050507" in source
-        assert "#f4f1e8" in source
+        assert "#1c1a16" in source
+        assert "#f1e8d5" in source
 
 
 def test_runtime_theme_switch_keeps_html_and_body_in_sync() -> None:

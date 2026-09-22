@@ -1,9 +1,30 @@
 /* ============================================================
-   Manual chrome: the header, menus, date picker, drawer, bottom
-   bar, notifications, and colophon, printed in the same style as
-   the home page (warm stock, ink rules, a condensed display serif,
-   and Franklin gothic labels). Shared by every page.
+   Manual chrome: the stock and grain, header, menus, date picker,
+   drawer, bottom bar, notifications, colophon, and the shared
+   buttons, tables, and labels, printed in the home page's style
+   (warm stock, ink rules, a condensed display serif, and Franklin
+   gothic labels). Shared by every page.
    ============================================================ */
+
+/* Paper grain over each page, ink included, so everything prints on
+   the same stock. Full-screen maps and 3D views stay clean. */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background-image: var(--manual-grain);
+}
+
+body[data-route="/map"]::after,
+body[data-route="/live-navigation"]::after,
+body[data-route="/coverage-route-planner"]::after,
+body[data-route="/regional-coverage-explorer"]::after,
+body[data-route="/coverage-diorama"]::after,
+body[data-route="/memory-city"]::after {
+  content: none;
+}
 
 /* ============================================================
    Running header
@@ -690,4 +711,28 @@ body .flatpickr-calendar .flatpickr-day.startRange.endRange {
 .figure-value {
   font-family: var(--manual-font-display);
   font-weight: 800;
+}
+
+/* ============================================================
+   Shared components: printed labels on buttons, table heads, and
+   form labels
+   ============================================================ */
+.btn {
+  font-family: var(--manual-font-label);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--tracking-wide);
+}
+
+.table thead th {
+  font-family: var(--manual-font-label);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: var(--tracking-label);
+  color: var(--text-primary);
+  border-bottom: 1.5px solid var(--manual-ink);
+}
+
+.form-label {
+  font-family: var(--manual-font-label);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--tracking-wide);
 }

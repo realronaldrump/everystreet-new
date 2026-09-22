@@ -283,8 +283,8 @@ export const CONFIG = {
       applied: "applied",
     },
     themeColors: {
-      light: "#f4f1e8",
-      dark: "#050507",
+      light: "#f1e8d5",
+      dark: "#1c1a16",
     },
     animations: {
       enabled:

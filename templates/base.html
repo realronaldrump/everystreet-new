@@ -11,7 +11,7 @@
     <meta name="description"
           content="Every Street - Tracking and Visualizing Davis's street coverage" />
     {% endblock %}
-    <meta name="theme-color" content="#050507" />
+    <meta name="theme-color" content="#1c1a16" />
     <meta name="color-scheme" content="dark light" />
     <meta name="es-build" content="{{ repo_version.commit_hash }}" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -27,12 +27,12 @@
                 document.documentElement.classList.add("light-mode");
                 document
                     .querySelector('meta[name="theme-color"]')
-                    ?.setAttribute("content", "#f4f1e8");
+                    ?.setAttribute("content", "#f1e8d5");
             } else {
                 document.documentElement.setAttribute("data-bs-theme", "dark");
                 document
                     .querySelector('meta[name="theme-color"]')
-                    ?.setAttribute("content", "#050507");
+                    ?.setAttribute("content", "#1c1a16");
             }
         })();
     </script>
