@@ -192,38 +192,15 @@ class LoadingManager {
     }
 
     const notification = document.createElement("div");
-    notification.className = "loading-pulse";
-    notification.style.cssText = `
-      position: fixed;
-      bottom: 24px;
-      left: 50%;
-      transform: translateX(-50%) translateY(10px);
-      background: var(--glass-2, #1e1e1e);
-      color: var(--text-primary, #fff);
-      padding: 10px 20px;
-      border-radius: 50px;
-      border: 1px solid var(--glass-border, rgba(255,255,255,0.08));
-      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-      backdrop-filter: blur(12px);
-      font-size: 13px;
-      font-weight: 500;
-      z-index: 9998;
-      opacity: 0;
-      transition: opacity 180ms cubic-bezier(0, 0, 0.2, 1), transform 180ms cubic-bezier(0, 0, 0.2, 1);
-    `;
+    notification.className = "loading-toast";
+    notification.setAttribute("role", "status");
     notification.textContent = message;
     document.body.appendChild(notification);
 
-    // Animate in
-    requestAnimationFrame(() => {
-      notification.style.opacity = "1";
-      notification.style.transform = "translateX(-50%) translateY(0)";
-    });
+    requestAnimationFrame(() => notification.classList.add("is-visible"));
 
-    // Animate out and remove
     setTimeout(() => {
-      notification.style.opacity = "0";
-      notification.style.transform = "translateX(-50%) translateY(6px)";
+      notification.classList.remove("is-visible");
       setTimeout(() => notification.remove(), 200);
     }, duration);
   }

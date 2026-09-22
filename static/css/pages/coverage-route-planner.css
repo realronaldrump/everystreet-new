@@ -889,11 +889,11 @@ body[data-route="/coverage-route-planner"] .app-footer {
 }
 
 .coverage-route-planner .layer-color--route {
-  background: var(--warning);
+  background: var(--map-route);
 }
 
 .coverage-route-planner .legend-color--route {
-  background: var(--warning);
+  background: var(--map-route);
 }
 
 .coverage-route-planner .layer-color--driven,
@@ -1217,7 +1217,7 @@ body[data-route="/coverage-route-planner"] .app-footer {
   min-width: 18px;
   height: 18px;
   padding: 0 5px;
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-sm);
   background: var(--action);
   color: var(--text-on-action);
   font-size: var(--font-size-xs);
@@ -1336,7 +1336,7 @@ body[data-route="/coverage-route-planner"] .app-footer {
 
 .coverage-route-planner .sim-delta-track {
   height: 6px;
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-sm);
   background: var(--border-color);
   position: relative;
   overflow: hidden;
@@ -1347,7 +1347,7 @@ body[data-route="/coverage-route-planner"] .app-footer {
   top: 0;
   left: 0;
   height: 100%;
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-sm);
   transition: width 400ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 

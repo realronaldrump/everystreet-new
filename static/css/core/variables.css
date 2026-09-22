@@ -1,55 +1,47 @@
-/* ============================
-   Design Tokens
-   Palette
-   - Survey Blue: #6f8fce (primary — blueprint ink)
-   - Warm Slate:  #727a84 (secondary)
-   - Brick:       #c45454 (danger)
-   - Steel:       #6290ad (info)
-   - Honey:       #d4a24a (warning)
-   - Cobalt:      #6f8fce (success / covered / live)
+/* ============================================================
+   Design tokens: a 1960s motorist's manual
 
-   Surfaces (the motorist's manual stock)
-   - Night edition (dark): warm dark stock, #1c1a16 family, cream ink
-   - Day edition (light):  warm paper, #f1e8d5 family, dark ink
-   - Accent: faded navy; spot inks rust and mustard (--manual-*)
+   Stock and ink
+   - Night edition (dark, default): dark stock #1c1a16, cream ink
+   - Day edition (html.light-mode): warm paper #f1e8d5, dark ink
+   - Spot inks: faded navy (primary, driven), rust (danger,
+     undriven), mustard (warning, routes); --manual-* holds the
+     printed palette and the semantic tokens below draw from it
 
-   Radii
-   - Printed: 1-4px on containers and controls
-   - Pills: 9999px
+   Printing rules
+   - Corners are square or nearly so (1-4px); circles only for dots
+   - Shadows are flat offsets, never blurred; panels are opaque
+   - Type: Source Serif 4 text, condensed Roboto Serif display,
+     Libre Franklin labels (see Typography)
 
-   Spacing
-   - 4px grid (0.25rem - 4rem)
-
-   Typography
-   - Display: Source Serif 4 (editorial headlines, engraved figures)
-   - Body: Source Sans 3 (humanist prose and UI)
-   - Mono: platform monospace, machine output only
-   ============================ */
+   Spacing: 4px grid (0.25rem - 4rem)
+   ============================================================ */
 
 :root {
-  /* Blueprint & Brass categorical palette.
-     Chart order is fixed: cobalt → ochre → steel → coral → slate → purple. */
-  --cat-cobalt: #6f8fce;
-  --cat-cobalt-rgb: 111 143 206;
-  --cat-slate: #727a84;
-  --cat-slate-rgb: 114 122 132;
-  --cat-rose: #c45454;
-  --cat-rose-rgb: 196 84 84;
-  --cat-steel: #6290ad;
-  --cat-steel-rgb: 98 144 173;
-  --cat-ochre: #d4a24a;
-  --cat-ochre-rgb: 212 162 74;
-  --cat-sky: #72a6c4;
-  --cat-sky-rgb: 114 166 196;
-  --cat-amber: #c49050;
-  --cat-amber-rgb: 196 144 80;
-  --cat-coral: #c47050;
-  --cat-coral-rgb: 196 112 80;
+  /* Categorical inks, mixed from the manual's spot colours so charts
+     print in the same family. Mid-tones read on both editions.
+     Chart order is fixed: cobalt, ochre, steel, coral, slate, purple. */
+  --cat-cobalt: #5f82a0;
+  --cat-cobalt-rgb: 95 130 160;
+  --cat-slate: #857d6e;
+  --cat-slate-rgb: 133 125 110;
+  --cat-rose: #b5523f;
+  --cat-rose-rgb: 181 82 63;
+  --cat-steel: #7893a6;
+  --cat-steel-rgb: 120 147 166;
+  --cat-ochre: #c49d4c;
+  --cat-ochre-rgb: 196 157 76;
+  --cat-sky: #93acbf;
+  --cat-sky-rgb: 147 172 191;
+  --cat-amber: #b5824a;
+  --cat-amber-rgb: 181 130 74;
+  --cat-coral: #c26a4a;
+  --cat-coral-rgb: 194 106 74;
   --cat-red-rgb: var(--cat-rose-rgb);
-  --cat-purple: #8a7ab0;
-  --cat-purple-rgb: 138 122 176;
-  --cat-indigo: #6a72a0;
-  --cat-indigo-rgb: 106 114 160;
+  --cat-purple: #8b6f8a;
+  --cat-purple-rgb: 139 111 138;
+  --cat-indigo: #5e6789;
+  --cat-indigo-rgb: 94 103 137;
 
   /* Semantic colors */
   --primary: #8fa6b4;
@@ -63,16 +55,16 @@
   --success-dark: var(--primary-dark);
   --success-rgb: var(--primary-rgb);
   --warning: var(--cat-ochre);
-  --warning-light: #e0b464;
-  --warning-dark: #b68433;
+  --warning-light: #d8b76a;
+  --warning-dark: #9c7a33;
   --warning-rgb: var(--cat-ochre-rgb);
   --danger: var(--cat-rose);
-  --danger-light: #d67070;
-  --danger-dark: #9f3f3f;
+  --danger-light: #cf735c;
+  --danger-dark: #8f3d2d;
   --danger-rgb: var(--cat-rose-rgb);
   --info: var(--cat-steel);
-  --info-light: #79a0c0;
-  --info-dark: #44688a;
+  --info-light: #98b0c2;
+  --info-dark: #4f6b80;
   --info-rgb: var(--cat-steel-rgb);
 
   /* UI actions are bone-on-ink in light mode and ink-on-bone in dark mode. */
@@ -86,13 +78,18 @@
   --print-text: #000;
   --print-border: #ccc;
 
-  /* Map visual language: cool individual routes, warm frequency heat. */
-  --map-trip-path: #4ca3d2;
-  --map-trip-path-rgb: 76 163 210;
-
-  /* Flat colors - no gradients */
-  --success-gradient: var(--success);
-  --danger-gradient: var(--danger);
+  /* Map inks. Streets you have driven print in navy, streets still to
+     drive in rust, and planned routes in mustard, as on the home page
+     plates. Trip paths are a brighter blue so they read over roads. */
+  --map-trip-path: #7fb0cf;
+  --map-trip-path-rgb: 127 176 207;
+  --map-trip-path-selected: #e9dfc6;
+  --map-driven: #8fb1c8;
+  --map-undriven: #d27b58;
+  --map-undriveable: #7d7568;
+  --map-route: #dcb35a;
+  --map-place: var(--map-driven);
+  --map-place-outline: #6e93ad;
 
   /* Night edition: warm dark stock and cream ink */
   --surface-deep: #141210;
@@ -102,7 +99,6 @@
   --surface-3: #333029;
   --surface-4: #3d3931;
   --surface-elevated: #25221d;
-  --surface-glass: rgb(34 32 27 / 74%);
   --surface-rgb: 34 32 27;
   --text-primary: rgb(236 226 203 / 96%);
   --text-secondary: rgb(214 204 182 / 84%);
@@ -116,18 +112,22 @@
   --text-rgb: 236 226 203;
 
   /* ---- Typography -------------------------------------------------
-     One superfamily, two variable font files. Source Serif 4 carries
-     display type and measured figures the way a printed atlas sets
-     them; Source Sans 3 carries prose, labels, and controls. Monospace
-     is reserved for machine output — logs and raw payloads — and uses
-     the platform face, so it costs nothing to load. Numbers the app
+     Set like a 1960s printed manual. Source Serif 4 carries everything
+     you read or operate; one condensed cut of Roboto Serif sets titles
+     and headline figures; Libre Franklin sets the short uppercase
+     labels on buttons, table heads, and running heads. Monospace is
+     reserved for machine output (logs and raw payloads) and uses the
+     platform face, so it costs nothing to load. Numbers the app
      measured use --font-numeric with tabular figures rather than a
      code face. */
-  --font-family: "Source Sans 3", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-family-display: "Source Serif 4", ui-serif, georgia, "Times New Roman", serif;
+  --font-family-text: "Source Serif 4", ui-serif, georgia, "Times New Roman", serif;
+  --font-family-display: "Roboto Serif", var(--font-family-text);
+  --font-family-label:
+    "Libre Franklin", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-family-mono:
     ui-monospace, sfmono-regular, "SF Mono", menlo, consolas, "Liberation Mono", monospace;
-  --font-numeric: var(--font-family);
+  --font-family: var(--font-family-text);
+  --font-numeric: var(--font-family-text);
   --font-numeric-display: var(--font-family-display);
 
   /* Type scale. Steps are fixed below the display sizes: when every
@@ -178,6 +178,7 @@
   --manual-ink-soft: #c2b79f;
   --manual-ink-faint: #9b917c;
   --manual-solid: #0f0e0b;
+  --manual-solid-rgb: 15 14 11;
   --manual-navy: #8fa6b4;
   --manual-navy-rgb: 143 166 180;
   --manual-rust: #d5805f;
@@ -186,9 +187,6 @@
   --manual-mustard-rgb: 207 174 92;
   --manual-rule: rgb(var(--manual-ink-rgb) / 42%);
   --manual-rule-faint: rgb(var(--manual-ink-rgb) / 22%);
-  --manual-font-display: "Roboto Serif", var(--font-family-display);
-  --manual-font-text: var(--font-family-display);
-  --manual-font-label: "Libre Franklin", var(--font-family);
   --manual-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cfilter id='f'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 .96 0 0 0 0 .86 0 0 0 .075 0'/%3E%3C/filter%3E%3Cfilter id='m'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.012' numOctaves='2' seed='7' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 .96 0 0 0 0 .86 0 0 0 .05 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23m)'/%3E%3Crect width='100%25' height='100%25' filter='url(%23f)'/%3E%3C/svg%3E");
 
   /* Comfortable measure for running text */
@@ -234,47 +232,17 @@
   --shadow-lg: 4px 4px 0 rgb(0 0 0 / 42%);
   --shadow-xl: 6px 6px 0 rgb(0 0 0 / 45%);
   --shadow-inset: inset 0 1px 0 rgb(0 0 0 / 20%);
-  --shadow-elevation-2: 3px 3px 0 rgb(0 0 0 / 38%);
-  --shadow-elevation-5: 6px 6px 0 rgb(0 0 0 / 45%);
 
-  /* Flat surfaces */
-  --app-bg: none;
-
-  /* Translucent surfaces */
-  --blur-subtle: 8px;
-  --blur-strong: 12px;
-  --blur-modal: 18px;
-  --glass-1: rgb(var(--surface-rgb) / 70%);
-  --glass-2: rgb(var(--surface-rgb) / 80%);
-  --glass-3: rgb(var(--surface-rgb) / 90%);
-  --glass-border: rgb(255 255 255 / 8%);
-
-  /* Extended Glass Palette */
-  --glass-panel: rgb(var(--surface-rgb) / 72%);
-  --glass-panel-hover: rgb(var(--surface-rgb) / 78%);
-  --glass-dropdown: rgb(var(--surface-rgb) / 85%);
-  --glass-input: rgb(var(--surface-rgb) / 45%);
-  --glass-input-focus: rgb(var(--surface-rgb) / 55%);
-
-  /* Glass borders - enhanced */
-  --glass-border-subtle: rgb(var(--border-rgb) / 8%);
-  --glass-border-medium: rgb(var(--border-rgb) / 15%);
-  --glass-border-strong: rgb(var(--border-rgb) / 22%);
 
   /* Semantic street colors */
-  --color-undriven: var(--cat-coral);
-  --color-driven: var(--primary);
+  --color-undriven: var(--map-undriven);
+  --color-driven: var(--map-driven);
   --live: var(--primary);
 
   /* Toggle/switch */
   --toggle-knob: var(--surface-1);
   --toggle-track-off: rgb(var(--border-rgb) / 25%);
   --toggle-track-on: var(--primary);
-
-  /* Glass shadows */
-  --shadow-glass-sm: var(--shadow-sm);
-  --shadow-glass-md: var(--shadow-md);
-  --shadow-glass-lg: var(--shadow-lg);
 
   /* Border radius: printed corners, nearly square */
   --radius-xs: 1px;
@@ -283,13 +251,12 @@
   --radius-lg: 3px;
   --radius-xl: 3px;
   --radius-2xl: 4px;
-  --radius-full: 9999px;
-  --radius-pill: 9999px;
+  --radius-full: 9999px; /* dots, knobs, and other true circles only */
 
   /* Focus */
-  --focus-ring: 0 0 0 3px rgb(var(--primary-rgb) / 24%);
-  --focus-ring-strong: 0 0 0 4px rgb(var(--primary-rgb) / 32%);
-  --focus-outline: 2px solid rgb(var(--primary-rgb) / 60%);
+  --focus-ring: 0 0 0 2px var(--manual-rust);
+  --focus-ring-strong: 0 0 0 2px var(--manual-paper), 0 0 0 4px var(--manual-rust);
+  --focus-outline: 2px solid var(--manual-rust);
 
   /* Touch targets */
   --touch-target: 44px;
@@ -330,7 +297,7 @@
   --bs-border-radius-lg: var(--radius-xl);
   --bs-border-radius-xl: var(--radius-xl);
   --bs-border-radius-xxl: calc(var(--radius-xl) + 4px);
-  --bs-border-radius-pill: var(--radius-pill);
+  --bs-border-radius-pill: var(--radius-sm);
   --bs-primary: var(--primary);
   --bs-primary-rgb: var(--primary-rgb);
   --bs-secondary: var(--secondary);
@@ -348,7 +315,7 @@
   --bs-link-color: var(--primary);
   --bs-link-hover-color: var(--primary-dark);
   --bs-box-shadow: var(--shadow-sm);
-  --bs-focus-ring-color: rgb(var(--primary-rgb) / 25%);
+  --bs-focus-ring-color: rgb(var(--manual-ink-rgb) / 30%);
 }
 
 /* Light mode overrides — warm paper, like a printed street map */
@@ -361,7 +328,6 @@ html.light-mode body {
   --surface-3: #e2d6bd;
   --surface-4: #d5c7aa;
   --surface-elevated: #f8f2e5;
-  --surface-glass: rgb(245 237 221 / 92%);
   --surface-rgb: 245 237 221;
   --text-primary: rgb(48 45 37 / 96%);
   --text-secondary: rgb(72 66 54 / 90%);
@@ -376,6 +342,7 @@ html.light-mode body {
   --manual-ink-soft: #564f41;
   --manual-ink-faint: #6b6353;
   --manual-solid: #302d25;
+  --manual-solid-rgb: 48 45 37;
   --manual-navy: #465b68;
   --manual-navy-rgb: 70 91 104;
   --manual-rust: #a6533d;
@@ -404,34 +371,19 @@ html.light-mode body {
   --shadow-md: 3px 3px 0 rgb(48 45 37 / 13%);
   --shadow-lg: 4px 4px 0 rgb(48 45 37 / 15%);
   --shadow-xl: 6px 6px 0 rgb(48 45 37 / 17%);
-  --shadow-elevation-2: 3px 3px 0 rgb(48 45 37 / 13%);
-  --shadow-elevation-5: 6px 6px 0 rgb(48 45 37 / 17%);
   --scrollbar-thumb-color: rgb(var(--border-rgb) / 28%);
   --scrollbar-track-color: rgb(var(--border-rgb) / 6%);
   --scrollbar-thumb-hover-color: rgb(var(--border-rgb) / 42%);
-  --glass-1: rgb(var(--surface-rgb) / 82%);
-  --glass-2: rgb(var(--surface-rgb) / 90%);
-  --glass-3: rgb(var(--surface-rgb) / 96%);
-  --glass-border: rgb(var(--border-rgb) / 18%);
-  --app-bg: none;
 
-  /* Extended glass for light mode */
-  --glass-panel: rgb(var(--surface-rgb) / 75%);
-  --glass-panel-hover: rgb(var(--surface-rgb) / 82%);
-  --glass-dropdown: rgb(var(--surface-rgb) / 88%);
-  --glass-input: rgb(var(--surface-rgb) / 50%);
-  --glass-input-focus: rgb(var(--surface-rgb) / 60%);
   --toggle-knob: var(--surface-0);
-  --map-trip-path: #287ba7;
-  --map-trip-path-rgb: 40 123 167;
+  --map-trip-path: #2f6f95;
+  --map-trip-path-rgb: 47 111 149;
+  --map-trip-path-selected: #302d25;
+  --map-driven: #3f6782;
+  --map-undriven: #b0573a;
+  --map-undriveable: #8f8676;
+  --map-route: #a88430;
+  --map-place-outline: #2f5068;
 
-  /* Light mode glass borders */
-  --glass-border-subtle: rgb(var(--border-rgb) / 6%);
-  --glass-border-medium: rgb(var(--border-rgb) / 12%);
-  --glass-border-strong: rgb(var(--border-rgb) / 18%);
 
-  /* Light mode glass shadows */
-  --shadow-glass-sm: var(--shadow-sm);
-  --shadow-glass-md: var(--shadow-md);
-  --shadow-glass-lg: var(--shadow-lg);
 }

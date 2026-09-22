@@ -136,7 +136,6 @@
   border: 1px solid rgb(var(--border-rgb) / 34%);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-md);
-  backdrop-filter: blur(1rem);
 }
 
 .coverage-diorama-area-picker i {
@@ -163,7 +162,6 @@
   border: 1px solid rgb(var(--border-rgb) / 30%);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-md);
-  backdrop-filter: blur(1rem);
 }
 
 .coverage-diorama-mode button {
@@ -204,7 +202,6 @@
   border: 1px solid rgb(var(--border-rgb) / 28%);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-md);
-  backdrop-filter: blur(1rem);
 }
 
 .coverage-diorama-figure {
@@ -264,7 +261,6 @@
   border-bottom: 0;
   border-radius: var(--radius-xl) var(--radius-xl) 0 0;
   box-shadow: var(--shadow-xl);
-  backdrop-filter: blur(1.2rem);
   transform: translateY(75%);
   transition: transform var(--transition-normal);
 }
@@ -300,7 +296,7 @@
   place-items: center;
   color: var(--text-on-warning);
   background: var(--diorama-brass);
-  border-radius: 999px;
+  border-radius: var(--radius-sm);
   font: 600 var(--font-size-xs) / 1 var(--font-numeric);
 }
 
@@ -423,7 +419,6 @@
   background: var(--diorama-panel);
   border: 1px solid rgb(var(--border-rgb) / 35%);
   box-shadow: var(--shadow-md);
-  backdrop-filter: blur(1rem);
 }
 
 .coverage-diorama-controls span {
@@ -441,7 +436,6 @@
   padding: 2rem;
   text-align: center;
   background: rgb(var(--backdrop-rgb) / 82%);
-  backdrop-filter: blur(0.7rem);
 }
 
 .coverage-diorama-state.is-hidden {
@@ -637,7 +631,6 @@
     border: 1px solid rgb(var(--border-rgb) / 28%);
     border-radius: var(--radius-md);
     box-shadow: var(--shadow-md);
-    backdrop-filter: blur(1rem);
   }
 
   .coverage-diorama-detail strong {

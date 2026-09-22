@@ -31,9 +31,14 @@
   color: var(--info);
 }
 
+/* Badges and chips are small printed stamps: Franklin caps in a rule. */
 .badge {
-  border-radius: var(--radius-pill);
-  font-weight: var(--font-weight-semibold);
+  border: 1px solid var(--manual-rule);
+  border-radius: 0;
+  font-family: var(--font-family-label);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
 }
 
 .chip {
@@ -42,41 +47,51 @@
   gap: var(--space-2);
   min-height: 1.75rem;
   padding: var(--space-1) var(--space-2);
-  border: 1px solid var(--border-color-light);
-  border-radius: var(--radius-pill);
+  border: 1px solid var(--manual-rule);
+  border-radius: 0;
   background: transparent;
-  color: var(--text-secondary);
+  color: var(--manual-ink-soft);
   font-family: var(--font-numeric);
   font-size: var(--font-size-xs);
   font-variant-numeric: tabular-nums;
 }
 
 .badge--success,
-.badge.bg-success {
-  background: rgb(var(--success-rgb) / 16%) !important;
-  border: 1px solid rgb(var(--success-rgb) / 40%);
-  color: var(--success) !important;
+.badge.bg-success,
+.badge.bg-primary,
+.badge.bg-info {
+  background: rgb(var(--manual-navy-rgb) / 12%) !important;
+  border-color: rgb(var(--manual-navy-rgb) / 60%);
+  color: var(--manual-navy) !important;
 }
 
 .badge.bg-warning {
-  background: rgb(var(--warning-rgb) / 16%) !important;
-  border: 1px solid rgb(var(--warning-rgb) / 40%);
-  color: var(--warning) !important;
+  background: rgb(var(--manual-mustard-rgb) / 18%) !important;
+  border-color: var(--manual-mustard);
+  color: var(--manual-ink) !important;
 }
 
 .badge.bg-danger {
-  background: rgb(var(--danger-rgb) / 16%) !important;
-  border: 1px solid rgb(var(--danger-rgb) / 40%);
-  color: var(--danger) !important;
+  background: rgb(var(--danger-rgb) / 10%) !important;
+  border-color: rgb(var(--danger-rgb) / 60%);
+  color: var(--manual-rust-ink) !important;
+}
+
+.badge.bg-secondary,
+.badge.bg-dark,
+.badge.bg-light {
+  background: transparent !important;
+  border-color: var(--manual-rule);
+  color: var(--manual-ink-soft) !important;
 }
 
 .rounded,
 .rounded-3 {
-  border-radius: var(--radius-lg) !important;
+  border-radius: var(--radius-xs) !important;
 }
 
 .rounded-pill {
-  border-radius: var(--radius-pill) !important;
+  border-radius: var(--radius-sm) !important;
 }
 
 .text-dark {
@@ -178,8 +193,6 @@ body[data-viewer-mode="true"] .owner-only {
 /* High contrast mode */
 @media (prefers-contrast: high) {
   :root {
-    --glass-border: rgb(var(--border-rgb) / 40%);
-    --glass-border-medium: rgb(var(--border-rgb) / 60%);
     --border-color: rgb(var(--border-rgb) / 50%);
     --divider-color: rgb(var(--border-rgb) / 40%);
   }

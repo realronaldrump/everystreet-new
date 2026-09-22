@@ -1,8 +1,9 @@
-/* ============================
-   Button Components
-   ============================ */
+/* ============================================================
+   Buttons: printed labels in a ruled box. Primary actions print in
+   reverse (paper type on an ink block); everything else is ink on
+   paper with a rule around it. Variants only set the --btn-* inks.
+   ============================================================ */
 
-/* === Buttons === */
 .btn {
   display: inline-flex;
   align-items: center;
@@ -10,7 +11,7 @@
   gap: var(--space-2);
   padding: var(--space-2) var(--space-4);
   min-height: var(--touch-target);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-xs);
   font-weight: var(--font-weight-semibold);
   cursor: pointer;
   transition:
@@ -30,7 +31,7 @@
   box-shadow: var(--btn-shadow, none);
 
   --btn-loading-color: var(--btn-color, var(--text-primary));
-  font-family: var(--manual-font-label);
+  font-family: var(--font-family-label);
   letter-spacing: var(--tracking-wide);
 }
 
@@ -51,8 +52,8 @@
 }
 
 .btn:focus-visible {
-  box-shadow: var(--focus-ring-strong);
-  outline: none;
+  outline: var(--focus-outline);
+  outline-offset: 2px;
 }
 
 .btn:active:not(:disabled, .disabled) {
@@ -65,117 +66,78 @@
 }
 
 .btn-primary {
-  --btn-bg: var(--action);
-  --btn-bg-hover: var(--action-hover);
-  --btn-color: var(--text-on-action);
-  --btn-color-hover: var(--text-on-action);
-  --btn-border: rgb(var(--action-rgb) / 45%);
-  --btn-border-hover: rgb(var(--action-rgb) / 65%);
-  --btn-shadow: var(--shadow-xs);
-  --btn-shadow-hover: var(--shadow-sm);
+  --btn-bg: var(--manual-ink);
+  --btn-bg-hover: var(--manual-ink-soft);
+  --btn-color: var(--manual-paper);
+  --btn-color-hover: var(--manual-paper);
+  --btn-border: var(--manual-ink);
+  --btn-border-hover: var(--manual-ink-soft);
+}
+
+.btn-secondary,
+.btn-outline,
+.btn-outline-primary,
+.btn-outline-light {
+  --btn-bg: transparent;
+  --btn-bg-hover: var(--manual-paper-shade);
+  --btn-color: var(--manual-ink);
+  --btn-border: var(--manual-rule);
+  --btn-border-hover: var(--manual-ink);
 }
 
 .btn-secondary {
-  --btn-bg: var(--surface-3);
-  --btn-bg-hover: var(--surface-4);
-  --btn-color: var(--text-primary);
-  --btn-border: var(--border-color-light);
-  --btn-border-hover: var(--border-color-light);
-}
-
-.btn-success {
-  --btn-bg: rgb(var(--success-rgb) / 14%);
-  --btn-bg-hover: rgb(var(--success-rgb) / 22%);
-  --btn-color: var(--success);
-  --btn-border: rgb(var(--success-rgb) / 45%);
-  --btn-border-hover: rgb(var(--success-rgb) / 60%);
-}
-
-.btn-danger {
-  --btn-bg: rgb(var(--danger-rgb) / 18%);
-  --btn-bg-hover: rgb(var(--danger-rgb) / 28%);
-  --btn-color: var(--danger);
-  --btn-border: rgb(var(--danger-rgb) / 50%);
-  --btn-border-hover: rgb(var(--danger-rgb) / 70%);
-}
-
-.btn-warning {
-  --btn-bg: rgb(var(--warning-rgb) / 16%);
-  --btn-bg-hover: rgb(var(--warning-rgb) / 26%);
-  --btn-color: var(--warning);
-  --btn-border: rgb(var(--warning-rgb) / 50%);
-  --btn-border-hover: rgb(var(--warning-rgb) / 70%);
-}
-
-.btn-info {
-  --btn-bg: rgb(var(--info-rgb) / 16%);
-  --btn-bg-hover: rgb(var(--info-rgb) / 26%);
-  --btn-color: var(--info);
-  --btn-border: rgb(var(--info-rgb) / 50%);
-  --btn-border-hover: rgb(var(--info-rgb) / 70%);
-}
-
-.btn-outline {
-  --btn-bg: transparent;
-  --btn-bg-hover: var(--surface-2);
-  --btn-color: var(--text-primary);
-  --btn-border: var(--border-color-light);
-  --btn-border-hover: var(--border-color-light);
-}
-
-.btn-outline-primary {
-  --btn-color: var(--text-primary);
-  --btn-border: var(--border-color-light);
-  --btn-border-hover: rgb(var(--action-rgb) / 55%);
-  --btn-bg-hover: var(--surface-2);
+  --btn-bg: var(--manual-paper);
+  --btn-border: var(--manual-ink);
+  --btn-shadow: 2px 2px 0 var(--manual-rule-faint);
 }
 
 .btn-outline-secondary {
-  --btn-color: var(--secondary);
-  --btn-border: rgb(var(--secondary-rgb) / 55%);
-  --btn-border-hover: rgb(var(--secondary-rgb) / 70%);
-  --btn-bg-hover: rgb(var(--secondary-rgb) / 10%);
+  --btn-color: var(--manual-ink-soft);
+  --btn-color-hover: var(--manual-ink);
+  --btn-border: var(--manual-rule-faint);
+  --btn-border-hover: var(--manual-rule);
+  --btn-bg-hover: var(--manual-paper-shade);
 }
 
-.btn-outline-success {
-  --btn-color: var(--success);
-  --btn-border: rgb(var(--success-rgb) / 55%);
-  --btn-border-hover: rgb(var(--success-rgb) / 70%);
-  --btn-bg-hover: rgb(var(--success-rgb) / 12%);
-}
-
-.btn-outline-warning {
-  --btn-color: var(--warning);
-  --btn-border: rgb(var(--warning-rgb) / 55%);
-  --btn-border-hover: rgb(var(--warning-rgb) / 70%);
-  --btn-bg-hover: rgb(var(--warning-rgb) / 12%);
-}
-
-.btn-outline-danger {
-  --btn-color: var(--danger);
-  --btn-border: rgb(var(--danger-rgb) / 55%);
-  --btn-border-hover: rgb(var(--danger-rgb) / 70%);
-  --btn-bg-hover: rgb(var(--danger-rgb) / 12%);
-}
-
+/* Coloured variants print in one spot ink: the rule and the type. */
+.btn-success,
+.btn-outline-success,
+.btn-info,
 .btn-outline-info {
-  --btn-color: var(--info);
-  --btn-border: rgb(var(--info-rgb) / 55%);
-  --btn-border-hover: rgb(var(--info-rgb) / 70%);
-  --btn-bg-hover: rgb(var(--info-rgb) / 12%);
+  --btn-color: var(--manual-navy);
+  --btn-border: rgb(var(--manual-navy-rgb) / 70%);
+  --btn-border-hover: var(--manual-navy);
+  --btn-bg-hover: rgb(var(--manual-navy-rgb) / 10%);
 }
 
-.btn-outline-light {
-  --btn-color: var(--text-primary);
-  --btn-border: var(--border-color-light);
-  --btn-border-hover: var(--border-color-light);
-  --btn-bg-hover: var(--surface-2);
+.btn-danger,
+.btn-outline-danger {
+  --btn-color: var(--manual-rust-ink);
+  --btn-border: rgb(var(--danger-rgb) / 70%);
+  --btn-border-hover: var(--manual-rust);
+  --btn-bg-hover: rgb(var(--danger-rgb) / 10%);
+}
+
+.btn-danger {
+  --btn-bg: rgb(var(--danger-rgb) / 8%);
+}
+
+.btn-warning,
+.btn-outline-warning {
+  --btn-color: var(--manual-ink);
+  --btn-border: var(--manual-mustard);
+  --btn-border-hover: var(--manual-mustard);
+  --btn-bg-hover: rgb(var(--manual-mustard-rgb) / 18%);
+}
+
+.btn-warning {
+  --btn-bg: rgb(var(--manual-mustard-rgb) / 12%);
 }
 
 /* === Ghost button — borderless tertiary action (icon rows, table actions) === */
 .btn-ghost {
   --btn-bg: transparent;
-  --btn-bg-hover: rgb(var(--border-rgb) / 10%);
+  --btn-bg-hover: var(--manual-paper-shade);
   --btn-color: var(--text-secondary);
   --btn-color-hover: var(--text-primary);
   --btn-border: transparent;
@@ -198,19 +160,16 @@
   width: var(--touch-target);
   height: var(--touch-target);
   padding: 0;
-  border-radius: var(--radius-full);
 }
 
 .btn-sm {
   padding: var(--space-1) var(--space-3);
   font-size: var(--font-size-xs);
-  border-radius: var(--radius-sm);
 }
 
 .btn-lg {
   padding: var(--space-3) var(--space-6);
   font-size: var(--font-size-md);
-  border-radius: var(--radius-lg);
 }
 
 /* === Button Group === */
@@ -236,15 +195,6 @@
   border-bottom-right-radius: 0;
 }
 
-.btn-group > .btn:first-child {
-  border-top-left-radius: var(--radius-md);
-  border-bottom-left-radius: var(--radius-md);
-}
-
-.btn-group > .btn:last-child {
-  border-top-right-radius: var(--radius-md);
-  border-bottom-right-radius: var(--radius-md);
-}
 
 .btn-group > .btn:hover {
   z-index: 1; /* Bring hovered button to front */

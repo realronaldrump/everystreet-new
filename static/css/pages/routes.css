@@ -154,7 +154,7 @@
   height: 10px;
   background: rgb(var(--text-rgb) / 6%);
   border: 1px solid rgb(var(--text-rgb) / 10%);
-  border-radius: 9999px;
+  border-radius: var(--radius-sm);
   overflow: hidden;
 }
 
@@ -162,7 +162,7 @@
   height: 100%;
   width: 0%;
   background: var(--warning);
-  border-radius: 9999px;
+  border-radius: var(--radius-sm);
   transition: width var(--transition-normal);
 }
 
@@ -188,7 +188,6 @@
   background: rgb(var(--surface-rgb) / 55%);
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-sm);
-  backdrop-filter: blur(10px);
 }
 
 @media (width >= 992px) {
@@ -204,7 +203,7 @@
   align-items: center;
   gap: var(--space-2);
   padding: 0 var(--space-3);
-  border-radius: 9999px;
+  border-radius: var(--radius-sm);
   border: 1px solid rgb(var(--border-rgb) / 26%);
   background: rgb(var(--backdrop-rgb) / 18%);
 }
@@ -259,8 +258,8 @@
 .routes-filter-select {
   min-height: var(--touch-target);
   border-radius: var(--radius-md);
-  border: 1px solid var(--glass-border-subtle);
-  background-color: var(--glass-input);
+  border: 1px solid var(--divider-color);
+  background-color: var(--surface-0);
   color: var(--text-primary);
   font-size: var(--font-size-md);
   font-weight: var(--font-weight-medium);
@@ -276,13 +275,13 @@
 }
 
 .routes-filter-select:hover {
-  border-color: var(--glass-border-medium);
+  border-color: var(--border-color);
 }
 
 .routes-filter-select:focus {
   border-color: var(--primary);
   outline: 0;
-  background-color: var(--glass-input-focus);
+  background-color: var(--surface-0);
   box-shadow: var(--focus-ring);
 }
 
@@ -309,7 +308,7 @@
 .routes-toggle-ui {
   width: 44px;
   height: 26px;
-  border-radius: 9999px;
+  border-radius: var(--radius-sm);
   border: 1px solid rgb(var(--border-rgb) / 26%);
   background: rgb(var(--text-rgb) / 6%);
   position: relative;
@@ -323,7 +322,7 @@
   left: 4px;
   width: 18px;
   height: 18px;
-  border-radius: 9999px;
+  border-radius: var(--radius-sm);
   background: rgb(var(--text-rgb) / 78%);
   transition: transform var(--transition-fast);
 }
@@ -464,7 +463,7 @@
   color: rgb(var(--primary-rgb) / 85%);
   background: rgb(var(--primary-rgb) / 10%);
   border: 1px solid rgb(var(--primary-rgb) / 20%);
-  border-radius: 9999px;
+  border-radius: var(--radius-sm);
   padding: 0.2rem 0.6rem;
 }
 
@@ -569,7 +568,7 @@
   gap: 0.4rem;
   align-items: center;
   padding: 0.25rem 0.55rem;
-  border-radius: 9999px;
+  border-radius: var(--radius-sm);
   font-size: var(--font-size-xs);
   border: 1px solid rgb(var(--text-rgb) / 12%);
   background: rgb(var(--text-rgb) / 6%);
@@ -872,7 +871,7 @@ html[data-bs-theme="light"] .route-preview-svg path {
 
 .routes-explorer-expand-btn {
   border: 1px solid rgb(var(--primary-rgb) / 30%);
-  border-radius: 9999px;
+  border-radius: var(--radius-sm);
   background: rgb(var(--primary-rgb) / 10%);
   color: var(--text-primary);
   padding: 0.45rem 0.85rem;
@@ -982,7 +981,7 @@ html[data-bs-theme="light"] .route-preview-svg path {
 .routes-timeframe-option {
   min-height: 44px;
   border: 1px solid rgb(var(--border-rgb) / 24%);
-  border-radius: 9999px;
+  border-radius: var(--radius-sm);
   background: rgb(var(--backdrop-rgb) / 18%);
   padding: 0.45rem 0.8rem;
   display: inline-flex;
@@ -1190,7 +1189,7 @@ html[data-bs-theme="light"] .route-preview-svg path {
 
 .routes-variant-chip {
   border: 1px solid rgb(var(--primary-rgb) / 33%);
-  border-radius: 9999px;
+  border-radius: var(--radius-sm);
   background: rgb(var(--primary-rgb) / 14%);
   color: rgb(var(--primary-rgb) / 95%);
   padding: 0.2rem 0.6rem;
@@ -1228,7 +1227,7 @@ html[data-bs-theme="light"] .route-preview-svg path {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  border-radius: 9999px;
+  border-radius: var(--radius-sm);
   padding: 0.28rem 0.62rem;
   border: 1px solid rgb(var(--border-rgb) / 20%);
   background: rgb(var(--backdrop-rgb) / 14%);
@@ -1423,7 +1422,7 @@ html[data-bs-theme="light"] .route-preview-svg path {
 
 .connected-place-kind {
   border: 1px solid rgb(var(--primary-rgb) / 28%);
-  border-radius: 9999px;
+  border-radius: var(--radius-sm);
   padding: 0.1rem 0.5rem;
   font-size: var(--font-size-xs);
   color: rgb(var(--primary-rgb) / 95%);
@@ -1451,7 +1450,7 @@ html[data-bs-theme="light"] .route-preview-svg path {
 .route-trip-place-chip {
   min-height: 32px;
   border: 1px solid rgb(var(--border-rgb) / 22%);
-  border-radius: 9999px;
+  border-radius: var(--radius-sm);
   padding: 0.2rem 0.55rem;
   display: inline-flex;
   align-items: center;

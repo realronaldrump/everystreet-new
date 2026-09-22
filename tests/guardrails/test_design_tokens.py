@@ -153,11 +153,11 @@ def test_application_palette_has_no_green_hued_color_literals() -> None:
     assert not violations, "\n".join(violations)
 
 
-def test_foundation_palette_uses_fixed_survey_colors() -> None:
+def test_foundation_palette_uses_manual_inks() -> None:
     variables = _read(VARIABLES_CSS)
-    assert "--cat-cobalt: #6f8fce" in variables
-    assert "--cat-ochre: #d4a24a" in variables
-    assert "--cat-coral: #c47050" in variables
+    assert "--cat-cobalt: #5f82a0" in variables
+    assert "--cat-ochre: #c49d4c" in variables
+    assert "--cat-coral: #c26a4a" in variables
     for retired_token in ("--cat-sage", "--cat-olive", "--cat-mint", "--cat-lime"):
         assert retired_token not in variables
 

@@ -54,7 +54,7 @@
 .destination-bloom-tooltip__button {
   appearance: none;
   border: 1px solid rgb(255 205 135 / 28%);
-  border-radius: 999px;
+  border-radius: var(--radius-sm);
   background: rgb(255 176 88 / 18%);
   color: rgb(255 233 191);
   cursor: pointer;
@@ -93,7 +93,6 @@
   border: 1px solid rgb(255 206 135 / 16%);
   border-radius: var(--radius-md, 0.75rem);
   background: rgb(14 12 10 / 88%);
-  backdrop-filter: blur(var(--blur-strong, 12px));
   color: rgb(255 225 175 / 72%);
   font-size: var(--font-size-sm, 0.8125rem);
   white-space: nowrap;

@@ -27,10 +27,6 @@ body {
   display: flex;
   flex-direction: column;
   background-color: var(--surface-0);
-  background-image: var(--app-bg);
-  background-repeat: no-repeat;
-  background-attachment: fixed;
-  background-size: cover;
   color: var(--text-primary);
   font-family: var(--font-family);
   line-height: var(--line-height-normal);

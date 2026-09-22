@@ -12,14 +12,13 @@
 .mapboxgl-popup-content,
 .maplibregl-popup-content {
   font-family: var(--font-family);
-  background-color: var(--surface-glass);
+  background-color: var(--surface-1);
   color: var(--text-primary);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
   padding: 0; /* Remove default padding, handle in custom content */
   max-width: 350px;
   border: 1px solid var(--border-color);
-  backdrop-filter: blur(var(--blur-subtle));
 }
 
 .mapboxgl-popup-close-button,
@@ -126,11 +125,10 @@
 
 /* Give the inner popup content its own visual card */
 .gm-style-iw .mapboxgl-popup-content {
-  background-color: var(--surface-glass);
+  background-color: var(--surface-1);
   color: var(--text-primary);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
   border: 1px solid var(--border-color);
-  backdrop-filter: blur(var(--blur-subtle));
   min-width: 280px;
 }

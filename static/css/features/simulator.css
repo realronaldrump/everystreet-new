@@ -10,10 +10,9 @@
   width: 38px;
   height: 38px;
   border-radius: var(--radius-full);
-  background: var(--glass-panel);
-  backdrop-filter: blur(var(--blur-strong));
-  border: 1px solid var(--glass-border);
-  box-shadow: var(--shadow-glass-sm);
+  background: var(--surface-1);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-sm);
   color: var(--text-tertiary);
   display: flex;
   align-items: center;
@@ -30,7 +29,7 @@
 
 .sim-toggle-btn:hover {
   color: var(--text-primary);
-  box-shadow: var(--shadow-glass-md);
+  box-shadow: var(--shadow-md);
 }
 
 .sim-toggle-btn.active {
@@ -47,10 +46,9 @@
   max-height: calc(100vh - var(--header-height) - var(--space-8));
   z-index: var(--z-dropdown);
   border-radius: var(--radius-lg);
-  background: var(--glass-panel);
-  backdrop-filter: blur(var(--blur-strong));
-  border: 1px solid var(--glass-border);
-  box-shadow: var(--shadow-glass-md);
+  background: var(--surface-1);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-md);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -64,7 +62,7 @@
 }
 
 .sim-panel.dragging {
-  box-shadow: var(--shadow-glass-lg);
+  box-shadow: var(--shadow-lg);
 }
 
 @keyframes simPanelIn {
@@ -85,7 +83,7 @@
   align-items: center;
   justify-content: space-between;
   padding: var(--space-2) var(--space-3);
-  border-bottom: 1px solid var(--glass-border-subtle);
+  border-bottom: 1px solid var(--divider-color);
   flex-shrink: 0;
   cursor: grab;
   touch-action: none;
@@ -143,7 +141,7 @@
 .sim-body {
   overflow-y: auto;
   scrollbar-width: thin;
-  scrollbar-color: var(--glass-border) transparent;
+  scrollbar-color: var(--border-color) transparent;
   padding: var(--space-3);
   display: flex;
   flex-direction: column;
@@ -153,7 +151,7 @@
 /* --- Progress Bar --- */
 .sim-progress-bar {
   height: 2px;
-  background: var(--glass-border-subtle);
+  background: var(--divider-color);
   border-radius: 1px;
   overflow: hidden;
   margin: calc(var(--space-1) * -1) 0 0;
@@ -187,7 +185,7 @@
   width: 100%;
   padding: var(--space-2) var(--space-3);
   background: var(--surface-1);
-  border: 1px solid var(--glass-border-subtle);
+  border: 1px solid var(--divider-color);
   border-radius: var(--radius-md);
   color: var(--text-primary);
   font-size: var(--font-size-sm);
@@ -238,7 +236,7 @@
 .sim-config-select {
   padding: var(--space-1) var(--space-2);
   background: var(--surface-1);
-  border: 1px solid var(--glass-border-subtle);
+  border: 1px solid var(--divider-color);
   border-radius: var(--radius-sm);
   color: var(--text-primary);
   font-size: var(--font-size-xs);
@@ -272,7 +270,7 @@
   flex: 1;
   padding: var(--space-1) var(--space-2);
   background: transparent;
-  border: 1px solid var(--glass-border-subtle);
+  border: 1px solid var(--divider-color);
   border-radius: var(--radius-md);
   color: var(--text-secondary);
   font-size: var(--font-size-xs);
@@ -311,7 +309,7 @@
   justify-content: center;
   gap: var(--space-2);
   padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--glass-border-subtle);
+  border: 1px solid var(--divider-color);
   border-radius: var(--radius-md);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
@@ -353,7 +351,7 @@
   padding: var(--space-2) var(--space-3);
   background: var(--surface-1);
   border-radius: var(--radius-md);
-  border: 1px solid var(--glass-border-subtle);
+  border: 1px solid var(--divider-color);
 }
 
 .sim-status-row {
@@ -450,10 +448,10 @@
   max-height: 100px;
   overflow-y: auto;
   scrollbar-width: thin;
-  scrollbar-color: var(--glass-border) transparent;
+  scrollbar-color: var(--border-color) transparent;
   border-radius: var(--radius-sm);
   background: var(--surface-0);
-  border: 1px solid var(--glass-border-subtle);
+  border: 1px solid var(--divider-color);
 }
 
 .sim-log-entry {

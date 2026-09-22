@@ -17,8 +17,7 @@ body[data-route="/map"] .maplibregl-ctrl-bottom-right {
 
 body[data-route="/map"] .mapboxgl-ctrl-group,
 body[data-route="/map"] .maplibregl-ctrl-group {
-  background: var(--surface-glass);
-  backdrop-filter: blur(var(--blur-strong));
+  background: var(--surface-1);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-sm);
@@ -43,11 +42,10 @@ body[data-route="/map"] .maplibregl-ctrl-group button {
 
   body[data-route="/map"] .mapboxgl-ctrl-group,
   body[data-route="/map"] .maplibregl-ctrl-group {
-    background: var(--glass-panel);
-    backdrop-filter: blur(var(--blur-strong));
-    border: 1px solid var(--glass-border);
+    background: var(--surface-1);
+    border: 1px solid var(--border-color);
     border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-glass-sm);
+    box-shadow: var(--shadow-sm);
   }
 
   body[data-route="/map"] .mapboxgl-ctrl-group button,
@@ -58,7 +56,7 @@ body[data-route="/map"] .maplibregl-ctrl-group button {
 
   body[data-route="/map"] .mapboxgl-ctrl-group button + button,
   body[data-route="/map"] .maplibregl-ctrl-group button + button {
-    border-top: 1px solid var(--glass-border-subtle);
+    border-top: 1px solid var(--divider-color);
   }
 
   /* Scale up the SVG icons inside buttons */

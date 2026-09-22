@@ -96,15 +96,15 @@ test("route planner legend matches the optimal route map color", () => {
 
   assert.match(
     mapStylesSource,
-    /optimalRoute:[\s\S]*route:\s*getCSSVariable\("--warning"/
+    /optimalRoute:[\s\S]*route:\s*getCSSVariable\("--map-route"/
   );
   assert.match(
     plannerCss,
-    /\.legend-color--route\s*\{\s*background:\s*var\(--warning\);\s*\}/
+    /\.legend-color--route\s*\{\s*background:\s*var\(--map-route\);\s*\}/
   );
   assert.match(
     plannerCss,
-    /\.layer-color--route\s*\{\s*background:\s*var\(--warning\);\s*\}/
+    /\.layer-color--route\s*\{\s*background:\s*var\(--map-route\);\s*\}/
   );
 });
 

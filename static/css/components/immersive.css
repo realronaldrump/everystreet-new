@@ -22,9 +22,8 @@
 
 /* Glass surfaces */
 .glass {
-  background: var(--glass-1);
-  border: 1px solid var(--glass-border);
-  backdrop-filter: blur(var(--blur-subtle)) saturate(1.1);
+  background: var(--surface-1);
+  border: 1px solid var(--border-color);
 }
 
 /* Ripple base */
@@ -113,9 +112,8 @@ body[data-route="/coverage-diorama"] .nav-breadcrumb {
   justify-content: space-around;
   gap: var(--space-2);
   padding: var(--space-2) var(--space-3) calc(var(--space-2) + env(safe-area-inset-bottom));
-  background: var(--glass-2);
+  background: var(--surface-1);
   border-top: 3px double var(--manual-ink);
-  backdrop-filter: none;
   z-index: var(--z-fixed);
   transition: transform 250ms cubic-bezier(0.4, 0, 0.2, 1);
   background-color: var(--manual-paper);
@@ -139,7 +137,7 @@ body[data-route="/coverage-diorama"] .nav-breadcrumb {
   padding: var(--space-1) var(--space-2);
   min-width: 64px;
   position: relative;
-  font-family: var(--manual-font-label);
+  font-family: var(--font-family-label);
   font-weight: var(--font-weight-semibold);
 }
 
@@ -181,12 +179,6 @@ body[data-route="/coverage-diorama"] .nav-breadcrumb {
   }
 }
 
-body.is-busy {
-  --glass-1: rgb(var(--surface-rgb) / 86%);
-  --glass-2: rgb(var(--surface-rgb) / 92%);
-  --glass-3: rgb(var(--surface-rgb) / 96%);
-}
-
 /* Density adjustments */
 body.density-compact {
   --space-1: 0.2rem;
@@ -213,7 +205,7 @@ body.density-spacious {
 
 .nav-trail-item,
 .nav-trail-sep {
-  font-family: var(--manual-font-label);
+  font-family: var(--font-family-label);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;

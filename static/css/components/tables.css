@@ -1,6 +1,7 @@
-/* ============================
-   Table Components
-   ============================ */
+/* ============================================================
+   Tables: a printed register. Franklin caps over a heavy ink rule,
+   light rules between rows, figures hung from the right.
+   ============================================================ */
 
 .table {
   width: 100%;
@@ -15,13 +16,13 @@
 .table td {
   padding: var(--space-3) var(--space-4);
   text-align: left;
-  border-bottom: 1px solid var(--divider-color);
+  border-bottom: 1px solid var(--manual-rule-faint);
   vertical-align: middle;
   transition: background-color var(--transition-fast);
 }
 
 .table thead th {
-  background: var(--surface-1);
+  background: var(--manual-paper);
   font-weight: var(--font-weight-bold);
   color: var(--text-primary);
   font-size: var(--font-size-xs);
@@ -30,7 +31,7 @@
   position: sticky;
   top: 0;
   z-index: 10;
-  font-family: var(--manual-font-label);
+  font-family: var(--font-family-label);
   border-bottom: 1.5px solid var(--manual-ink);
 }
 
@@ -46,16 +47,10 @@
   text-align: right;
 }
 
-/* Hover with left border accent */
 .table-hover tbody tr:hover {
-  background-color: var(--surface-2);
+  background-color: var(--manual-paper-shade);
 }
 
-/* Subtle striping */
 .table-striped tbody tr:nth-of-type(odd) {
-  background-color: rgb(var(--surface-rgb) / 40%);
-}
-
-html.light-mode body .table-striped tbody tr:nth-of-type(odd) {
-  background-color: rgb(var(--surface-rgb) / 50%);
+  background-color: rgb(var(--manual-ink-rgb) / 3%);
 }

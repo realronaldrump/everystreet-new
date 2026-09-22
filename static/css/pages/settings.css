@@ -518,7 +518,7 @@
   align-items: center;
   gap: var(--space-1);
   padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-sm);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
 }
@@ -539,14 +539,14 @@
 .storage-source-bar-container {
   height: 6px;
   background: var(--surface-3);
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-sm);
   overflow: hidden;
 }
 
 .storage-source-bar {
   height: 100%;
   background: var(--secondary);
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-sm);
   transition:
     width 0.5s ease,
     opacity 0.3s ease;
@@ -733,7 +733,7 @@
   align-items: center;
   gap: var(--space-2);
   padding: var(--space-1) var(--space-3);
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-sm);
   border: 1px solid var(--border-color);
   background: var(--surface-2);
   color: var(--text-secondary);
@@ -1257,7 +1257,7 @@
 .local-osm-pill {
   flex: 0 0 auto;
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-sm);
   padding: var(--space-1) var(--space-2);
   font-size: var(--font-size-xs);
   color: var(--text-secondary);
@@ -1287,7 +1287,7 @@
   display: inline-flex;
   min-width: 0;
   max-width: 100%;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-sm);
   padding: var(--space-1) var(--space-2);
   background: var(--surface-2);
 }
@@ -1523,7 +1523,7 @@
 .map-services-progress .progress-bar-container {
   height: 8px;
   background: var(--surface-3);
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-sm);
   overflow: hidden;
 }
 
@@ -1535,7 +1535,7 @@
 .map-services-progress .progress-bar {
   height: 100%;
   background: var(--info);
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-sm);
   transition: width 0.3s ease;
 }
 
@@ -1573,7 +1573,7 @@
   align-items: center;
   gap: var(--space-1);
   padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-sm);
   background: var(--surface-3);
   border: 1px solid var(--border-color);
 }
@@ -1789,7 +1789,7 @@
 .geo-coverage-status-chip {
   display: inline-flex;
   align-items: center;
-  border-radius: 999px;
+  border-radius: var(--radius-sm);
   border: 1px solid rgb(var(--text-rgb) / 14%);
   background: rgb(var(--surface-rgb) / 70%);
   color: var(--text-secondary);
@@ -1811,7 +1811,7 @@
 .geo-coverage-progress-track {
   width: 100%;
   height: 9px;
-  border-radius: 999px;
+  border-radius: var(--radius-sm);
   overflow: hidden;
   background: rgb(var(--text-rgb) / 8%);
 }
@@ -1931,7 +1931,7 @@
   align-items: center;
   gap: var(--space-2);
   padding: var(--space-2) var(--space-3);
-  border-radius: 999px;
+  border-radius: var(--radius-sm);
   border: 1px solid var(--border-color);
   background: var(--surface-0);
   color: var(--text-secondary);
@@ -2128,7 +2128,7 @@
   display: inline-flex;
   align-items: center;
   padding: 0.2rem 0.6rem;
-  border-radius: 999px;
+  border-radius: var(--radius-sm);
   border: 1px solid rgb(var(--primary-rgb) / 28%);
   background: rgb(var(--primary-rgb) / 10%);
   color: rgb(var(--primary-rgb));
@@ -2532,7 +2532,7 @@
   font-size: var(--font-size-xs);
   line-height: 1;
   padding: 0.2rem 0.5rem;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-sm);
   border: 1px solid var(--border-color);
   background: rgb(var(--surface-rgb) / 50%);
   color: var(--text-tertiary);
@@ -2578,7 +2578,7 @@
   border: 1px solid var(--border-color);
   background: var(--surface-1);
   color: var(--text-secondary);
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-sm);
   padding: 0.35rem 0.7rem;
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
@@ -2879,7 +2879,7 @@
   align-items: center;
   gap: 0.35rem;
   padding: 0.3rem 0.6rem;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-sm);
   border: 1px solid var(--border-color);
   background: var(--surface-1);
   color: var(--text-secondary);
@@ -3068,7 +3068,7 @@
   display: inline-flex;
   align-items: center;
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-sm);
   padding: 0.2rem 0.55rem;
   color: var(--text-secondary);
   background: var(--surface-1);
@@ -3710,7 +3710,7 @@
   justify-content: center;
   min-height: 2rem;
   padding: 0.35rem 0.85rem;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-sm);
   font-weight: var(--font-weight-semibold);
   font-size: var(--font-size-sm);
 }

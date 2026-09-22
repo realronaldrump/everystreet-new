@@ -8,7 +8,7 @@
   transition: all 0.2s ease;
   position: relative;
   z-index: 1;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-sm);
 }
 
 #map-search-input:focus {
@@ -34,7 +34,6 @@
     0 8px 24px rgb(0 0 0 / 40%),
     0 4px 12px rgb(0 0 0 / 30%);
   z-index: var(--z-dropdown);
-  backdrop-filter: blur(var(--blur-subtle));
   animation: slideInDown 0.2s ease-out;
   min-width: 280px;
   margin-top: 0.5rem;
@@ -105,7 +104,7 @@
   display: inline-block;
   padding: 0.2rem 0.6rem;
   font-size: var(--font-size-xs);
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-sm);
   margin-right: 0.5rem;
   margin-bottom: 0.35rem;
   text-transform: uppercase;
@@ -205,12 +204,12 @@
 
 .search-results-dropdown::-webkit-scrollbar-track {
   background: var(--surface-2);
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-sm);
 }
 
 .search-results-dropdown::-webkit-scrollbar-thumb {
   background: rgb(var(--border-rgb) / 35%);
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-sm);
 }
 
 .search-results-dropdown::-webkit-scrollbar-thumb:hover {

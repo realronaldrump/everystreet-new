@@ -317,7 +317,7 @@
 
 .logs-container::-webkit-scrollbar-thumb {
   background: var(--surface-3);
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-sm);
 }
 
 .logs-container::-webkit-scrollbar-thumb:hover {
@@ -471,7 +471,7 @@
   align-items: center;
   justify-content: center;
   padding: 0.2rem 0.6rem;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-sm);
   font-weight: 600;
   font-size: var(--font-size-xs);
   text-transform: uppercase;

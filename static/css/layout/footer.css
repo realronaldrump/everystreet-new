@@ -21,14 +21,14 @@
   color: var(--manual-ink-soft);
   padding-top: var(--space-4);
   border-top: 3px double var(--manual-ink);
-  font-family: var(--manual-font-label);
+  font-family: var(--font-family-label);
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
   letter-spacing: var(--tracking-label);
 }
 
 .footer-colophon {
-  font-family: var(--manual-font-label);
+  font-family: var(--font-family-label);
   font-weight: var(--font-weight-bold);
   text-transform: uppercase;
   letter-spacing: var(--tracking-label);

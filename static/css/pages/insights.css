@@ -279,7 +279,7 @@
   align-items: center;
   gap: var(--space-1);
   padding: var(--space-1);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-sm);
   border: 1px solid rgb(var(--border-rgb) / 26%);
   background: rgb(var(--surface-rgb) / 55%);
 }
@@ -288,7 +288,7 @@
   min-height: 44px;
   padding: var(--space-2) var(--space-3);
   border: 0;
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-sm);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
   color: var(--text-secondary);
@@ -451,8 +451,9 @@
 .rhythm-header h3 {
   margin: 0;
   color: var(--text-primary);
-  font-family: var(--font-family-display);
+  font-family: var(--font-family-text);
   font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
 }
 
 .rhythm-storyrail {
@@ -479,7 +480,7 @@
 .rhythm-story-card:hover {
   transform: translateY(-2px) scale(1.01);
   border-color: rgb(var(--primary-rgb) / 46%);
-  box-shadow: var(--shadow-elevation-2);
+  box-shadow: var(--shadow-md);
 }
 
 .storyrail-topline {
@@ -499,7 +500,7 @@
 
 .storyrail-delta {
   padding: 0.15rem 0.5rem;
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-sm);
   border: 1px solid transparent;
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
@@ -587,7 +588,7 @@
 
 .scene-card:hover {
   transform: translateY(-2px);
-  box-shadow: var(--shadow-elevation-2);
+  box-shadow: var(--shadow-md);
 }
 
 .scene-icon {
@@ -822,7 +823,6 @@
 [id="tripDetailsModal"] .modal-content {
   border: 1px solid rgb(var(--border-rgb) / 20%);
   background: rgb(var(--surface-rgb) / 97%);
-  backdrop-filter: blur(var(--blur-modal));
 }
 
 [id="tripDetailsModal"] .modal-header {
@@ -843,8 +843,9 @@
 
 [id="tripDetailsModal"] .modal-title {
   margin: 0;
-  font-family: var(--font-family-display);
+  font-family: var(--font-family-text);
   font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
 }
 
 .modal-subtitle {
@@ -956,7 +957,7 @@
 }
 
 .modal-trip-hero {
-  font-family: var(--font-family-display);
+  font-family: var(--font-family-text);
   font-size: var(--font-size-base);
   font-weight: var(--font-weight-semibold);
   color: var(--text-primary);
@@ -1122,8 +1123,9 @@
 
 .places-detail-stats strong {
   color: var(--text-primary);
-  font-family: var(--font-family-display);
+  font-family: var(--font-family-text);
   font-size: var(--font-size-base);
+  font-weight: var(--font-weight-bold);
 }
 
 .places-detail-action {
@@ -1181,7 +1183,7 @@
 
 .movement-meta-pill {
   padding: 0.35rem 0.72rem;
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-sm);
   border: 1px solid rgb(var(--border-rgb) / 30%);
   background: rgb(var(--surface-rgb) / 52%);
   color: var(--text-secondary);
@@ -1194,7 +1196,7 @@
   align-items: center;
   gap: var(--space-1);
   padding: var(--space-1);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-sm);
   border: 1px solid rgb(var(--border-rgb) / 26%);
   background: rgb(var(--surface-rgb) / 55%);
 }
@@ -1257,8 +1259,9 @@
 .movement-detail-title {
   margin: 0;
   color: var(--text-primary);
-  font-family: var(--font-family-display);
+  font-family: var(--font-family-text);
   font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
 }
 
 .movement-detail-stats {
@@ -1282,8 +1285,9 @@
 
 .movement-detail-stats strong {
   color: var(--text-primary);
-  font-family: var(--font-family-display);
+  font-family: var(--font-family-text);
   font-size: var(--font-size-base);
+  font-weight: var(--font-weight-bold);
 }
 
 .movement-rankings {
@@ -1308,8 +1312,9 @@
 .movement-rank-title {
   margin: 0 0 var(--space-2);
   color: var(--text-primary);
-  font-family: var(--font-family-display);
+  font-family: var(--font-family-text);
   font-size: var(--font-size-base);
+  font-weight: var(--font-weight-bold);
 }
 
 .movement-rank-list {
@@ -1432,8 +1437,9 @@
 .timeline-value {
   margin: 0;
   color: var(--text-primary);
-  font-family: var(--font-family-display);
+  font-family: var(--font-family-text);
   font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
 }
 
 .timeline-detail {

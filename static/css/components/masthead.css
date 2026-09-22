@@ -25,12 +25,12 @@
   text-transform: uppercase;
   letter-spacing: var(--tracking-label);
   color: var(--manual-rust-ink);
-  font-family: var(--manual-font-label);
+  font-family: var(--font-family-label);
 }
 
 .pm-title {
   margin: 0;
-  font-family: var(--manual-font-display);
+  font-family: var(--font-family-display);
   font-size: var(--font-size-4xl);
   font-weight: 800;
   letter-spacing: var(--tracking-display);
@@ -86,7 +86,7 @@
   text-transform: uppercase;
   letter-spacing: var(--tracking-label);
   color: var(--text-tertiary);
-  font-family: var(--manual-font-label);
+  font-family: var(--font-family-label);
 }
 
 .figure-readout {
@@ -102,7 +102,7 @@
   line-height: 1;
   letter-spacing: var(--tracking-tight);
   color: var(--text-primary);
-  font-family: var(--manual-font-display);
+  font-family: var(--font-family-display);
 }
 
 .figure-value-sm {

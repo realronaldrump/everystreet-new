@@ -2319,9 +2319,9 @@ function getThemeColor(variable, defaultColor) {
 
 function getTripUiColors() {
   return {
-    primary: getThemeColor("--primary", "#6f8fce"),
-    success: getThemeColor("--success", "#6f8fce"),
-    stroke: getThemeColor("--text-primary", "#f5f2ec"),
+    primary: getThemeColor("--primary", "#8fa6b4"),
+    success: getThemeColor("--success", "#8fa6b4"),
+    stroke: getThemeColor("--text-primary", "#ece2cb"),
   };
 }
 

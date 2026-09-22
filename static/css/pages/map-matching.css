@@ -184,8 +184,9 @@
 }
 
 .mm-section-title {
+  font-family: var(--font-family-text);
+  font-weight: var(--font-weight-bold);
   font-size: var(--font-size-lg);
-  font-weight: var(--font-weight-semibold);
   color: var(--text-primary);
   margin-bottom: var(--space-4);
 }
@@ -336,7 +337,7 @@
 .mm-quick-pick {
   padding: var(--space-2) var(--space-3);
   border: 1px solid rgb(var(--border-rgb) / 15%);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-sm);
   background: var(--surface-3);
   color: var(--text-secondary);
   font-size: var(--font-size-sm);
@@ -750,7 +751,7 @@
 
 .mm-progress-metric-chip {
   padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-sm);
   background: rgb(var(--border-rgb) / 8%);
   color: var(--text-secondary);
   font-size: var(--font-size-xs);
@@ -840,7 +841,6 @@
   align-items: center;
   justify-content: center;
   background: rgb(var(--surface-rgb) / 80%);
-  backdrop-filter: blur(4px);
 }
 
 .mm-empty-map-content {
@@ -875,8 +875,7 @@
   gap: var(--space-2);
   padding: var(--space-2) var(--space-3);
   background: rgb(var(--surface-rgb) / 85%);
-  backdrop-filter: blur(12px);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-sm);
   font-size: var(--font-size-xs);
   color: var(--text-secondary);
   border: 1px solid rgb(var(--border-rgb) / 8%);
@@ -1073,11 +1072,12 @@
 }
 
 .mm-drawer-title {
+  font-family: var(--font-family-text);
+  font-weight: var(--font-weight-bold);
   display: flex;
   align-items: center;
   gap: var(--space-2);
   font-size: var(--font-size-lg);
-  font-weight: var(--font-weight-semibold);
   color: var(--text-primary);
   margin: 0;
 }
@@ -1185,7 +1185,7 @@
   width: fit-content;
   margin-top: 2px;
   padding: 1px var(--space-2);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-sm);
   background: rgb(var(--primary-rgb) / 8%);
   color: var(--primary);
   font-size: var(--font-size-xs);
@@ -1247,7 +1247,7 @@
   align-items: center;
   justify-content: center;
   padding: 0 var(--space-1);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-sm);
   background: var(--action);
   color: var(--text-on-action);
   font-size: var(--font-size-xs);
@@ -1556,7 +1556,7 @@
   align-items: center;
   justify-content: center;
   padding: 0 var(--space-1);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-sm);
   background: var(--warning);
   color: var(--text-on-primary);
   font-size: var(--font-size-xs);

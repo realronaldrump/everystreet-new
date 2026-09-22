@@ -15,8 +15,7 @@
   gap: var(--space-3);
   padding: var(--space-2) var(--space-4);
   max-width: min(480px, calc(100% - var(--space-8)));
-  background: var(--surface-glass);
-  backdrop-filter: blur(12px);
+  background: var(--surface-1);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-md);

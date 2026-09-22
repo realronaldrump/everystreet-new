@@ -21,9 +21,9 @@ test("county style expressions switch stopped styling on/off", () => {
   assert.deepEqual(buildCountyFillColorExpression(true), [
     "case",
     ["boolean", ["feature-state", "stopped"], false],
-    "#6290ad",
+    "#7893a6",
     ["boolean", ["feature-state", "visited"], false],
-    "#6f8fce",
+    "#8fb1c8",
     "rgba(245, 242, 236, 0.02)",
   ]);
   assert.deepEqual(buildCountyFillOpacityExpression(true), [
@@ -37,8 +37,8 @@ test("county style expressions switch stopped styling on/off", () => {
   assert.deepEqual(buildCountyBorderColorExpression(false), [
     "case",
     ["boolean", ["feature-state", "visited"], false],
-    "#526fae",
-    "rgba(245, 242, 236, 0.15)",
+    "#6e93ad",
+    "rgba(236, 226, 203, 0.15)",
   ]);
   assert.deepEqual(buildCountyBorderWidthExpression(false), [
     "case",

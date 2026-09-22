@@ -5,8 +5,8 @@
   gap: var(--space-3);
   min-height: 10rem;
   padding: var(--space-8) var(--space-4);
-  border: 1px dashed var(--border-color-light);
-  border-radius: var(--radius-lg);
+  border: 1px dashed var(--manual-rule);
+  border-radius: 0;
   background: transparent;
   color: var(--text-secondary);
   text-align: center;
@@ -23,13 +23,15 @@
 .empty-state-title {
   margin: 0;
   color: var(--text-primary);
-  font-family: var(--font-family-display);
+  font-family: var(--font-family-text);
   font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
 }
 
 .empty-state p,
 .empty-state-body {
   max-width: 46ch;
   margin: 0;
+  font-style: italic;
   color: var(--text-secondary);
 }

@@ -86,9 +86,9 @@
 }
 
 .section-title {
-  font-family: var(--font-family-display);
+  font-family: var(--font-family-text);
   font-size: var(--font-size-lg);
-  font-weight: 600;
+  font-weight: var(--font-weight-bold);
   color: var(--text-primary);
   display: flex;
   align-items: center;
@@ -222,7 +222,7 @@
 
 .place-card:hover {
   transform: translateY(-1px);
-  box-shadow: var(--shadow-elevation-2);
+  box-shadow: var(--shadow-md);
   border-color: var(--primary);
 }
 
@@ -317,7 +317,7 @@
   right: var(--space-3);
   background: rgb(var(--surface-rgb) / 90%);
   padding: var(--space-1) var(--space-3);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-sm);
   font-size: var(--font-size-xs);
   font-weight: 600;
   color: var(--cat-ochre);
@@ -336,9 +336,9 @@
 }
 
 .place-name {
-  font-family: var(--font-family-display);
+  font-family: var(--font-family-text);
   font-size: var(--font-size-lg);
-  font-weight: 600;
+  font-weight: var(--font-weight-bold);
   color: var(--text-primary);
   margin-bottom: var(--space-3);
 }
@@ -368,7 +368,7 @@
   background: rgb(var(--primary-rgb) / 10%);
   color: var(--primary);
   padding: var(--space-1) var(--space-3);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-sm);
   font-size: var(--font-size-xs);
   font-weight: 500;
   border: 1px solid rgb(var(--primary-rgb) / 20%);
@@ -458,9 +458,9 @@
 }
 
 .pattern-card h4 {
-  font-family: var(--font-family-display);
+  font-family: var(--font-family-text);
   font-size: var(--font-size-md);
-  font-weight: 600;
+  font-weight: var(--font-weight-bold);
   color: var(--text-primary);
 }
 
@@ -631,9 +631,9 @@
 }
 
 .discovery-content h4 {
-  font-family: var(--font-family-display);
+  font-family: var(--font-family-text);
   font-size: var(--font-size-md);
-  font-weight: 600;
+  font-weight: var(--font-weight-bold);
   color: var(--text-primary);
   margin-bottom: var(--space-2);
 }
@@ -786,7 +786,6 @@
 
 .btn-control {
   background: rgb(var(--surface-rgb) / 90%);
-  backdrop-filter: blur(10px);
   border: 1px solid var(--border-color);
   color: var(--text-primary);
   min-width: 2.75rem;
@@ -870,7 +869,7 @@
   display: inline-flex;
   align-items: center;
   width: fit-content;
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-sm);
   padding: 0.3rem 0.75rem;
   font-size: var(--font-size-xs);
   font-weight: 700;
@@ -1123,7 +1122,7 @@
   color: var(--text-on-primary);
   border: none;
   padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-sm);
   font-family: var(--font-family);
   font-size: var(--font-size-sm);
   font-weight: 600;
@@ -1193,9 +1192,9 @@
 }
 
 .timeline-title {
-  font-family: var(--font-family-display);
+  font-family: var(--font-family-text);
   font-size: var(--font-size-md);
-  font-weight: 600;
+  font-weight: var(--font-weight-bold);
   margin-bottom: var(--space-4);
   color: var(--text-primary);
 }
@@ -1366,7 +1365,7 @@
   color: var(--text-tertiary);
   background: rgb(var(--surface-rgb) / 60%);
   padding: var(--space-1) var(--space-3);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-sm);
   border: 1px solid var(--border-color);
 }
 
@@ -1640,7 +1639,7 @@
   align-items: center;
   gap: var(--space-1);
   padding: var(--space-1) var(--space-3);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-sm);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
   background: transparent;
@@ -1654,7 +1653,6 @@
 
 .visits-modal .modal-content {
   background: rgb(var(--surface-rgb) / 95%);
-  backdrop-filter: blur(20px);
   border: 1px solid rgb(var(--primary-rgb) / 30%);
   box-shadow: 0 25px 50px -12px rgb(0 0 0 / 40%);
   border-radius: var(--radius-xl);
@@ -1716,7 +1714,6 @@
 .custom-popup-enhanced .mapboxgl-popup-content,
 .custom-popup-enhanced .maplibregl-popup-content {
   background: rgb(var(--surface-rgb) / 95%);
-  backdrop-filter: blur(12px);
   border: 1px solid rgb(var(--primary-rgb) / 30%);
   border-radius: var(--radius-lg);
   padding: var(--space-4);

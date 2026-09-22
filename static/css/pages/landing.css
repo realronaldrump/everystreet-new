@@ -30,7 +30,7 @@ body[data-route="/"] .footer-content {
   display: flex;
   flex-direction: column;
   gap: clamp(2rem, 4vw, 3rem);
-  font-family: var(--manual-font-text);
+  font-family: var(--font-family-text);
   color: var(--manual-ink);
 }
 
@@ -67,7 +67,7 @@ body[data-route="/"] .footer-content {
   align-items: center;
   gap: var(--space-2);
   margin: 0;
-  font-family: var(--manual-font-label);
+  font-family: var(--font-family-label);
   font-size: var(--font-size-sm);
   font-weight: 800;
   line-height: 1.2;
@@ -90,7 +90,7 @@ body[data-route="/"] .footer-content {
   align-items: center;
   gap: var(--space-2);
   min-height: var(--touch-target);
-  font-family: var(--manual-font-text);
+  font-family: var(--font-family-text);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
   color: var(--manual-ink);
@@ -112,7 +112,7 @@ body[data-route="/"] .footer-content {
 
 /* ---- Captions ------------------------------------------------ */
 .plate-caption {
-  font-family: var(--manual-font-text);
+  font-family: var(--font-family-text);
   font-size: var(--font-size-xs);
   font-style: italic;
   line-height: var(--line-height-snug);
@@ -143,7 +143,7 @@ body[data-route="/"] .footer-content {
   align-items: center;
   gap: var(--space-3);
   margin: 0;
-  font-family: var(--manual-font-label);
+  font-family: var(--font-family-label);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-bold);
   text-transform: uppercase;
@@ -159,7 +159,7 @@ body[data-route="/"] .footer-content {
 
 .manual-headline {
   margin: 0;
-  font-family: var(--manual-font-display);
+  font-family: var(--font-family-display);
   font-size: var(--font-size-5xl);
   font-weight: 800;
   line-height: 0.94;
@@ -171,7 +171,7 @@ body[data-route="/"] .footer-content {
 .manual-area {
   margin: var(--space-1) 0 0;
   max-width: 34ch;
-  font-family: var(--manual-font-text);
+  font-family: var(--font-family-text);
   font-size: var(--font-size-xl);
   font-weight: var(--font-weight-regular);
   line-height: var(--line-height-snug);
@@ -189,7 +189,7 @@ body[data-route="/"] .footer-content {
   flex-wrap: wrap;
   gap: var(--space-2) var(--space-4);
   margin-top: var(--space-2);
-  font-family: var(--manual-font-label);
+  font-family: var(--font-family-label);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
@@ -314,7 +314,7 @@ body[data-route="/"] .footer-content {
 
 .snapshot-label,
 .record-eyebrow {
-  font-family: var(--manual-font-label);
+  font-family: var(--font-family-label);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-bold);
   text-transform: uppercase;
@@ -331,7 +331,7 @@ body[data-route="/"] .footer-content {
 
 .snapshot-value,
 .record-value {
-  font-family: var(--manual-font-display);
+  font-family: var(--font-family-display);
   font-weight: 800;
   line-height: 0.92;
   letter-spacing: var(--tracking-tight);
@@ -345,7 +345,7 @@ body[data-route="/"] .footer-content {
 }
 
 .snapshot-unit {
-  font-family: var(--manual-font-text);
+  font-family: var(--font-family-text);
   font-size: var(--font-size-xl);
   color: var(--manual-ink-soft);
 }
@@ -399,7 +399,7 @@ body[data-route="/"] .footer-content {
 }
 
 .record-count {
-  font-family: var(--manual-font-text);
+  font-family: var(--font-family-text);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-regular);
   text-transform: none;
@@ -426,14 +426,14 @@ body[data-route="/"] .footer-content {
 }
 
 .record-title {
-  font-family: var(--manual-font-text);
+  font-family: var(--font-family-text);
   font-size: var(--font-size-sm);
   line-height: var(--line-height-snug);
   color: var(--manual-ink);
 }
 
 .record-date {
-  font-family: var(--manual-font-text);
+  font-family: var(--font-family-text);
   font-size: var(--font-size-xs);
   color: var(--manual-ink-faint);
 }
@@ -483,7 +483,7 @@ body[data-route="/"] .footer-content {
   grid-column: 2;
   position: relative;
   height: 1.1rem;
-  font-family: var(--manual-font-label);
+  font-family: var(--font-family-label);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
   color: var(--manual-ink-faint);
@@ -537,7 +537,7 @@ body[data-route="/"] .footer-content {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-family: var(--manual-font-text);
+  font-family: var(--font-family-text);
   font-size: var(--font-size-lg);
   font-weight: var(--font-weight-bold);
   color: var(--manual-ink);
@@ -596,7 +596,7 @@ body[data-route="/"] .footer-content {
 .coverage-register-pct {
   position: relative;
   justify-self: end;
-  font-family: var(--manual-font-display);
+  font-family: var(--font-family-display);
   font-size: var(--font-size-xl);
   font-weight: 800;
   color: var(--manual-ink);
@@ -640,7 +640,7 @@ body[data-route="/"] .footer-content {
 }
 
 .coverage-register-left {
-  font-family: var(--manual-font-text);
+  font-family: var(--font-family-text);
   font-size: var(--font-size-sm);
   color: var(--manual-ink-soft);
   font-variant-numeric: lining-nums tabular-nums;
@@ -702,7 +702,7 @@ body[data-route="/"] .footer-content {
 }
 
 .action-title {
-  font-family: var(--manual-font-display);
+  font-family: var(--font-family-display);
   font-size: var(--font-size-3xl);
   font-weight: 800;
   line-height: 0.98;
@@ -712,7 +712,7 @@ body[data-route="/"] .footer-content {
 
 .action-sub {
   max-width: 30ch;
-  font-family: var(--manual-font-text);
+  font-family: var(--font-family-text);
   font-size: var(--font-size-sm);
   line-height: var(--line-height-snug);
   color: var(--manual-ink-soft);
@@ -744,7 +744,7 @@ body[data-route="/"] .footer-content {
   content: "\2713";
   display: inline-block;
   margin-left: var(--space-2);
-  font-family: var(--manual-font-label);
+  font-family: var(--font-family-label);
   font-size: 0.7em;
   font-weight: 800;
   color: var(--manual-rust);
@@ -778,7 +778,7 @@ body[data-route="/"] .footer-content {
 .index-no {
   flex: 0 0 auto;
   min-width: 2ch;
-  font-family: var(--manual-font-label);
+  font-family: var(--font-family-label);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-bold);
   letter-spacing: var(--tracking-wide);
@@ -788,7 +788,7 @@ body[data-route="/"] .footer-content {
 
 .index-title {
   flex: 0 0 auto;
-  font-family: var(--manual-font-text);
+  font-family: var(--font-family-text);
   font-size: var(--font-size-lg);
   font-weight: var(--font-weight-semibold);
   color: var(--manual-ink);
@@ -816,14 +816,14 @@ body[data-route="/"] .footer-content {
 }
 
 .index-meta .meta-value {
-  font-family: var(--manual-font-text);
+  font-family: var(--font-family-text);
   font-size: var(--font-size-sm);
   color: var(--manual-ink);
   font-variant-numeric: lining-nums tabular-nums;
 }
 
 .index-meta .meta-label {
-  font-family: var(--manual-font-label);
+  font-family: var(--font-family-label);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
@@ -855,7 +855,7 @@ body[data-route="/"] .footer-content {
 .logbook {
   width: 100%;
   border-collapse: collapse;
-  font-family: var(--manual-font-text);
+  font-family: var(--font-family-text);
   font-variant-numeric: lining-nums tabular-nums;
 }
 
@@ -875,7 +875,7 @@ body[data-route="/"] .footer-content {
   padding-top: 0;
   padding-bottom: var(--space-2);
   border-bottom: 1.5px solid var(--manual-ink);
-  font-family: var(--manual-font-label);
+  font-family: var(--font-family-label);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-bold);
   text-transform: uppercase;
@@ -955,7 +955,7 @@ body[data-route="/"] .footer-content {
 }
 
 .logbook-miles {
-  font-family: var(--manual-font-display);
+  font-family: var(--font-family-display);
   font-size: var(--font-size-lg);
   font-weight: 800;
   white-space: nowrap;
@@ -969,7 +969,7 @@ body[data-route="/"] .footer-content {
 
 .logbook .logbook-total-label {
   text-align: right;
-  font-family: var(--manual-font-label);
+  font-family: var(--font-family-label);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-bold);
   text-transform: uppercase;
@@ -978,7 +978,7 @@ body[data-route="/"] .footer-content {
 }
 
 .logbook-total {
-  font-family: var(--manual-font-display);
+  font-family: var(--font-family-display);
   font-size: var(--font-size-xl);
   font-weight: 800;
   white-space: nowrap;
@@ -1129,7 +1129,7 @@ html.light-mode .pl-shadow {
 }
 
 .pl-sign-name {
-  font-family: var(--manual-font-label);
+  font-family: var(--font-family-label);
   font-size: var(--font-size-sm);
   font-weight: 800;
   letter-spacing: var(--tracking-label);
@@ -1137,7 +1137,7 @@ html.light-mode .pl-shadow {
 }
 
 .pl-sign-miles {
-  font-family: var(--manual-font-display);
+  font-family: var(--font-family-display);
   font-size: var(--font-size-lg);
   font-weight: 800;
   fill: var(--manual-rust);
@@ -1235,7 +1235,7 @@ html.light-mode .pl-shadow {
 }
 
 .pl-map-title {
-  font-family: var(--manual-font-text);
+  font-family: var(--font-family-text);
   font-size: var(--font-size-sm);
   font-style: italic;
   font-weight: var(--font-weight-semibold);
@@ -1244,14 +1244,14 @@ html.light-mode .pl-shadow {
 
 .pl-compass-n,
 .pl-pump-label {
-  font-family: var(--manual-font-label);
+  font-family: var(--font-family-label);
   font-size: 0.5em;
   font-weight: 800;
   fill: currentcolor;
 }
 
 .pl-pump-digits {
-  font-family: var(--manual-font-display);
+  font-family: var(--font-family-display);
   font-size: 0.5em;
   font-weight: 800;
   fill: var(--manual-paper);

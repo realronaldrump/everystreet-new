@@ -148,8 +148,8 @@ class LiveNavigationMap extends BaseFeatureMap {
           "line-color": [
             "case",
             ["boolean", ["feature-state", "driven"], false],
-            getThemeColor("--success", "#6f8fce"),
-            getThemeColor("--color-undriven", "#c47050"),
+            getThemeColor("--map-driven", "#8fb1c8"),
+            getThemeColor("--map-undriven", "#d27b58"),
           ],
           "line-width": 4,
           "line-opacity": [
@@ -170,7 +170,7 @@ class LiveNavigationMap extends BaseFeatureMap {
         source: "coverage-segments",
         layout: { "line-cap": "round", "line-join": "round" },
         paint: {
-          "line-color": getThemeColor("--success", "#6f8fce"),
+          "line-color": getThemeColor("--map-driven", "#8fb1c8"),
           "line-width": 10,
           "line-opacity": [
             "case",
@@ -190,7 +190,7 @@ class LiveNavigationMap extends BaseFeatureMap {
         source: "coverage-segments",
         layout: { "line-cap": "round", "line-join": "round" },
         paint: {
-          "line-color": getThemeColor("--success", "#6f8fce"),
+          "line-color": getThemeColor("--map-driven", "#8fb1c8"),
           "line-width": 5,
           "line-opacity": [
             "case",
@@ -218,8 +218,8 @@ class LiveNavigationMap extends BaseFeatureMap {
 
     const isLightMode = document.body.classList.contains("light-mode");
     const casingColor = isLightMode
-      ? getThemeColor("--surface-1", "#ffffff")
-      : getThemeColor("--surface-3", "#27272c");
+      ? getThemeColor("--surface-1", "#f5eddd")
+      : getThemeColor("--surface-3", "#333029");
 
     // Route casing
     if (!this.map.getLayer("nav-route-casing")) {
@@ -244,7 +244,7 @@ class LiveNavigationMap extends BaseFeatureMap {
         source: "nav-route",
         layout: { "line-cap": "round", "line-join": "round" },
         paint: {
-          "line-color": getThemeColor("--secondary", "#727a84"),
+          "line-color": getThemeColor("--map-undriveable", "#7d7568"),
           "line-width": 6,
           "line-opacity": 0.5,
         },
@@ -259,7 +259,7 @@ class LiveNavigationMap extends BaseFeatureMap {
         source: "nav-route-progress",
         layout: { "line-cap": "round", "line-join": "round" },
         paint: {
-          "line-color": getThemeColor("--primary", "#6f8fce"),
+          "line-color": getThemeColor("--map-trip-path", "#7fb0cf"),
           "line-width": 7,
           "line-opacity": 0.95,
         },
@@ -274,7 +274,7 @@ class LiveNavigationMap extends BaseFeatureMap {
         source: "nav-to-start",
         layout: { "line-cap": "round", "line-join": "round" },
         paint: {
-          "line-color": getThemeColor("--warning", "#d4a24a"),
+          "line-color": getThemeColor("--map-route", "#dcb35a"),
           "line-width": 4,
           "line-opacity": 0.9,
           "line-dasharray": [2, 1],

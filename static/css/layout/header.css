@@ -88,7 +88,7 @@
 
 .brand-wordmark,
 .brand-monogram {
-  font-family: var(--manual-font-display);
+  font-family: var(--font-family-display);
   font-weight: 800;
   font-size: var(--font-size-2xl);
   letter-spacing: var(--tracking-display);
@@ -136,7 +136,7 @@
   letter-spacing: var(--tracking-normal);
   background-color: transparent;
   position: relative;
-  font-family: var(--manual-font-text);
+  font-family: var(--font-family-text);
 }
 
 .nav-item.active a,
@@ -272,7 +272,7 @@
 .theme-toggle input:focus-visible + .theme-slider {
   outline: var(--focus-outline);
   outline-offset: 2px;
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-sm);
 }
 
 .theme-slider {
@@ -293,8 +293,13 @@
   background: var(--manual-paper);
   border-right: 1.5px solid var(--manual-ink);
   z-index: var(--z-drawer);
-  transform: translateX(-100%);
-  transition: transform 280ms cubic-bezier(0.4, 0, 0.2, 1);
+  /* Closed, the drawer sits past its own offset shadow and is hidden
+     from focus once it has slid away. */
+  transform: translateX(calc(-100% - 8px));
+  visibility: hidden;
+  transition:
+    transform 280ms cubic-bezier(0.4, 0, 0.2, 1),
+    visibility 0s linear 280ms;
   box-shadow: 4px 0 0 var(--manual-rule-faint);
   display: flex;
   flex-direction: column;
@@ -303,6 +308,8 @@
 
 .mobile-nav-drawer.open {
   transform: translateX(0);
+  visibility: visible;
+  transition: transform 280ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* Ensure all links in mobile nav drawer are properly styled */
@@ -311,7 +318,7 @@
 .mobile-nav-drawer a:visited {
   color: var(--manual-ink-soft);
   text-decoration: none;
-  font-family: var(--manual-font-text);
+  font-family: var(--font-family-text);
 }
 
 .mobile-nav-drawer a:hover,
@@ -341,7 +348,7 @@
 .drawer-title {
   font-size: var(--font-size-2xl);
   font-weight: 800;
-  font-family: var(--manual-font-display);
+  font-family: var(--font-family-display);
   letter-spacing: var(--tracking-display);
   color: var(--manual-ink);
 }
@@ -393,7 +400,7 @@
   transition:
     color 120ms cubic-bezier(0.4, 0, 0.2, 1),
     background-color 120ms cubic-bezier(0.4, 0, 0.2, 1);
-  font-family: var(--manual-font-label);
+  font-family: var(--font-family-label);
 }
 
 .drawer-nav-section-header:hover {
@@ -579,7 +586,7 @@
 
 .app-header .dropdown-header {
   padding: var(--space-3) var(--space-4) var(--space-1);
-  font-family: var(--manual-font-label);
+  font-family: var(--font-family-label);
   font-weight: var(--font-weight-bold);
   letter-spacing: var(--tracking-label);
   color: var(--manual-rust-ink);
@@ -587,7 +594,7 @@
 
 .app-header .dropdown-menu .dropdown-item {
   padding: var(--space-2) var(--space-4);
-  font-family: var(--manual-font-text);
+  font-family: var(--font-family-text);
   font-size: var(--font-size-sm);
   color: var(--manual-ink-soft);
 }

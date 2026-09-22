@@ -96,7 +96,7 @@
   gap: var(--space-3);
   min-height: 58px;
   padding: var(--space-3);
-  border: 1px solid var(--glass-border);
+  border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
   background: rgb(var(--text-rgb) / 3%);
   cursor: pointer;
@@ -150,7 +150,7 @@
   justify-self: end;
   padding: 0.18rem 0.5rem;
   border: 1px solid rgb(var(--text-rgb) / 12%);
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-sm);
   color: var(--text-secondary);
   background: rgb(var(--text-rgb) / 4%);
   font-size: var(--font-size-xs);
@@ -174,7 +174,7 @@
 
 .batch-empty-state {
   min-height: 140px;
-  border: 1px dashed var(--glass-border);
+  border: 1px dashed var(--border-color);
   border-radius: var(--radius-lg);
   background: rgb(var(--text-rgb) / 3%);
 }
@@ -240,14 +240,13 @@
   height: 260px;
   background: rgb(var(--text-rgb) / 6%);
   border-radius: var(--radius-xl);
-  border: 1px solid var(--glass-border);
+  border: 1px solid var(--border-color);
   animation: loadingPulse 1.5s ease-in-out infinite;
 }
 
 /* Area card */
 .area-card {
   background: var(--surface-1);
-  backdrop-filter: none;
   border-radius: var(--radius-lg);
   border: 1px solid var(--border-color-light);
   padding: var(--card-padding-lg);
@@ -271,7 +270,7 @@
 .area-card--job-active {
   opacity: 1;
   cursor: pointer;
-  border-color: color-mix(in srgb, var(--info) 35%, var(--glass-border));
+  border-color: color-mix(in srgb, var(--info) 35%, var(--border-color));
   background: rgb(var(--info-rgb) / 7%);
   animation: card-job-glow 2.8s ease-in-out infinite;
 }
@@ -284,7 +283,7 @@
 }
 
 .area-card--job-active:hover {
-  border-color: color-mix(in srgb, var(--info) 55%, var(--glass-border));
+  border-color: color-mix(in srgb, var(--info) 55%, var(--border-color));
 }
 
 @keyframes active-card-enter {
@@ -511,7 +510,7 @@
   gap: var(--space-1);
   padding: 0.28rem 0.55rem;
   border: 1px solid rgb(var(--info-rgb) / 35%);
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-sm);
   background: rgb(var(--info-rgb) / 13%);
   color: var(--info-light, var(--info));
   font-size: var(--font-size-xs);
@@ -561,7 +560,7 @@
   color: var(--info-light, var(--info));
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-bold);
-  font-family: var(--font-family-display);
+  font-family: var(--font-family-text);
   white-space: nowrap;
 }
 
@@ -583,12 +582,12 @@
 /* Progress track: always-visible scanning animation */
 .coverage-job-progress-bar {
   height: 8px !important;
-  border-radius: var(--radius-pill) !important;
+  border-radius: var(--radius-sm) !important;
   background: rgb(var(--info-rgb) / 12%) !important;
 }
 
 .coverage-job-progress-bar .progress-bar {
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-sm);
   background: var(--info);
   min-width: 0;
 }
@@ -706,9 +705,8 @@
 .coverage-sidebar {
   width: 320px;
   flex-shrink: 0;
-  background: var(--glass-panel);
-  backdrop-filter: blur(var(--blur-strong));
-  border-right: 1px solid var(--glass-border-medium);
+  background: var(--surface-1);
+  border-right: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -721,7 +719,7 @@
 /* Sidebar area header */
 .sidebar-area-header {
   padding: var(--space-4) var(--space-5);
-  border-bottom: 1px solid var(--glass-border-medium);
+  border-bottom: 1px solid var(--border-color);
   display: flex;
   align-items: center;
   gap: var(--space-3);
@@ -732,7 +730,7 @@
   width: 34px;
   height: 34px;
   border-radius: var(--radius-md);
-  border: 1px solid var(--glass-border-medium);
+  border: 1px solid var(--border-color);
   background: rgb(var(--text-rgb) / 6%);
   color: var(--text-secondary);
   display: inline-flex;
@@ -746,7 +744,7 @@
 .sidebar-back-btn:hover {
   background: rgb(var(--text-rgb) / 12%);
   color: var(--text-primary);
-  border-color: var(--glass-border-strong);
+  border-color: var(--border-color-light);
 }
 
 .share-coverage-btn {
@@ -795,7 +793,7 @@
 /* Sidebar tab strip */
 .coverage-sidebar-tabs {
   display: flex;
-  border-bottom: 1px solid var(--glass-border-medium);
+  border-bottom: 1px solid var(--border-color);
   flex-shrink: 0;
 }
 
@@ -924,7 +922,7 @@
 
 .quick-stat {
   background: rgb(var(--text-rgb) / 5%);
-  border: 1px solid var(--glass-border-medium);
+  border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
   padding: var(--space-3);
   text-align: center;
@@ -1030,12 +1028,12 @@
   flex-direction: column;
   gap: var(--space-3);
   padding-top: var(--space-4);
-  border-top: 1px solid var(--glass-border-medium);
+  border-top: 1px solid var(--border-color);
 }
 
 .sidebar-action-group {
   background: rgb(var(--text-rgb) / 4%);
-  border: 1px solid var(--glass-border-medium);
+  border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
   padding: var(--space-3);
 }
@@ -1059,7 +1057,7 @@
 
 .sidebar-select-input {
   font-size: var(--font-size-sm);
-  border-color: var(--glass-border-medium);
+  border-color: var(--border-color);
   background: rgb(var(--text-rgb) / 6%);
 }
 
@@ -1080,7 +1078,7 @@
 .history-section + .history-section {
   margin-top: var(--space-5);
   padding-top: var(--space-4);
-  border-top: 1px solid var(--glass-border-subtle);
+  border-top: 1px solid var(--divider-color);
 }
 
 .history-section-title {
@@ -1105,13 +1103,13 @@
   align-items: center;
   padding: var(--space-2) var(--space-3);
   background: rgb(var(--text-rgb) / 4%);
-  border: 1px solid var(--glass-border-subtle);
+  border: 1px solid var(--divider-color);
   border-radius: var(--radius-md);
   transition: border-color var(--transition-fast);
 }
 
 .activity-item:hover {
-  border-color: var(--glass-border-medium);
+  border-color: var(--border-color);
 }
 
 .activity-icon {
@@ -1181,7 +1179,7 @@
 
 .job-history-item {
   background: rgb(var(--text-rgb) / 4%);
-  border: 1px solid var(--glass-border-subtle);
+  border: 1px solid var(--divider-color);
   border-radius: var(--radius-md);
   padding: var(--space-3);
 }
@@ -1255,11 +1253,10 @@
 .map-overlay {
   position: absolute;
   z-index: 10;
-  background: var(--glass-panel);
-  backdrop-filter: blur(var(--blur-strong));
-  border: 1px solid var(--glass-border-medium);
+  background: var(--surface-1);
+  border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-glass-md);
+  box-shadow: var(--shadow-md);
   padding: var(--space-2) var(--space-3);
   display: flex;
   align-items: center;
@@ -1285,8 +1282,8 @@
 /* Map filter chips */
 .map-filter-chip {
   background: transparent;
-  border: 1px solid var(--glass-border-medium);
-  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
   padding: var(--space-1) var(--space-3);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
@@ -1323,7 +1320,7 @@
   display: inline-block;
   width: 20px;
   height: 4px;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-sm);
   flex-shrink: 0;
 }
 
@@ -1366,9 +1363,8 @@
 .map-street-tooltip {
   position: absolute;
   z-index: 15;
-  background: var(--glass-panel);
-  backdrop-filter: blur(var(--blur-strong));
-  border: 1px solid var(--glass-border-medium);
+  background: var(--surface-1);
+  border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   padding: var(--space-1) var(--space-3);
   font-size: var(--font-size-xs);
@@ -1393,7 +1389,7 @@
 .coverage-hover-popup .mapboxgl-popup-content,
 .coverage-hover-popup .maplibregl-popup-content {
   padding: 4px 10px;
-  border-radius: var(--radius-pill, 999px);
+  border-radius: var(--radius-sm);
   border: 1px solid var(--border-color-light);
   background: var(--surface-deep);
   color: var(--text-primary);
@@ -1416,11 +1412,10 @@
   right: 0;
   bottom: 0;
   width: 300px;
-  background: var(--glass-panel);
+  background: var(--surface-1);
   color: var(--text-primary);
-  backdrop-filter: blur(var(--blur-strong));
-  border-left: 1px solid var(--glass-border-medium);
-  box-shadow: var(--shadow-glass-lg, var(--shadow-xl));
+  border-left: 1px solid var(--border-color);
+  box-shadow: var(--shadow-lg);
   z-index: 20;
   display: flex;
   flex-direction: column;
@@ -1434,7 +1429,7 @@
 
 .street-detail-header {
   padding: var(--space-4) var(--space-5);
-  border-bottom: 1px solid var(--glass-border-medium);
+  border-bottom: 1px solid var(--border-color);
   display: flex;
   align-items: flex-start;
   gap: var(--space-3);
@@ -1490,7 +1485,7 @@
   display: inline-flex;
   align-items: center;
   padding: 2px 10px;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-sm);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
   letter-spacing: var(--tracking-wide);
@@ -1512,7 +1507,7 @@
 .street-status-chip.status-undriveable {
   background: rgb(var(--text-rgb) / 8%);
   color: var(--text-tertiary);
-  border: 1px solid var(--glass-border-medium);
+  border: 1px solid var(--border-color);
 }
 
 /* Street detail grid */
@@ -1522,7 +1517,7 @@
   gap: var(--space-3) var(--space-4);
   margin: 0;
   background: rgb(var(--text-rgb) / 4%);
-  border: 1px solid var(--glass-border-medium);
+  border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
   padding: var(--space-4);
 }
@@ -1631,7 +1626,7 @@
   align-items: center;
   gap: 4px;
   padding: 0.2rem 0.6rem;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-sm);
   border: 1px solid rgb(var(--danger-rgb) / 45%);
   background: rgb(var(--danger-rgb) / 18%);
   color: var(--danger);
@@ -1731,7 +1726,7 @@
 .validation-badge {
   font-size: var(--font-size-xs);
   padding: 0.1rem 0.45rem;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-sm);
   border: 1px solid var(--border-color);
   color: var(--text-secondary);
   background: rgb(var(--text-rgb) / 5%);
@@ -1776,7 +1771,7 @@
     width: 100%;
     height: 45vh;
     border-right: none;
-    border-bottom: 1px solid var(--glass-border-medium);
+    border-bottom: 1px solid var(--border-color);
     overflow-y: auto;
     flex-shrink: 0;
   }
@@ -1792,7 +1787,7 @@
     height: 60vh;
     transform: translateY(100%);
     border-left: none;
-    border-top: 1px solid var(--glass-border-medium);
+    border-top: 1px solid var(--border-color);
     border-radius: var(--radius-xl) var(--radius-xl) 0 0;
   }
 

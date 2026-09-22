@@ -8,7 +8,6 @@
   border-radius: var(--nav-radius-lg);
   background: var(--nav-surface);
   box-shadow: var(--nav-shadow);
-  backdrop-filter: blur(var(--blur-modal));
   pointer-events: auto;
 }
 
@@ -29,11 +28,11 @@
 }
 
 .nav-turn-icon.off-route {
-  background: var(--danger-gradient);
+  background: var(--danger);
 }
 
 .nav-turn-icon.arrive {
-  background: var(--success-gradient);
+  background: var(--success);
 }
 
 .nav-instruction-text {
