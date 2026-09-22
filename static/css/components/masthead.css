@@ -21,19 +21,20 @@
 .pm-eyebrow {
   margin: 0 0 var(--space-2);
   font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
+  font-weight: var(--font-weight-bold);
   text-transform: uppercase;
-  letter-spacing: var(--tracking-caps);
-  color: var(--text-tertiary);
+  letter-spacing: var(--tracking-label);
+  color: var(--manual-rust-ink);
+  font-family: var(--manual-font-label);
 }
 
 .pm-title {
   margin: 0;
-  font-family: var(--font-family-display);
+  font-family: var(--manual-font-display);
   font-size: var(--font-size-4xl);
-  font-weight: var(--font-weight-bold);
-  letter-spacing: var(--tracking-tight);
-  line-height: var(--line-height-tight);
+  font-weight: 800;
+  letter-spacing: var(--tracking-display);
+  line-height: 0.98;
   color: var(--text-primary);
   text-wrap: balance;
 }
@@ -81,10 +82,11 @@
 
 .figure-label {
   font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
+  font-weight: var(--font-weight-bold);
   text-transform: uppercase;
-  letter-spacing: var(--tracking-caps);
+  letter-spacing: var(--tracking-label);
   color: var(--text-tertiary);
+  font-family: var(--manual-font-label);
 }
 
 .figure-readout {
@@ -96,10 +98,11 @@
 /* Family and tabular figures come from core/typography.css. */
 .figure-value {
   font-size: var(--font-size-3xl);
-  font-weight: var(--font-weight-bold);
+  font-weight: 800;
   line-height: 1;
   letter-spacing: var(--tracking-tight);
   color: var(--text-primary);
+  font-family: var(--manual-font-display);
 }
 
 .figure-value-sm {

@@ -602,7 +602,6 @@ html.light-mode body .alert-info {
   border-radius: var(--radius-full);
   border: none;
   background: transparent;
-  color: var(--text-secondary);
   cursor: pointer;
   position: relative;
   transition:
@@ -610,7 +609,6 @@ html.light-mode body .alert-info {
     color 120ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.notif-bell-btn:hover,
 .notif-bell-btn[aria-expanded="true"] {
   background-color: var(--surface-3);
   color: var(--text-primary);
@@ -629,7 +627,7 @@ html.light-mode body .alert-info {
   height: 16px;
   padding: 0 3px;
   border-radius: var(--radius-full);
-  background: var(--danger);
+  background: var(--manual-rust);
   color: var(--text-on-primary);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
@@ -658,11 +656,11 @@ html.light-mode body .alert-info {
   right: 0;
   width: min(360px, calc(100vw - var(--space-6, 24px)));
   max-height: 480px;
-  background: var(--glass-dropdown);
-  backdrop-filter: blur(var(--blur-modal));
-  border: 1px solid var(--glass-border-medium);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-glass-lg);
+  background: var(--manual-paper);
+  backdrop-filter: none;
+  border: 1px solid var(--manual-ink);
+  border-radius: 0;
+  box-shadow: 3px 3px 0 var(--manual-rule-faint);
   z-index: var(--z-dropdown);
   display: flex;
   flex-direction: column;
@@ -676,15 +674,17 @@ html.light-mode body .alert-info {
   align-items: center;
   justify-content: space-between;
   padding: var(--space-3) var(--space-4);
-  border-bottom: 1px solid var(--glass-border-subtle);
+  border-bottom: 3px double var(--manual-ink);
   flex-shrink: 0;
 }
 
 .notif-panel-title {
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  color: var(--text-primary);
-  letter-spacing: var(--tracking-wide);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  color: var(--manual-rust-ink);
+  letter-spacing: var(--tracking-label);
+  font-family: var(--manual-font-label);
+  text-transform: uppercase;
 }
 
 .notif-clear-all-btn {
@@ -692,12 +692,13 @@ html.light-mode body .alert-info {
   border: none;
   cursor: pointer;
   font-size: var(--font-size-xs);
-  color: var(--text-tertiary);
+  color: var(--manual-ink-soft);
   padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-sm);
   transition:
     color 120ms ease,
     background-color 120ms ease;
+  font-family: var(--manual-font-text);
 }
 
 .notif-clear-all-btn:hover {
@@ -825,7 +826,6 @@ html.light-mode body .alert-info {
     inset-inline: 0;
     width: 100%;
     max-height: 70dvh;
-    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
     transform-origin: bottom center;
     animation: sheetReveal 220ms cubic-bezier(0.32, 0.72, 0, 1) both;
   }

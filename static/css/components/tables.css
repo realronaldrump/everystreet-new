@@ -22,14 +22,16 @@
 
 .table thead th {
   background: var(--surface-1);
-  font-weight: var(--font-weight-semibold);
-  color: var(--text-secondary);
+  font-weight: var(--font-weight-bold);
+  color: var(--text-primary);
   font-size: var(--font-size-xs);
   text-transform: uppercase;
-  letter-spacing: var(--tracking-caps);
+  letter-spacing: var(--tracking-label);
   position: sticky;
   top: 0;
   z-index: 10;
+  font-family: var(--manual-font-label);
+  border-bottom: 1.5px solid var(--manual-ink);
 }
 
 .table td {

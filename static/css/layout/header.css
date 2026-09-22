@@ -25,6 +25,9 @@
     box-shadow 200ms cubic-bezier(0.4, 0, 0.2, 1),
     border-color 200ms cubic-bezier(0.4, 0, 0.2, 1);
   contain: layout style;
+  background-color: var(--manual-paper);
+  border-bottom-color: transparent;
+  box-shadow: none;
 }
 
 .app-header.scrolled {
@@ -44,6 +47,7 @@
   margin: 0 auto;
   width: 100%;
   gap: var(--space-3);
+  position: relative;
 }
 
 /* === Brand Section === */
@@ -76,19 +80,20 @@
 
 .brand-logo {
   display: flex;
-  align-items: baseline;
-  color: var(--text-primary);
+  align-items: center;
+  color: var(--manual-ink);
   text-decoration: none;
+  gap: var(--space-3);
 }
 
 .brand-wordmark,
 .brand-monogram {
-  font-family: var(--font-family-display);
-  font-weight: var(--font-weight-bold);
-  font-size: var(--font-size-xl);
-  letter-spacing: var(--tracking-snug);
+  font-family: var(--manual-font-display);
+  font-weight: 800;
+  font-size: var(--font-size-2xl);
+  letter-spacing: var(--tracking-display);
   line-height: 1;
-  color: var(--text-primary);
+  color: var(--manual-ink);
   white-space: nowrap;
 }
 
@@ -123,14 +128,15 @@
   align-items: center;
   height: 100%;
   padding: 0 var(--space-3);
-  color: var(--text-secondary);
+  color: var(--manual-ink-soft);
   text-decoration: none;
   transition: color 150ms cubic-bezier(0.4, 0, 0.2, 1);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-medium);
   letter-spacing: var(--tracking-normal);
   background-color: transparent;
   position: relative;
+  font-family: var(--manual-font-text);
 }
 
 .nav-item.active a,
@@ -141,18 +147,18 @@
 .nav-item.active a::after {
   content: "";
   position: absolute;
-  bottom: -1px;
+  bottom: 10px;
   left: var(--space-3);
   right: var(--space-3);
-  height: 2px;
-  background: var(--action);
+  height: 1.5px;
+  background: var(--manual-ink);
 }
 
 /* Editorial nav is type-led: the "More" caret is the only glyph */
 .nav-item .nav-caret {
   margin-left: var(--space-2);
   font-size: var(--font-size-xs);
-  color: var(--text-tertiary);
+  color: var(--manual-ink-soft);
   transition: transform 150ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -284,12 +290,12 @@
   width: 85%;
   max-width: 320px;
   height: 100%;
-  background: var(--surface-1);
-  border-right: 1px solid var(--border-color);
+  background: var(--manual-paper);
+  border-right: 1.5px solid var(--manual-ink);
   z-index: var(--z-drawer);
   transform: translateX(-100%);
   transition: transform 280ms cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: var(--shadow-lg);
+  box-shadow: 4px 0 0 var(--manual-rule-faint);
   display: flex;
   flex-direction: column;
   contain: layout style paint; /* Performance hint */
@@ -303,14 +309,16 @@
 .mobile-nav-drawer a,
 .mobile-nav-drawer a:link,
 .mobile-nav-drawer a:visited {
-  color: var(--text-secondary);
+  color: var(--manual-ink-soft);
   text-decoration: none;
+  font-family: var(--manual-font-text);
 }
 
 .mobile-nav-drawer a:hover,
 .mobile-nav-drawer a:focus {
-  color: var(--text-primary);
+  color: var(--manual-ink);
   text-decoration: none;
+  background-color: var(--manual-paper-shade);
 }
 
 /* Ensure all lists in mobile nav drawer have no bullets */
@@ -327,18 +335,21 @@
   align-items: center;
   justify-content: space-between;
   padding: var(--space-4);
-  border-bottom: 1px solid var(--divider-color);
+  border-bottom: 3px double var(--manual-ink);
 }
 
 .drawer-title {
-  font-size: var(--font-size-xl);
-  font-weight: var(--font-weight-bold);
+  font-size: var(--font-size-2xl);
+  font-weight: 800;
+  font-family: var(--manual-font-display);
+  letter-spacing: var(--tracking-display);
+  color: var(--manual-ink);
 }
 
 .drawer-close-btn {
   background: transparent;
   border: none;
-  color: var(--text-secondary);
+  color: var(--manual-ink);
   font-size: var(--font-size-xl);
   cursor: pointer;
   padding: var(--space-2); /* Larger tap target */
@@ -358,6 +369,7 @@
 /* === Drawer Navigation Sections (Grouped) === */
 .drawer-nav-section {
   border-bottom: 1px solid var(--divider-color);
+  border-bottom-color: var(--manual-rule-faint);
 }
 
 .drawer-nav-section:last-child {
@@ -372,20 +384,21 @@
   padding: var(--space-3) var(--space-4);
   background: transparent;
   border: none;
-  color: var(--text-tertiary);
+  color: var(--manual-rust-ink);
   font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
+  font-weight: var(--font-weight-bold);
   text-transform: uppercase;
-  letter-spacing: var(--tracking-caps);
+  letter-spacing: var(--tracking-label);
   cursor: pointer;
   transition:
     color 120ms cubic-bezier(0.4, 0, 0.2, 1),
     background-color 120ms cubic-bezier(0.4, 0, 0.2, 1);
+  font-family: var(--manual-font-label);
 }
 
 .drawer-nav-section-header:hover {
-  background-color: var(--surface-2);
-  color: var(--text-secondary);
+  background-color: var(--manual-paper-shade);
+  color: var(--manual-rust-ink);
 }
 
 .drawer-nav-section-title {
@@ -479,11 +492,6 @@
     letter-spacing: var(--tracking-caps);
   }
 
-  .nav-item.active a::after {
-    left: var(--space-2);
-    right: var(--space-2);
-  }
-
   .header-container {
     padding: 0 var(--page-gutter-tight);
   }
@@ -523,4 +531,92 @@
     top: var(--space-2);
     max-width: calc(100% - var(--space-4));
   }
+}
+
+.header-container::after {
+  content: "";
+  position: absolute;
+  left: var(--page-gutter);
+  right: var(--page-gutter);
+  bottom: 0;
+  border-bottom: 3px double var(--manual-ink);
+}
+
+.brand-logo::after {
+  content: "";
+  width: 46px;
+  height: 22px;
+  background-color: var(--manual-ink);
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 46 22' fill='none' stroke='currentColor' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1 15l8-8 4 4 7-9 6 7 3-3 7 8' stroke-width='1.4'/%3E%3Cpath d='M17 21c3-4 9-5 10-8s-2-4 1-6' stroke-width='1.3'/%3E%3Cpath d='M24 21c2-3 7-4 7-7s-2-4 0-6' stroke-width='1'/%3E%3Cpath d='M36 20l2-6 2 6zM41 20l1.5-4.5L44 20z' stroke-width='1'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+}
+
+.nav-item a:hover,
+.nav-item.active a {
+  color: var(--manual-ink);
+}
+
+.notif-bell-btn,
+.theme-toggle,
+.menu-toggle-btn {
+  color: var(--manual-ink-soft);
+}
+
+.notif-bell-btn:hover,
+.theme-toggle:hover,
+.menu-toggle-btn:hover {
+  color: var(--manual-ink);
+  background-color: var(--manual-paper-shade);
+}
+
+.app-header .dropdown-menu {
+  padding: var(--space-2) 0;
+  border: 1px solid var(--manual-ink);
+  border-radius: 0;
+  background: var(--manual-paper);
+  box-shadow: 3px 3px 0 var(--manual-rule-faint);
+}
+
+.app-header .dropdown-header {
+  padding: var(--space-3) var(--space-4) var(--space-1);
+  font-family: var(--manual-font-label);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: var(--tracking-label);
+  color: var(--manual-rust-ink);
+}
+
+.app-header .dropdown-menu .dropdown-item {
+  padding: var(--space-2) var(--space-4);
+  font-family: var(--manual-font-text);
+  font-size: var(--font-size-sm);
+  color: var(--manual-ink-soft);
+}
+
+.app-header .dropdown-item:hover,
+.app-header .dropdown-item:focus-visible {
+  background-color: var(--manual-paper-shade);
+  color: var(--manual-ink);
+}
+
+.app-header .dropdown-item.active {
+  background-color: transparent;
+  color: var(--manual-ink);
+  box-shadow: inset 2px 0 0 var(--manual-rust);
+}
+
+.app-header .dropdown-divider {
+  background-color: var(--manual-rule-faint);
+}
+
+.mobile-nav-drawer a.active {
+  color: var(--manual-ink);
+  box-shadow: inset 3px 0 0 var(--manual-rust);
+}
+
+.drawer-close-btn:focus-visible,
+.menu-toggle-btn:focus-visible,
+.notif-bell-btn:focus-visible,
+.app-header .nav-item a:focus-visible {
+  outline: 2px solid var(--manual-rust);
+  outline-offset: 2px;
 }

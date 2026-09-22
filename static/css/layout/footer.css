@@ -5,7 +5,8 @@
 .app-footer {
   padding: var(--space-6) var(--page-gutter);
   margin-top: auto;
-  border-top: 1px solid var(--divider-color);
+  border-top: 0;
+  padding-top: var(--space-2);
 }
 
 .footer-content {
@@ -17,14 +18,25 @@
   max-width: var(--content-max-width);
   margin: 0 auto;
   font-size: var(--font-size-xs);
-  color: var(--text-tertiary);
+  color: var(--manual-ink-soft);
+  padding-top: var(--space-4);
+  border-top: 3px double var(--manual-ink);
+  font-family: var(--manual-font-label);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-label);
 }
 
 .footer-colophon {
-  font-family: var(--font-family-display);
-  font-weight: var(--font-weight-semibold);
+  font-family: var(--manual-font-label);
+  font-weight: var(--font-weight-bold);
   text-transform: uppercase;
-  letter-spacing: var(--tracking-caps);
+  letter-spacing: var(--tracking-label);
+  display: flex;
+  align-items: center;
+  flex: 1 1 auto;
+  gap: var(--space-4);
+  color: var(--manual-ink);
 }
 
 .footer-meta {
@@ -37,4 +49,9 @@
   .app-footer {
     padding-bottom: calc(var(--space-6) + 65px); /* Account for bottom nav */
   }
+}
+.footer-colophon::after {
+  content: "";
+  flex: 1 1 auto;
+  border-top: 1px solid var(--manual-rule);
 }

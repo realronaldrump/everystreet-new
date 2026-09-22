@@ -2,7 +2,7 @@
    Home page, set like a 1960s printed manual: warm stock, ink
    rules, a condensed display serif, Franklin gothic labels, and
    pen-and-ink plates. The shared header, date picker, and menus
-   are in components/manual-chrome.css; everything here is scoped
+   live with their components; everything here is scoped
    to the home route.
    ============================================================ */
 

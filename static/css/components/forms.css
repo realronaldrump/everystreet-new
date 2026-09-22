@@ -10,9 +10,11 @@
 .form-label {
   display: block;
   margin-bottom: var(--space-2);
-  font-weight: var(--font-weight-medium);
+  font-weight: var(--font-weight-semibold);
   color: var(--text-secondary);
   font-size: var(--font-size-sm);
+  font-family: var(--manual-font-label);
+  letter-spacing: var(--tracking-wide);
 }
 
 .form-control,

@@ -228,3 +228,21 @@ body[data-route="/regional-coverage-explorer"] .route-content {
     margin-bottom: 0;
   }
 }
+
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background-image: var(--manual-grain);
+}
+
+body[data-route="/map"]::after,
+body[data-route="/live-navigation"]::after,
+body[data-route="/coverage-route-planner"]::after,
+body[data-route="/regional-coverage-explorer"]::after,
+body[data-route="/coverage-diorama"]::after,
+body[data-route="/memory-city"]::after {
+  content: none;
+}
