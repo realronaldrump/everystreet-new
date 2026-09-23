@@ -124,6 +124,19 @@ function paintFor(layer, ink) {
   }
 }
 
+/**
+ * The layers the published style draws: its background and everything fed
+ * by its vector tiles. Layers the app adds (streets, trips, places) come
+ * from GeoJSON sources and keep their own inks, even when their ids match
+ * a road or outline pattern.
+ */
+export function basemapLayers(style) {
+  const sources = style?.sources || {};
+  return (style?.layers || []).filter(
+    (layer) => layer.type === "background" || sources[layer.source]?.type === "vector"
+  );
+}
+
 export function printBasemap(map) {
   const style = map?.getStyle?.();
   if (!style || !isPrintable(style)) {
@@ -133,7 +146,7 @@ export function printBasemap(map) {
   if (!ink.paper) {
     return false;
   }
-  for (const layer of style.layers || []) {
+  for (const layer of basemapLayers(style)) {
     const paint = paintFor(layer, ink);
     if (!paint) {
       continue;
@@ -156,20 +169,27 @@ function backgroundLayerId(style) {
   return style.layers?.find((layer) => layer.type === "background")?.id || null;
 }
 
-/** True when a printable style is showing paint other than the current inks. */
+/**
+ * True when a printable style is showing paint other than the current inks.
+ * Paint can be set once the style itself has loaded; waiting for
+ * isStyleLoaded() would also wait for every tile and show the stock style
+ * first.
+ */
 function needsPrint(map) {
-  if (!map.isStyleLoaded?.()) {
+  try {
+    const style = map.getStyle?.();
+    if (!style || !isPrintable(style)) {
+      return false;
+    }
+    const id = backgroundLayerId(style);
+    if (!id) {
+      return false;
+    }
+    return map.getPaintProperty(id, "background-color") !== readInks().paper;
+  } catch {
+    // The style is still loading; style.load will check again.
     return false;
   }
-  const style = map.getStyle?.();
-  if (!style || !isPrintable(style)) {
-    return false;
-  }
-  const id = backgroundLayerId(style);
-  if (!id) {
-    return false;
-  }
-  return map.getPaintProperty(id, "background-color") !== readInks().paper;
 }
 
 /**
