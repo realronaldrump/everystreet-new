@@ -1822,7 +1822,7 @@
 .places-filter-bar label {
   display: block;
   margin-bottom: 0.35rem;
-  font-size: 0.85rem;
+  font-size: var(--font-size-sm);
 }
 
 #places-result-count {
