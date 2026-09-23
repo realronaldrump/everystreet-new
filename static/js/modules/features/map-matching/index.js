@@ -1,14 +1,52 @@
+/**
+ * Map Matching page controller: the select, progress, and results phases,
+ * job polling and history, provider choice, and the failed-trips browser.
+ * The matched-trips preview lives in preview.js, labels in labels.js, and
+ * the page's elements and API client in context.js.
+ */
+
 import { updateUrlHistory } from "../../core/url-history.js";
 import { CONFIG } from "../../core/config.js";
-import { createFeatureApi } from "../../core/feature-api.js";
-import { createMap } from "../../map-core.js";
 import confirmationDialog from "../../ui/confirmation-dialog.js";
 import notificationManager from "../../ui/notifications.js";
-import { createCoordinateBounds } from "../../utils/bounds.js";
 import { DateUtils, escapeHtml } from "../../utils.js";
 import { clearInlineStatus, setInlineStatus } from "../settings/status-utils.js";
-
-let elements = {};
+import {
+  apiDelete,
+  apiGet,
+  apiPost,
+  cacheElements,
+  clearPageContext,
+  elements,
+  setPageContext,
+} from "./context.js";
+import {
+  FRIENDLY_MESSAGES,
+  formatAttemptSummary,
+  formatFailureReason,
+  formatFriendlyDate,
+  formatSummaryCount,
+  formatTripDate,
+  isTerminalStage,
+  normalizeMatchedTripsResponse,
+  normalizeProviderPolicy,
+  providerBadgeLabel,
+  providerPolicyFallbackLabel,
+} from "./labels.js";
+import {
+  clearFocusedTrip,
+  clearSelection,
+  destroyPreviewMap,
+  focusMatchedPreviewTrip,
+  matchedSelection,
+  resetMatchedSelection,
+  selectAllVisible,
+  setSelection,
+  updateMatchedPreviewEmptyState,
+  updateMatchedPreviewMap,
+  updateMatchedPreviewTable,
+  updateMatchedSelectionUI,
+} from "./preview.js";
 
 // Phase state machine
 const PHASES = {
@@ -19,118 +57,16 @@ const PHASES = {
 
 let _currentPhase = PHASES.SELECT;
 
-function cacheElements() {
-  elements = {
-    form: document.getElementById("map-matching-form"),
-    dateControls: document.getElementById("map-match-date-controls"),
-    startInput: document.getElementById("map-match-start"),
-    endInput: document.getElementById("map-match-end"),
-    unmatchedOnly: document.getElementById("map-match-unmatched-only"),
-    tripControls: document.getElementById("map-match-trip-controls"),
-    tripIdInput: document.getElementById("map-match-trip-id"),
-    previewBtn: document.getElementById("map-match-preview-btn"),
-    previewStatus: document.getElementById("map-match-preview-status"),
-    previewPanel: document.getElementById("map-match-preview-panel"),
-    previewSummary: document.getElementById("map-match-preview-summary"),
-    engineLabel: document.getElementById("map-match-engine-label"),
-    previewMapBtn: document.getElementById("map-match-preview-map-btn"),
-    previewMapStatus: document.getElementById("map-match-preview-map-status"),
-    previewMapSummary: document.getElementById("map-match-preview-map-summary"),
-    previewMapEmpty: document.getElementById("map-match-preview-map-empty"),
-    previewMap: document.getElementById("map-match-preview-map"),
-    submitStatus: document.getElementById("map-match-submit-status"),
-    refreshBtn: document.getElementById("map-match-refresh"),
-    historyClearBtn: document.getElementById("map-match-history-clear"),
-    historyStatus: document.getElementById("map-match-history-status"),
-    historyCount: document.getElementById("map-match-history-count"),
-    jobsList: document.getElementById("map-match-jobs-list"),
-    currentEmpty: document.getElementById("map-match-current-empty"),
-    currentPanel: document.getElementById("map-match-current-panel"),
-    progressRing: document.getElementById("map-match-progress-ring"),
-    progressPercent: document.getElementById("map-match-progress-percent"),
-    progressMessage: document.getElementById("map-match-progress-message"),
-    progressEngine: document.getElementById("map-match-progress-engine"),
-    progressMetrics: document.getElementById("map-match-progress-metrics"),
-    cancelBtn: document.getElementById("map-match-cancel-btn"),
-    previewSelectAll: document.getElementById("map-match-preview-select-all"),
-    previewSelectionCount: document.getElementById("map-match-preview-selection-count"),
-    previewClearSelection: document.getElementById("map-match-preview-clear-selection"),
-    previewUnmatchSelected: document.getElementById(
-      "map-match-preview-unmatch-selected"
-    ),
-    previewDeleteSelected: document.getElementById("map-match-preview-delete-selected"),
-    previewActionsStatus: document.getElementById("map-match-preview-actions-status"),
-    advancedToggle: document.getElementById("map-match-advanced-toggle"),
-    advancedOptions: document.getElementById("map-match-advanced-options"),
-    resultsTrips: document.getElementById("map-match-results-trips"),
-    resultsCount: document.getElementById("map-match-results-count"),
-    bulkActions: document.getElementById("map-match-bulk-actions"),
-    // Wizard elements
-    matchMoreBtn: document.getElementById("mm-match-more-btn"),
-    // History drawer elements
-    historyDrawer: document.getElementById("mm-history-drawer"),
-    historyFab: document.getElementById("mm-history-fab"),
-    drawerBackdrop: document.getElementById("mm-drawer-backdrop"),
-    drawerClose: document.getElementById("mm-drawer-close"),
-    // Browse/Quick action elements
-    browseMatchedBtn: document.getElementById("mm-browse-matched-btn"),
-    browseFailedBtn: document.getElementById("mm-browse-failed-btn"),
-    failedCountBadge: document.getElementById("mm-failed-count"),
-    summaryMatched: document.getElementById("mm-summary-matched"),
-    summaryValhalla: document.getElementById("mm-summary-valhalla"),
-    summaryMapbox: document.getElementById("mm-summary-mapbox"),
-    summaryFallback: document.getElementById("mm-summary-fallback"),
-    summaryFailed: document.getElementById("mm-summary-failed"),
-    summarySkipped: document.getElementById("mm-summary-skipped"),
-    summaryFoot: document.getElementById("mm-summary-foot"),
-    // Results headers
-    resultsHeaderSuccess: document.getElementById("mm-results-header-success"),
-    resultsHeaderBrowse: document.getElementById("mm-results-header-browse"),
-    resultsHeaderFailed: document.getElementById("mm-results-header-failed"),
-    browseSummary: document.getElementById("mm-browse-summary"),
-    browseRefreshBtn: document.getElementById("mm-browse-refresh-btn"),
-    browseBackBtn: document.getElementById("mm-browse-back-btn"),
-    failedSummary: document.getElementById("mm-failed-summary"),
-    failedRefreshBtn: document.getElementById("mm-failed-refresh-btn"),
-    failedBackBtn: document.getElementById("mm-failed-back-btn"),
-    // Tabs
-    resultsTabs: document.getElementById("mm-results-tabs"),
-    tabMatched: document.getElementById("mm-tab-matched"),
-    tabFailed: document.getElementById("mm-tab-failed"),
-    // Failed trips list
-    matchedListContainer: document.getElementById("mm-matched-list-container"),
-    failedListContainer: document.getElementById("mm-failed-list-container"),
-    failedTrips: document.getElementById("mm-failed-trips"),
-    failedListCount: document.getElementById("mm-failed-list-count"),
-    failedBulkActions: document.getElementById("mm-failed-bulk-actions"),
-    failedSelectionCount: document.getElementById("mm-failed-selection-count"),
-    retrySelectedBtn: document.getElementById("mm-retry-selected-btn"),
-    deleteFailedSelectedBtn: document.getElementById("mm-delete-failed-selected-btn"),
-    failedSelectAll: document.getElementById("mm-failed-select-all"),
-    retryAllBtn: document.getElementById("mm-retry-all-btn"),
-    matchMoreContainer: document.getElementById("mm-match-more-container"),
-    mapboxOnlyBtn: document.getElementById("map-match-mapbox-only-btn"),
-  };
-}
-
 let currentJobId = null;
 let _currentJobStage = null;
 let pollTimer = null;
 let previewSignature = null;
 let previewPayload = null;
-let matchedPreviewMap = null;
-let matchedPreviewMapReady = false;
-let matchedPreviewPendingGeojson = null;
-let matchedPreviewFeaturesById = new Map();
-let matchedPreviewSelectedId = null;
 let lastAutoPreviewJobId = null;
 let jobsPollTimer = null;
-let matchedSelection = new Set();
 let selectedQuickPick = null;
-let pageSignal = null;
 let failedTripsData = [];
 let failedSelection = new Set();
-let featureApi = createFeatureApi();
 let mapboxFallbackAvailable = false;
 
 // Result modes for the results phase
@@ -142,74 +78,8 @@ const RESULT_MODES = {
 
 let _currentResultMode = RESULT_MODES.JOB;
 
-const apiGet = (url, options = {}) => featureApi.get(url, options);
-const apiPost = (url, body, options = {}) => featureApi.post(url, body, options);
-const apiDelete = (url, options = {}) => featureApi.delete(url, options);
-
 const LAST_JOB_STORAGE_KEY = "map_matching:last_job_id";
-const TERMINAL_STAGES = new Set(["completed", "failed", "error", "cancelled"]);
-const PROGRESS_RING_CIRCUMFERENCE = 2 * Math.PI * 42; // r=42
-const PROVIDER_LABELS = {
-  auto: "Auto",
-  valhalla_only: "Valhalla only",
-  mapbox_only: "Mapbox only",
-};
-
-// Friendly messages for different stages
-const FRIENDLY_MESSAGES = {
-  queued: "Getting ready...",
-  processing: "Matching trips to roads...",
-  completed: "All done!",
-  failed: "Something went wrong",
-  error: "Something went wrong",
-  cancelled: "Cancelled by user",
-};
-
-// User-friendly failure reasons
-function formatFailureReason(matchStatus) {
-  if (!matchStatus) {
-    return "Unknown issue";
-  }
-
-  const status = String(matchStatus).toLowerCase();
-
-  if (status.startsWith("skipped:no-gps") || status.includes("no gps")) {
-    return "No GPS data recorded";
-  }
-  if (status.startsWith("skipped:single-point") || status.includes("single point")) {
-    return "Only one location point";
-  }
-  if (status.startsWith("skipped:insufficient") || status.includes("insufficient")) {
-    return "Not enough coordinates";
-  }
-  if (status.startsWith("error:no-geometry") || status.includes("no geometry")) {
-    return "No route geometry returned";
-  }
-  if (status.startsWith("error:") || status.includes("error")) {
-    // Extract message after 'error:'
-    const msg = status.replace(/^error:/, "").trim();
-    if (msg && msg !== "error") {
-      return msg.charAt(0).toUpperCase() + msg.slice(1);
-    }
-    return "Route matching failed";
-  }
-  if (status.startsWith("skipped:")) {
-    const reason = status
-      .replace(/^skipped:/, "")
-      .replace(/-/g, " ")
-      .trim();
-    return reason.charAt(0).toUpperCase() + reason.slice(1);
-  }
-
-  return matchStatus;
-}
-
-function normalizeProviderPolicy(value) {
-  const normalized = String(value || "auto")
-    .trim()
-    .toLowerCase();
-  return Object.hasOwn(PROVIDER_LABELS, normalized) ? normalized : "auto";
-}
+const PROGRESS_RING_CIRCUMFERENCE = 2 * Math.PI * 42;
 
 function getSelectedProviderPolicy() {
   const selected = document.querySelector('input[name="provider-policy"]:checked');
@@ -226,17 +96,6 @@ function setProviderPolicy(policy) {
     updateProviderPolicyUI();
   }
   return normalized;
-}
-
-function providerPolicyFallbackLabel(policy) {
-  const normalized = normalizeProviderPolicy(policy);
-  if (normalized === "valhalla_only") {
-    return "Valhalla only";
-  }
-  if (normalized === "mapbox_only") {
-    return "Mapbox only";
-  }
-  return "Auto: Valhalla first, Mapbox fallback";
 }
 
 function matchingEngineLabel(value) {
@@ -270,31 +129,6 @@ function updateProviderPolicyUI() {
   });
   updateEngineLabel(providerPolicyFallbackLabel(selected));
   invalidatePreview();
-}
-
-function providerBadgeLabel(metrics = {}) {
-  const valhalla = Number(metrics.valhalla_matched || 0);
-  const mapbox = Number(metrics.mapbox_matched || 0);
-  const fallbackAttempted =
-    Number(metrics.fallback_attempted || 0) > 0 ||
-    Number(metrics.fallback_matched || 0) > 0;
-  if ((valhalla > 0 && mapbox > 0) || fallbackAttempted) {
-    return "Valhalla + Mapbox";
-  }
-  if (mapbox > 0) {
-    return "Mapbox";
-  }
-  if (
-    valhalla > 0 ||
-    normalizeProviderPolicy(metrics.provider_policy) !== "mapbox_only"
-  ) {
-    return "Valhalla";
-  }
-  return "Mapbox";
-}
-
-function formatSummaryCount(value) {
-  return Number(value || 0).toLocaleString();
 }
 
 function updateMapboxOnlyButton(available) {
@@ -347,25 +181,6 @@ async function loadProviderSummary() {
     }
     return null;
   }
-}
-
-function formatAttemptSummary(attempts) {
-  if (!Array.isArray(attempts) || attempts.length === 0) {
-    return "";
-  }
-  return attempts
-    .filter((attempt) => attempt && typeof attempt === "object")
-    .map((attempt) => {
-      const provider =
-        String(attempt.provider || "")
-          .trim()
-          .toLowerCase() === "mapbox"
-          ? "Mapbox"
-          : "Valhalla";
-      const detail = attempt.message || attempt.status || "";
-      return detail ? `${provider}: ${detail}` : provider;
-    })
-    .join("; ");
 }
 
 // ========================================
@@ -462,32 +277,13 @@ function _toggleHistoryDrawer() {
   }
 }
 
-// ========================================
-// Core Functions
-// ========================================
-
-function destroyPreviewMap() {
-  if (matchedPreviewMap) {
-    try {
-      matchedPreviewMap.remove();
-    } catch {
-      // Ignore cleanup errors.
-    }
-  }
-  matchedPreviewMap = null;
-  matchedPreviewMapReady = false;
-  matchedPreviewPendingGeojson = null;
-  matchedPreviewFeaturesById = new Map();
-  matchedPreviewSelectedId = null;
-}
-
 function resetState() {
   currentJobId = null;
   _currentJobStage = null;
   previewSignature = null;
   previewPayload = null;
   lastAutoPreviewJobId = null;
-  matchedSelection = new Set();
+  resetMatchedSelection();
   selectedQuickPick = null;
   _currentPhase = PHASES.SELECT;
   _currentResultMode = RESULT_MODES.JOB;
@@ -515,48 +311,6 @@ function getStoredJobId() {
     console.warn("Unable to read stored map matching job id", error);
     return null;
   }
-}
-
-function isTerminalStage(stage) {
-  return stage ? TERMINAL_STAGES.has(stage) : false;
-}
-
-function formatFriendlyDate(dateStr) {
-  if (!dateStr) {
-    return "";
-  }
-  const date = new Date(dateStr);
-  const now = new Date();
-  const diff = now - date;
-  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-
-  if (days === 0) {
-    return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-  }
-  if (days === 1) {
-    return "Yesterday";
-  }
-  if (days < 7) {
-    return date.toLocaleDateString([], { weekday: "long" });
-  }
-  return date.toLocaleDateString([], { month: "short", day: "numeric" });
-}
-
-function formatTripDate(startTime, _endTime) {
-  if (!startTime) {
-    return "Unknown date";
-  }
-  const start = new Date(startTime);
-  const dateStr = start.toLocaleDateString([], {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  });
-  const timeStr = start.toLocaleTimeString([], {
-    hour: "numeric",
-    minute: "2-digit",
-  });
-  return `${dateStr} at ${timeStr}`;
 }
 
 function getSelectedMode() {
@@ -1389,340 +1143,6 @@ function initDatePickers() {
   DateUtils.initDatePicker(".datepicker");
 }
 
-function getMatchedPreviewColor() {
-  if (!elements.previewMap) {
-    return CONFIG.LAYER_DEFAULTS.matchedTrips.color;
-  }
-  const container = elements.previewMap.closest(".mm-results-map-container");
-  if (!container) {
-    return CONFIG.LAYER_DEFAULTS.matchedTrips.color;
-  }
-  const color = getComputedStyle(container).getPropertyValue("--matched-preview-color");
-  return color?.trim() || CONFIG.LAYER_DEFAULTS.matchedTrips.color;
-}
-
-function ensureMatchedPreviewMap() {
-  if (!elements.previewMap) {
-    return null;
-  }
-  if (matchedPreviewMap) {
-    return matchedPreviewMap;
-  }
-  try {
-    matchedPreviewMap = createMap("map-match-preview-map", {
-      center: [-96.5, 37.5],
-      zoom: 3.4,
-      interactive: true,
-    });
-  } catch (error) {
-    const message =
-      error?.message || "Map preview could not be initialized for this map provider.";
-    setInlineStatus(elements.previewMapStatus, message, "danger");
-    return null;
-  }
-
-  matchedPreviewMap.scrollZoom?.disable?.();
-  matchedPreviewMap.boxZoom?.disable?.();
-  matchedPreviewMap.dragRotate?.disable?.();
-  matchedPreviewMap.keyboard?.disable?.();
-  matchedPreviewMap.doubleClickZoom?.disable?.();
-  matchedPreviewMap.touchZoomRotate?.disableRotation?.();
-
-  matchedPreviewMap.on("load", () => {
-    matchedPreviewMapReady = true;
-    if (matchedPreviewPendingGeojson) {
-      updateMatchedPreviewMap(matchedPreviewPendingGeojson);
-      matchedPreviewPendingGeojson = null;
-    }
-  });
-
-  return matchedPreviewMap;
-}
-
-function updateMatchedPreviewEmptyState(message) {
-  if (!elements.previewMapEmpty) {
-    return;
-  }
-  if (message) {
-    const content = elements.previewMapEmpty.querySelector(
-      ".mm-empty-map-content span, .empty-map-content span"
-    );
-    if (content) {
-      content.textContent = message;
-    }
-    elements.previewMapEmpty.classList.remove("d-none");
-  } else {
-    elements.previewMapEmpty.classList.add("d-none");
-  }
-}
-
-function updateMatchedSelectionUI() {
-  const total = elements.resultsTrips
-    ? elements.resultsTrips.querySelectorAll(".result-trip-select input").length
-    : 0;
-  const selectedCount = matchedSelection.size;
-
-  if (elements.previewSelectionCount) {
-    elements.previewSelectionCount.textContent = `${selectedCount} selected`;
-  }
-
-  // Show/hide bulk actions
-  if (elements.bulkActions) {
-    elements.bulkActions.classList.toggle("d-none", selectedCount === 0);
-  }
-
-  if (elements.previewSelectAll) {
-    const allSelected = total > 0 && selectedCount === total;
-    elements.previewSelectAll.checked = allSelected;
-    elements.previewSelectAll.indeterminate = selectedCount > 0 && !allSelected;
-    elements.previewSelectAll.disabled = total === 0;
-  }
-
-  const disableActions = selectedCount === 0;
-  if (elements.previewClearSelection) {
-    elements.previewClearSelection.disabled = disableActions;
-  }
-  if (elements.previewUnmatchSelected) {
-    elements.previewUnmatchSelected.disabled = disableActions;
-  }
-  if (elements.previewDeleteSelected) {
-    elements.previewDeleteSelected.disabled = disableActions;
-  }
-}
-
-function syncSelectionStyles() {
-  if (elements.resultsTrips) {
-    elements.resultsTrips.querySelectorAll(".result-trip").forEach((card) => {
-      const tripId = String(card.dataset.tripId || "");
-      const isSelected = matchedSelection.has(tripId);
-      card.classList.toggle("is-selected", isSelected);
-      const checkbox = card.querySelector(".result-trip-select input");
-      if (checkbox) {
-        checkbox.checked = isSelected;
-      }
-    });
-  }
-}
-
-function setFocusedTripUI(tripId) {
-  const normalized = tripId ? String(tripId) : null;
-  if (elements.resultsTrips) {
-    elements.resultsTrips.querySelectorAll(".result-trip").forEach((card) => {
-      const cardId = String(card.dataset.tripId || "");
-      const isFocused = normalized !== null && cardId === normalized;
-      card.classList.toggle("is-focused", isFocused);
-    });
-  }
-}
-
-function syncSelectionWithRows(tripIds) {
-  const allowed = new Set(tripIds.filter(Boolean).map(String));
-  matchedSelection = new Set(
-    Array.from(matchedSelection).filter((id) => allowed.has(id))
-  );
-  updateMatchedSelectionUI();
-}
-
-function setSelection(tripId, checked) {
-  if (!tripId) {
-    return;
-  }
-  const normalized = String(tripId);
-  if (checked) {
-    matchedSelection.add(normalized);
-  } else {
-    matchedSelection.delete(normalized);
-  }
-  clearInlineStatus(elements.previewActionsStatus);
-  syncSelectionStyles();
-  updateMatchedSelectionUI();
-}
-
-function clearSelection() {
-  matchedSelection = new Set();
-  syncSelectionStyles();
-  clearInlineStatus(elements.previewActionsStatus);
-  updateMatchedSelectionUI();
-}
-
-function selectAllVisible(checked) {
-  matchedSelection = new Set();
-  if (checked && elements.resultsTrips) {
-    elements.resultsTrips
-      .querySelectorAll(".result-trip-select input")
-      .forEach((checkbox) => {
-        const tripId = String(checkbox.dataset.tripId || "");
-        if (tripId) {
-          matchedSelection.add(tripId);
-        }
-      });
-  }
-  syncSelectionStyles();
-  clearInlineStatus(elements.previewActionsStatus);
-  updateMatchedSelectionUI();
-}
-
-function buildBoundsFromGeojson(geojson) {
-  if (!geojson?.features?.length) {
-    return null;
-  }
-  const bounds = createCoordinateBounds();
-
-  geojson.features.forEach((feature) => {
-    const geometry = feature?.geometry;
-    if (!geometry) {
-      return;
-    }
-    const { type, coordinates } = geometry;
-    if (type === "LineString") {
-      coordinates.forEach((coord) => bounds.extend(coord));
-    } else if (type === "MultiLineString") {
-      coordinates.forEach((line) => {
-        line.forEach((coord) => bounds.extend(coord));
-      });
-    } else if (type === "Point") {
-      bounds.extend(coordinates);
-    }
-  });
-  return bounds.toValue();
-}
-
-function updateMatchedPreviewMap(geojson) {
-  const map = ensureMatchedPreviewMap();
-  if (!map || !geojson) {
-    return;
-  }
-  matchedPreviewFeaturesById = new Map();
-  (geojson.features || []).forEach((feature) => {
-    const tripId = feature?.properties?.transactionId;
-    if (tripId) {
-      matchedPreviewFeaturesById.set(String(tripId), feature);
-    }
-  });
-  if (!matchedPreviewMapReady) {
-    matchedPreviewPendingGeojson = geojson;
-    return;
-  }
-
-  const sourceId = "matched-preview-source";
-  const layerId = "matched-preview-layer";
-  const highlightId = "matched-preview-highlight";
-  const color = getMatchedPreviewColor();
-  const { highlightColor } = CONFIG.LAYER_DEFAULTS.matchedTrips;
-
-  if (map.getSource(sourceId)) {
-    map.getSource(sourceId).setData(geojson);
-  } else {
-    map.addSource(sourceId, {
-      type: "geojson",
-      data: geojson,
-      promoteId: "transactionId",
-    });
-    map.addLayer({
-      id: layerId,
-      type: "line",
-      source: sourceId,
-      layout: { "line-join": "round", "line-cap": "round" },
-      paint: {
-        "line-color": color,
-        "line-opacity": 0.8,
-        "line-width": 3,
-      },
-    });
-    map.addLayer({
-      id: highlightId,
-      type: "line",
-      source: sourceId,
-      layout: { "line-join": "round", "line-cap": "round" },
-      paint: {
-        "line-color": highlightColor || "#8aa7df",
-        "line-opacity": 0.95,
-        "line-width": 6,
-      },
-      filter: ["==", ["get", "transactionId"], ""],
-    });
-  }
-
-  if (map.getLayer(highlightId)) {
-    map.setFilter(
-      highlightId,
-      matchedPreviewSelectedId
-        ? ["==", ["get", "transactionId"], matchedPreviewSelectedId]
-        : ["==", ["get", "transactionId"], ""]
-    );
-  }
-
-  const bounds = buildBoundsFromGeojson(geojson);
-  if (bounds) {
-    map.fitBounds(bounds, { padding: 40, duration: 600 });
-    updateMatchedPreviewEmptyState(null);
-  } else {
-    updateMatchedPreviewEmptyState("No routes to display");
-  }
-}
-
-function updateMatchedPreviewTable(data) {
-  const total = data?.total || 0;
-  const sample = data?.sample || [];
-
-  // Update summary
-  if (elements.previewMapSummary) {
-    if (total > 0) {
-      elements.previewMapSummary.textContent = `${total} matched trip${total !== 1 ? "s" : ""}`;
-    } else {
-      elements.previewMapSummary.textContent = "No matched trips yet";
-    }
-  }
-
-  // Update results count
-  if (elements.resultsCount) {
-    elements.resultsCount.textContent =
-      total > 0 ? `${total} trip${total !== 1 ? "s" : ""}` : "No trips yet";
-  }
-
-  if (!total) {
-    updateMatchedPreviewEmptyState("No matched trips yet");
-  }
-
-  matchedPreviewFeaturesById = new Map();
-
-  // Render as cards in new UI
-  if (elements.resultsTrips) {
-    elements.resultsTrips.innerHTML = sample
-      .map((trip) => {
-        const tripId = trip.transactionId || "";
-        const dateStr = formatTripDate(trip.startTime);
-        let distance = "";
-        if (trip.distance != null && !Number.isNaN(Number(trip.distance))) {
-          distance = `${Number(trip.distance).toFixed(1)} mi`;
-        }
-        const isSelected = matchedSelection.has(String(tripId));
-        return `
-          <div class="result-trip ${isSelected ? "is-selected" : ""}" data-trip-id="${tripId}">
-            <div class="result-trip-select">
-              <input type="checkbox" class="form-check-input" data-trip-id="${tripId}" ${isSelected ? "checked" : ""} />
-            </div>
-            <div class="result-trip-info">
-              <div class="result-trip-date">${dateStr}</div>
-              <div class="result-trip-details">${distance}</div>
-            </div>
-            <div class="result-trip-actions">
-              <button class="btn btn-ghost btn-sm" data-action="unmatch" data-trip-id="${tripId}" title="Remove match" aria-label="Remove trip match">
-                <i class="fas fa-undo"></i>
-              </button>
-              <button class="btn btn-ghost btn-sm text-danger" data-action="delete" data-trip-id="${tripId}" title="Delete trip" aria-label="Delete trip">
-                <i class="fas fa-trash"></i>
-              </button>
-            </div>
-          </div>
-        `;
-      })
-      .join("");
-  }
-
-  syncSelectionWithRows(sample.map((trip) => String(trip.transactionId || "")));
-}
-
 async function clearMatchedTrips(tripIds, { silent = false } = {}) {
   if (!tripIds.length) {
     return;
@@ -1920,8 +1340,7 @@ async function loadMatchedPreview(jobId, { silent = false } = {}) {
   clearInlineStatus(elements.previewMapStatus);
   clearInlineStatus(elements.previewActionsStatus);
   try {
-    matchedPreviewSelectedId = null;
-    setFocusedTripUI(null);
+    clearFocusedTrip();
     if (!silent) {
       setInlineStatus(elements.previewMapStatus, "Loading...", "info");
     }
@@ -1986,50 +1405,6 @@ function switchTab(tab) {
   elements.failedListContainer?.classList.toggle("d-none", tab !== "failed");
 }
 
-function normalizeMatchedTripsResponse(response) {
-  if (!response) {
-    return { trips: [], geojson: null, total: 0 };
-  }
-
-  const asFeatureCollection =
-    response?.type === "FeatureCollection" && Array.isArray(response?.features)
-      ? response
-      : response?.geojson?.type === "FeatureCollection" &&
-          Array.isArray(response?.geojson?.features)
-        ? response.geojson
-        : null;
-
-  const explicitTrips = Array.isArray(response?.trips) ? response.trips : null;
-  if (explicitTrips) {
-    const total = response?.total ?? explicitTrips.length;
-    return { trips: explicitTrips, geojson: asFeatureCollection, total };
-  }
-
-  if (asFeatureCollection) {
-    const trips = asFeatureCollection.features
-      .map((feature) => {
-        if (!feature) {
-          return null;
-        }
-        const props = feature.properties || {};
-        return {
-          ...props,
-          transactionId: props.transactionId || feature.id || "",
-          matchedGps: feature.geometry || props.matchedGps || null,
-        };
-      })
-      .filter(Boolean);
-
-    return { trips, geojson: asFeatureCollection, total: trips.length };
-  }
-
-  return {
-    trips: [],
-    geojson: asFeatureCollection || response?.geojson || null,
-    total: 0,
-  };
-}
-
 async function browseMatchedTrips({ silent = false } = {}) {
   setPhase(PHASES.RESULTS);
   setResultMode(RESULT_MODES.BROWSE_MATCHED);
@@ -2038,9 +1413,8 @@ async function browseMatchedTrips({ silent = false } = {}) {
   clearInlineStatus(elements.previewActionsStatus);
 
   try {
-    matchedPreviewSelectedId = null;
-    setFocusedTripUI(null);
-    matchedSelection = new Set();
+    clearFocusedTrip();
+    resetMatchedSelection();
 
     if (!silent) {
       setInlineStatus(elements.previewMapStatus, "Loading matched trips...", "info");
@@ -2312,32 +1686,6 @@ async function loadFailedTripsCount() {
   }
 }
 
-function focusMatchedPreviewTrip(tripId) {
-  if (!tripId) {
-    return;
-  }
-  matchedPreviewSelectedId = String(tripId);
-  setFocusedTripUI(matchedPreviewSelectedId);
-  const map = ensureMatchedPreviewMap();
-  if (map?.getLayer("matched-preview-highlight")) {
-    map.setFilter("matched-preview-highlight", [
-      "==",
-      ["get", "transactionId"],
-      matchedPreviewSelectedId,
-    ]);
-  }
-  const feature = matchedPreviewFeaturesById.get(matchedPreviewSelectedId);
-  if (feature) {
-    const bounds = buildBoundsFromGeojson({
-      type: "FeatureCollection",
-      features: [feature],
-    });
-    if (bounds) {
-      map.fitBounds(bounds, { padding: 60, duration: 500 });
-    }
-  }
-}
-
 function getJobIdFromURL() {
   const params = new URLSearchParams(window.location.search);
   return params.get("job");
@@ -2378,8 +1726,7 @@ async function resumeFromJobs(jobs) {
 }
 
 export default async function initMapMatchingPage({ signal, cleanup, api } = {}) {
-  pageSignal = signal || null;
-  featureApi = api || createFeatureApi({ signal: pageSignal });
+  setPageContext({ signal, api });
   cacheElements();
   resetState();
 
@@ -2387,8 +1734,7 @@ export default async function initMapMatchingPage({ signal, cleanup, api } = {})
     const teardown = () => {
       stopPolling();
       resetState();
-      elements = {};
-      pageSignal = null;
+      clearPageContext();
     };
     if (typeof cleanup === "function") {
       cleanup(teardown);
@@ -2450,8 +1796,7 @@ export default async function initMapMatchingPage({ signal, cleanup, api } = {})
     stopPolling();
     resetState();
     closeHistoryDrawer();
-    elements = {};
-    pageSignal = null;
+    clearPageContext();
   };
 
   if (typeof cleanup === "function") {
