@@ -21,21 +21,10 @@ function repairModalUiState() {
 
 export default function initVisitsPage({ cleanup, api } = {}) {
   const noopTeardown = () => {};
-  const mapProvider = String(window.MAP_PROVIDER || "self_hosted").toLowerCase();
-  const usingGoogleProvider = mapProvider === "google";
   const missingLibraries = [];
 
-  if (typeof $ === "undefined") {
-    missingLibraries.push("jQuery");
-  }
   if (typeof bootstrap === "undefined") {
     missingLibraries.push("Bootstrap");
-  }
-  if (!usingGoogleProvider && typeof mapboxgl === "undefined") {
-    missingLibraries.push("Mapbox GL JS");
-  }
-  if (!usingGoogleProvider && typeof MapboxDraw === "undefined") {
-    missingLibraries.push("Mapbox Draw");
   }
 
   if (missingLibraries.length > 0) {
@@ -65,8 +54,10 @@ export default function initVisitsPage({ cleanup, api } = {}) {
     mutations.forEach((mutation) => {
       if (mutation.attributeName === "data-bs-theme") {
         const newTheme = document.documentElement.getAttribute("data-bs-theme");
-        visitsPage?.visitsManager?.updateMapTheme?.(newTheme);
-        visitsPage?.renderPlaces?.();
+        page.visitsManager?.updateMapTheme?.(newTheme);
+        if (!page.destroyed) {
+          page.renderPlaces?.();
+        }
       }
     });
   });
@@ -78,9 +69,11 @@ export default function initVisitsPage({ cleanup, api } = {}) {
 
   const teardown = () => {
     themeObserver.disconnect();
-    visitsPage?.destroy?.();
+    page.destroy();
     repairModalUiState();
-    visitsPage = null;
+    if (visitsPage === page) {
+      visitsPage = null;
+    }
   };
 
   if (typeof cleanup === "function") {

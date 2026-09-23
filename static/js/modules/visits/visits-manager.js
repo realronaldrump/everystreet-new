@@ -1,5 +1,6 @@
 
 import MapStyles from "../map-styles.js";
+import { ensureLibraries } from "../core/library-loader.js";
 import confirmationDialog from "../ui/confirmation-dialog.js";
 import loadingManager from "../ui/loading-manager.js";
 import notificationManager from "../ui/notifications.js";
@@ -21,12 +22,19 @@ import VisitsUIManager from "./visits-ui-manager.js";
  */
 
 class VisitsManager {
-  constructor({ dataService = null, onDataChanged = null } = {}) {
+  constructor({ dataService = null, onDataChanged = null, onTablesReady = null, loadLibraries = ensureLibraries } = {}) {
     // Core state
     this.map = null;
     this.places = new Map();
     this.destroyed = false;
     this.onDataChanged = onDataChanged;
+    this.onTablesReady = onTablesReady;
+    this.loadLibraries = loadLibraries;
+    this.initialized = false;
+    this.mapInitialization = null;
+    this.tripsRequestId = 0;
+    this.tablesInitialization = null;
+    this.latestVisitStats = null;
 
     // External managers
     this.loadingManager = loadingManager;
@@ -79,71 +87,69 @@ class VisitsManager {
     this.visitsTable = null;
     this.tripsTable = null;
 
-    // Set up duration sorting; initialization is owned by the page controller.
-    VisitsHelpers.setupDurationSorting();
   }
 
   async initialize() {
-    VisitsHelpers.showInitialLoading();
-    this.loadingManager?.show("Initializing Visits Page");
-
-    try {
-      await this.mapController.initialize(VisitsHelpers.getCurrentTheme());
-      if (this.destroyed) {
-        return null;
-      }
-      this.map = this.mapController.getMap();
-
-      // Initialize drawing with the map
-      this.drawing.initialize(this.map);
-
-      // Set map controller on popup after initialization
-      this.popup.setMapController(this.mapController);
-
-      this.initializeTables();
-      this.events.setupEventListeners();
-
-      const initialData = await this.loadPlaces();
-      if (this.destroyed) {
-        return null;
-      }
-
-      this.loadingManager?.hide();
-      VisitsHelpers.hideInitialLoading();
-
-      // Final map resize to ensure proper display after all content loads
-      setTimeout(() => {
-        this.map?.resize();
-      }, 100);
-
-      // Trigger stagger animations for widgets
-      this._triggerStaggerAnimations();
-      return initialData;
-    } catch (error) {
-      this.loadingManager?.hide();
-      if (!this.destroyed) {
-        console.error("Error initializing visits page:", error);
-        VisitsHelpers.showErrorState();
-      }
-      return null;
+    if (this.destroyed) {
+      return false;
     }
+    if (!this.initialized) {
+      this.initialized = true;
+      this.events.setupEventListeners();
+      void this.initializeTables();
+    }
+    return this.initializeMap();
   }
 
-  /**
-   * Trigger stagger animations for widgets
-   */
-  _triggerStaggerAnimations() {
-    const widgets = document.querySelectorAll("#visits-page .widget");
-    widgets.forEach((widget, index) => {
-      widget.style.opacity = "0";
-      widget.style.transform = "translateY(20px)";
-      setTimeout(() => {
-        widget.style.transition =
-          "opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1), transform 0.5s cubic-bezier(0.4, 0, 0.2, 1)";
-        widget.style.opacity = "1";
-        widget.style.transform = "translateY(0)";
-      }, index * 100);
-    });
+  initializeMap() {
+    if (this.destroyed) {
+      return Promise.resolve(false);
+    }
+    if (this.mapInitialization) {
+      return this.mapInitialization;
+    }
+    if (this.map) {
+      return Promise.resolve(true);
+    }
+    const pending = this._initializeMap();
+    this.mapInitialization = pending;
+    const clearPending = () => {
+      if (this.mapInitialization === pending) {
+        this.mapInitialization = null;
+      }
+    };
+    pending.then(clearPending, clearPending);
+    return pending;
+  }
+
+  async _initializeMap() {
+    VisitsHelpers.setMapControlsEnabled(false);
+    VisitsHelpers.showInitialLoading();
+    try {
+      const ready = await this.mapController.initialize(VisitsHelpers.getCurrentTheme());
+      if (this.destroyed || !ready) {
+        return false;
+      }
+      this.map = this.mapController.getMap();
+      this.drawing.initialize(this.map);
+      this.popup.setMapController(this.mapController);
+      VisitsHelpers.setMapControlsEnabled(true, Boolean(this.drawing.draw));
+      this.mapController.zoomToFitAllPlaces();
+      return true;
+    } catch (error) {
+      if (!this.destroyed) {
+        this.mapController.reset();
+        this.map = null;
+        this.drawing.draw = null;
+        console.error("Error initializing visits map:", error);
+        VisitsHelpers.showErrorState(() => this.initializeMap());
+      }
+      return false;
+    } finally {
+      if (!this.destroyed) {
+        VisitsHelpers.hideInitialLoading();
+      }
+    }
   }
 
   _resolvePlaceId(place) {
@@ -194,74 +200,59 @@ class VisitsManager {
 
   // --- Data Loading ---
 
-  async loadPlaces() {
-    const placesMap = await this.dataLoader.loadPlaces((places) => {
-      if (!this.destroyed) {
-        this.mapController.setPlaces(places);
-      }
-    });
-
+  setPlaces(places) {
     if (this.destroyed) {
-      return null;
+      return;
     }
-    this.places = placesMap;
-    const stats = await this.refreshStatistics();
-    return { places: [...placesMap.values()], stats };
+    const hadPlaces = this.places.size > 0;
+    this.places.clear();
+    for (const place of places || []) {
+      this._setPlace(this._resolvePlaceId(place), place);
+    }
+    this.mapController.setPlaces([...this.places.values()]);
+    if (!hadPlaces && this.map) {
+      this.mapController.zoomToFitAllPlaces();
+    }
   }
 
   // --- Stats & Data Updates ---
-
-  async refreshStatistics() {
-    if (this.destroyed) {
-      return [];
-    }
-    const stats = await this.dataLoader.loadPlaceStatistics({ timeframe: "all" });
-    if (!this.destroyed) {
-      this.updateVisitsData(stats);
-    }
-    return stats;
-  }
 
   async refreshAfterMutation() {
     if (this.destroyed) {
       return;
     }
-    const stats = await this.refreshStatistics();
-    if (!this.destroyed) {
-      void this.onDataChanged?.({ places: [...this.places.values()], stats });
-    }
+    await this.onDataChanged?.({ places: [...this.places.values()] });
   }
 
   updateVisitsData(statsList) {
     if (this.destroyed) {
       return;
     }
-    this.loadingManager?.show("Updating Statistics");
-
+    this.latestVisitStats = statsList;
+    if (!this.visitsTable) {
+      return;
+    }
     if (this.places.size === 0) {
       this.visitsTable?.clear().draw();
-      this.loadingManager?.hide();
       return;
     }
 
     try {
-      statsList.sort((a, b) => b.totalVisits - a.totalVisits);
-
-      const validResults = statsList.map((d) => ({
-        id: d.id,
-        name: d.name,
-        totalVisits: d.totalVisits,
-        firstVisit: d.firstVisit,
-        lastVisit: d.lastVisit,
-        avgTimeSpent: d.averageTimeSpent || "N/A",
-      }));
+      const validResults = [...(statsList || [])]
+        .sort((a, b) => b.totalVisits - a.totalVisits)
+        .map((d) => ({
+          id: d.id,
+          name: d.name,
+          totalVisits: d.totalVisits,
+          firstVisit: d.firstVisit,
+          lastVisit: d.lastVisit,
+          avgTimeSpent: d.averageTimeSpent || "N/A",
+        }));
 
       this.visitsTable?.clear().rows.add(validResults).draw();
     } catch (error) {
       console.error("Error updating place statistics:", error);
       notificationManager?.show("Error updating place statistics", "danger");
-    } finally {
-      this.loadingManager?.hide();
     }
   }
 
@@ -417,10 +408,16 @@ class VisitsManager {
   // --- Drawing Delegation ---
 
   startDrawing() {
+    if (!this.map || !this.drawing.draw || this.destroyed) {
+      return;
+    }
     this.drawing.startDrawing();
   }
 
   startBoundarySelectionMode() {
+    if (!this.map || !this.drawing.draw || this.destroyed) {
+      return;
+    }
     this.drawing.startSelectingBoundaryForEdit();
   }
 
@@ -445,6 +442,10 @@ class VisitsManager {
   }
 
   startEditingPlaceBoundary(placeId = null) {
+    if (!this.map || !this.drawing.draw || this.destroyed) {
+      notificationManager?.show("Wait for the map to load before editing boundaries.", "info");
+      return;
+    }
     const requestedPlaceId =
       placeId || document.getElementById("edit-place-id")?.value?.trim();
     const place = this._getPlaceById(requestedPlaceId);
@@ -495,7 +496,7 @@ class VisitsManager {
   }
 
   applySuggestion(suggestion) {
-    if (!suggestion?.boundary) {
+    if (!suggestion?.boundary || !this.map || !this.drawing.draw || this.destroyed) {
       return;
     }
 
@@ -506,6 +507,55 @@ class VisitsManager {
   // --- Tables ---
 
   initializeTables() {
+    if (this.destroyed) {
+      return Promise.resolve(false);
+    }
+    if (this.tablesInitialization) {
+      return this.tablesInitialization;
+    }
+    if (this.visitsTable && this.tripsTable) {
+      return Promise.resolve(true);
+    }
+    const pending = this._initializeTables();
+    this.tablesInitialization = pending;
+    const clearPending = () => {
+      if (this.tablesInitialization === pending) {
+        this.tablesInitialization = null;
+      }
+    };
+    pending.then(clearPending, clearPending);
+    return pending;
+  }
+
+  async _initializeTables() {
+    VisitsHelpers.setTableState("loading");
+    try {
+      await this.loadLibraries(["datatables"]);
+      if (this.destroyed) {
+        return false;
+      }
+      VisitsHelpers.setupDurationSorting();
+      this._createTables();
+      if (this.latestVisitStats) {
+        this.updateVisitsData(this.latestVisitStats);
+      }
+      VisitsHelpers.setTableState("ready");
+      this.onTablesReady?.();
+      return true;
+    } catch (error) {
+      if (!this.destroyed) {
+        this.visitsTable?.destroy();
+        this.tripsTable?.destroy();
+        this.visitsTable = null;
+        this.tripsTable = null;
+        console.error("Error initializing visits tables:", error);
+        VisitsHelpers.setTableState("error", () => this.initializeTables());
+      }
+      return false;
+    }
+  }
+
+  _createTables() {
     this.visitsTable = createVisitsTable({
       onPlaceSelected: (placeId) => this.uiManager.toggleView(placeId),
     });
@@ -526,6 +576,9 @@ class VisitsManager {
   async fetchAndShowTrip(tripId) {
     try {
       const trip = await this.dataLoader.loadTrip(tripId);
+      if (this.destroyed) {
+        return;
+      }
       VisitsHelpers.extractTripGeometry(trip);
       this.tripViewer.showTrip(trip);
     } catch {
@@ -543,9 +596,13 @@ class VisitsManager {
       return;
     }
 
+    const requestId = ++this.tripsRequestId;
     this.tripsTable.clear().draw();
 
     const data = await this.dataLoader.loadPlaceTrips(placeId);
+    if (this.destroyed || requestId !== this.tripsRequestId) {
+      return;
+    }
     const trips = data.trips || [];
     this.tripsTable.rows.add(trips).draw();
 
@@ -600,10 +657,10 @@ class VisitsManager {
       return;
     }
     this.destroyed = true;
-    this.loadingManager?.hide();
     VisitsHelpers.hideInitialLoading();
     this.events?.destroy?.();
     this.onDataChanged = null;
+    this.onTablesReady = null;
     this.mapController.destroy();
     this.map = null;
     this.tripViewer.destroy();

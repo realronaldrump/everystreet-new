@@ -52,8 +52,12 @@ async def get_all_places_statistics(
 
 @router.get("/api/visit_suggestions", response_model=list[VisitSuggestion])
 async def get_visit_suggestions(
-    min_visits: Annotated[int, Query(description="Minimum number of visits")] = 5,
-    cell_size_m: Annotated[int, Query(description="Grid cell size in meters")] = 250,
+    min_visits: Annotated[
+        int, Query(ge=1, le=1000, description="Minimum number of visits")
+    ] = 5,
+    cell_size_m: Annotated[
+        int, Query(ge=25, le=2000, description="Cluster radius in meters")
+    ] = 250,
     timeframe: Annotated[
         str | None,
         Query(description="Optional timeframe filter"),

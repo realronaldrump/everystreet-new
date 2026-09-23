@@ -31,7 +31,7 @@ export function normalizeDiscoveryMinVisits(
 ) {
   const parsed = Number.parseInt(value, 10);
   if (Number.isFinite(parsed) && parsed >= 1) {
-    return parsed;
+    return Math.min(parsed, 1000);
   }
   return fallback;
 }

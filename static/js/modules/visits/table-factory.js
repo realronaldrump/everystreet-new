@@ -1,5 +1,32 @@
+import {
+  escapeHtml,
+  formatForDisplay,
+  parseDurationToSeconds,
+} from "../utils/formatting.js";
 
-import { DateUtils } from "../utils.js";
+function renderDate(data, type, options, icon = "", missingLabel = "N/A") {
+  const timestamp = data ? Date.parse(data) : NaN;
+  if (type === "sort" || type === "type") {
+    return Number.isFinite(timestamp) ? timestamp : 0;
+  }
+  if (!Number.isFinite(timestamp)) {
+    return missingLabel;
+  }
+  const formatted = formatForDisplay(data, options);
+  return type === "display"
+    ? `${icon ? `<i class="${icon} me-1" aria-hidden="true"></i>` : ""}${escapeHtml(formatted)}`
+    : formatted;
+}
+
+function renderDuration(data, type, icon = "") {
+  const duration = String(data || "N/A");
+  if (type === "sort" || type === "type") {
+    return parseDurationToSeconds(duration);
+  }
+  return type === "display"
+    ? `${icon && duration !== "N/A" ? `<i class="${icon} me-1" aria-hidden="true"></i>` : ""}${escapeHtml(duration)}`
+    : duration;
+}
 
 function createVisitsTable({ onPlaceSelected }) {
   const el = document.getElementById("visits-table");
@@ -17,6 +44,7 @@ function createVisitsTable({ onPlaceSelected }) {
 
   const table = $(el).DataTable({
     responsive: true,
+    deferRender: true,
     order: [[3, "desc"]],
     pageLength: 10,
     columns: [
@@ -24,9 +52,7 @@ function createVisitsTable({ onPlaceSelected }) {
         data: "name",
         render: (data, type, row) =>
           type === "display"
-            ? `<a href="#" class="place-link" data-place-id="${row.id}">
-                  <i class="fas fa-map-marker-alt me-2"></i>${data}
-                 </a>`
+            ? `<button type="button" class="place-link btn btn-link p-0 text-start" data-place-id="${escapeHtml(row.id)}">${escapeHtml(data)}</button>`
             : data,
         createdCell: (td, _cellData, _rowData, _row, col) => {
           $(td).attr("data-label", headers[col]);
@@ -35,9 +61,15 @@ function createVisitsTable({ onPlaceSelected }) {
       {
         data: "totalVisits",
         className: "numeric-cell text-end",
-        render: (data) => {
-          const visits = data || 0;
-          return `<span class="visits-badge">${visits}</span>`;
+        type: "num",
+        render: (data, type) => {
+          if (data == null || data === "" || !Number.isFinite(Number(data))) {
+            return type === "sort" || type === "type" ? -1 : "—";
+          }
+          const visits = Number(data);
+          return type === "display"
+            ? `<span class="visits-badge">${visits.toLocaleString()}</span>`
+            : visits;
         },
         createdCell: (td, _cellData, _rowData, _row, col) => {
           $(td).attr("data-label", headers[col]);
@@ -46,12 +78,9 @@ function createVisitsTable({ onPlaceSelected }) {
       {
         data: "firstVisit",
         className: "date-cell",
+        type: "num",
         render: (data, type) =>
-          type === "display" || type === "filter"
-            ? data
-              ? `<i class="far fa-calendar me-1"></i>${DateUtils.formatForDisplay(data, { dateStyle: "medium" })}`
-              : "N/A"
-            : data,
+          renderDate(data, type, { dateStyle: "medium" }, "far fa-calendar", "—"),
         createdCell: (td, _cellData, _rowData, _row, col) => {
           $(td).attr("data-label", headers[col]);
         },
@@ -59,12 +88,9 @@ function createVisitsTable({ onPlaceSelected }) {
       {
         data: "lastVisit",
         className: "date-cell",
+        type: "num",
         render: (data, type) =>
-          type === "display" || type === "filter"
-            ? data
-              ? `<i class="far fa-calendar-check me-1"></i>${DateUtils.formatForDisplay(data, { dateStyle: "medium" })}`
-              : "N/A"
-            : data,
+          renderDate(data, type, { dateStyle: "medium" }, "far fa-calendar-check", "—"),
         createdCell: (td, _cellData, _rowData, _row, col) => {
           $(td).attr("data-label", headers[col]);
         },
@@ -72,8 +98,8 @@ function createVisitsTable({ onPlaceSelected }) {
       {
         data: "avgTimeSpent",
         className: "numeric-cell text-end",
-        type: "duration",
-        render: (data) => (data ? `<i class="far fa-clock me-1"></i>${data}` : "N/A"),
+        type: "num",
+        render: (data, type) => renderDuration(data, type, "far fa-clock"),
         createdCell: (td, _cellData, _rowData, _row, col) => {
           $(td).attr("data-label", headers[col]);
         },
@@ -90,26 +116,17 @@ function createVisitsTable({ onPlaceSelected }) {
       "<'row'<'col-sm-12 col-md-6'l><'col-sm-12 col-md-6'f>>" +
       "<'row'<'col-sm-12'tr>>" +
       "<'row'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
-    columnDefs: [{ type: "duration", targets: 4 }],
-    drawCallback() {
-      $("#visits-table tbody tr").each(function (i) {
-        $(this)
-          .delay(50 * i)
-          .animate({ opacity: 1 }, 300);
-      });
-    },
   });
 
-  $(el).on("mousedown", ".place-link", (event) => {
-    if (event.button !== 0) {
-      return;
-    }
-    event.preventDefault();
-    const placeId = $(event.target).closest(".place-link").data("place-id");
-    if (placeId) {
-      onPlaceSelected?.(placeId);
-    }
-  });
+  $(el)
+    .off("click.visits", ".place-link")
+    .on("click.visits", ".place-link", (event) => {
+      event.preventDefault();
+      const placeId = event.currentTarget.getAttribute("data-place-id");
+      if (placeId) {
+        onPlaceSelected?.(placeId);
+      }
+    });
 
   $("#visits-table_filter input").addClass("form-control-sm");
   return table;
@@ -135,25 +152,16 @@ function createTripsTable({ onTripSelected }) {
 
   const table = $(el).DataTable({
     responsive: true,
+    deferRender: true,
     order: [[1, "desc"]],
     pageLength: 10,
     columns: [
       {
         data: "transactionId",
         defaultContent: "",
-        render: (data) => `<span class="badge bg-secondary">${data}</span>`,
-        createdCell: (td, _cellData, _rowData, _row, col) => {
-          $(td).attr("data-label", headers[col]);
-        },
-      },
-      {
-        data: (row) => resolveTripTime(row),
-        defaultContent: "",
         render: (data, type) =>
-          type === "display" || type === "filter"
-            ? data
-              ? DateUtils.formatForDisplay(data, { dateStyle: "medium" })
-              : "N/A"
+          type === "display"
+            ? `<span class="badge bg-secondary">${escapeHtml(data)}</span>`
             : data || "",
         createdCell: (td, _cellData, _rowData, _row, col) => {
           $(td).attr("data-label", headers[col]);
@@ -162,12 +170,17 @@ function createTripsTable({ onTripSelected }) {
       {
         data: (row) => resolveTripTime(row),
         defaultContent: "",
-        render: (data, type) =>
-          type === "display" || type === "filter"
-            ? data
-              ? DateUtils.formatForDisplay(data, { timeStyle: "short" })
-              : "N/A"
-            : data || "",
+        type: "num",
+        render: (data, type) => renderDate(data, type, { dateStyle: "medium" }),
+        createdCell: (td, _cellData, _rowData, _row, col) => {
+          $(td).attr("data-label", headers[col]);
+        },
+      },
+      {
+        data: (row) => resolveTripTime(row),
+        defaultContent: "",
+        type: "num",
+        render: (data, type) => renderDate(data, type, { timeStyle: "short" }),
         createdCell: (td, _cellData, _rowData, _row, col) => {
           $(td).attr("data-label", headers[col]);
         },
@@ -175,8 +188,8 @@ function createTripsTable({ onTripSelected }) {
       {
         data: "departureTime",
         defaultContent: "",
-        render: (data) =>
-          data ? DateUtils.formatForDisplay(data, { timeStyle: "short" }) : "N/A",
+        type: "num",
+        render: (data, type) => renderDate(data, type, { timeStyle: "short" }),
         createdCell: (td, _cellData, _rowData, _row, col) => {
           $(td).attr("data-label", headers[col]);
         },
@@ -184,7 +197,8 @@ function createTripsTable({ onTripSelected }) {
       {
         data: "timeSpent",
         defaultContent: "",
-        render: (data) => (data ? data : "N/A"),
+        type: "num",
+        render: (data, type) => renderDuration(data, type),
         createdCell: (td, _cellData, _rowData, _row, col) => {
           $(td).attr("data-label", headers[col]);
         },
@@ -192,19 +206,22 @@ function createTripsTable({ onTripSelected }) {
       {
         data: "timeSinceLastVisit",
         defaultContent: "",
-        render: (data) => (data ? data : "N/A"),
+        type: "num",
+        render: (data, type) => renderDuration(data, type),
         createdCell: (td, _cellData, _rowData, _row, col) => {
           $(td).attr("data-label", headers[col]);
         },
       },
       {
         data: null,
+        orderable: false,
+        searchable: false,
         render: (data, type, row) =>
           type === "display"
-            ? `<button class="btn btn-sm btn-outline-primary view-trip-btn" data-trip-id="${row.transactionId}">
-                <i class="fas fa-map"></i>
+            ? `<button type="button" class="btn btn-sm btn-outline-primary view-trip-btn" data-trip-id="${escapeHtml(row.transactionId)}" aria-label="View trip on map">
+                <i class="fas fa-map" aria-hidden="true"></i>
               </button>`
-            : data,
+            : "",
         createdCell: (td, _cellData, _rowData, _row, col) => {
           $(td).attr("data-label", headers[col]);
         },
@@ -223,16 +240,15 @@ function createTripsTable({ onTripSelected }) {
       "<'row'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
   });
 
-  $(el).on("mousedown", ".view-trip-btn", (event) => {
-    if (event.button !== 0) {
-      return;
-    }
-    event.preventDefault();
-    const tripId = $(event.target).closest(".view-trip-btn").data("trip-id");
-    if (tripId) {
-      onTripSelected?.(tripId);
-    }
-  });
+  $(el)
+    .off("click.visits", ".view-trip-btn")
+    .on("click.visits", ".view-trip-btn", (event) => {
+      event.preventDefault();
+      const tripId = event.currentTarget.getAttribute("data-trip-id");
+      if (tripId) {
+        onTripSelected?.(tripId);
+      }
+    });
 
   $("#trips-for-place-table_filter input").addClass("form-control-sm");
   return table;

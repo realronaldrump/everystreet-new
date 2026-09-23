@@ -6,33 +6,42 @@ function buildQuery(params = {}) {
 }
 
 export function createVisitsDataService(client = apiClient) {
+  // The shared client disables its own timeout when given a lifecycle signal.
+  // Combine both here so navigation cancellation never creates an endless read.
+  const get = (url, options = {}) => {
+    const timeout = AbortSignal.timeout(options.timeout ?? 20000);
+    const signal = options.signal
+      ? AbortSignal.any([options.signal, timeout])
+      : timeout;
+    return client.get(url, { ...options, signal, retry: false });
+  };
   return {
     fetchPlaces(options = {}) {
-      return client.get("/api/places", options);
+      return get("/api/places", options);
     },
 
     fetchPlaceStatistics(params = {}, options = {}) {
-      return client.get(`/api/places/statistics${buildQuery(params)}`, options);
+      return get(`/api/places/statistics${buildQuery(params)}`, options);
     },
 
     fetchPlaceDetailStatistics(placeId, options = {}) {
-      return client.get(`/api/places/${placeId}/statistics`, options);
+      return get(`/api/places/${encodeURIComponent(placeId)}/statistics`, options);
     },
 
     fetchPlaceTrips(placeId, options = {}) {
-      return client.get(`/api/places/${placeId}/trips`, options);
+      return get(`/api/places/${encodeURIComponent(placeId)}/trips`, options);
     },
 
     fetchNonCustomVisits(params = {}, options = {}) {
-      return client.get(`/api/non_custom_places_visits${buildQuery(params)}`, options);
+      return get(`/api/non_custom_places_visits${buildQuery(params)}`, options);
     },
 
     fetchVisitSuggestions(params = {}, options = {}) {
-      return client.get(`/api/visit_suggestions${buildQuery(params)}`, options);
+      return get(`/api/visit_suggestions${buildQuery(params)}`, options);
     },
 
     fetchTrip(tripId, options = {}) {
-      return client.get(`/api/trips/${tripId}`, options);
+      return get(`/api/trips/${encodeURIComponent(tripId)}`, options);
     },
 
     deletePlace(placeId, options = {}) {

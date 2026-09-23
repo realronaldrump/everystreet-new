@@ -20,7 +20,6 @@ const { bootstrap } = globalThis;
 
 // Configuration for imperial units
 const IMPERIAL_CONFIG = {
-  metersToFeet: (meters) => Math.round(meters * M_TO_FT),
   // Suggestion sizes in feet (converted from meters)
   suggestionSizes: {
     small: 150, // ~45m
@@ -40,17 +39,6 @@ function previewInks() {
   };
 }
 
-// Day names for pattern detection
-const _DAY_NAMES = [
-  "Sunday",
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
-];
-
 class VisitsPageController {
   constructor({ api = null, dataService = null } = {}) {
     this.visitsManager = null;
@@ -60,6 +48,14 @@ class VisitsPageController {
     this.suggestions = [];
     this.nonCustomPlaces = [];
     this.currentView = "cards";
+    this.placeSearch = "";
+    this.placeSort = "visits";
+    this.placesShown = 12;
+    this.stopsShown = 10;
+    this.loadGeneration = 0;
+    this.suggestionGeneration = 0;
+    this.detailGeneration = 0;
+    this.statsReady = false;
     this.currentSuggestionSize = IMPERIAL_CONFIG.suggestionSizes.small;
     this.discoverySort = DEFAULT_DISCOVERY_SORT;
     this.discoveryMinVisits = DEFAULT_DISCOVERY_MIN_VISITS;
@@ -89,14 +85,18 @@ class VisitsPageController {
     this.visitsManager = new VisitsManager({
       dataService: this.dataService,
       onDataChanged: (data) => this.loadData(data),
+      onTablesReady: () => {
+        if (!this.destroyed && this.currentView === "list") this.renderPlaceList();
+      },
     });
 
-    // Reuse the manager's initial place snapshot instead of fetching it twice.
-    const initialData = await this.visitsManager.initialize();
-    if (this.destroyed) {
-      return;
-    }
-    await this.loadData(initialData);
+    // Data is usable even when map tiles or WebGL are unavailable.
+    void this.visitsManager.initialize().then(() => {
+      if (!this.destroyed && this.pendingMapPlace) {
+        this.visitsManager?.mapController?.animateToPlace(this.pendingMapPlace);
+      }
+    });
+    await this.loadData();
   }
 
   cacheElements() {
@@ -111,6 +111,14 @@ class VisitsPageController {
       placesListView: document.getElementById("places-list-view"),
       placesEmptyState: document.getElementById("places-empty-state"),
       refreshPlacePreviews: document.getElementById("refresh-place-previews"),
+      page: document.getElementById("visits-page"),
+      placesError: document.getElementById("places-error"),
+      statsError: document.getElementById("stats-error"),
+      placeSearch: document.getElementById("place-search"),
+      placeSort: document.getElementById("place-sort"),
+      placesCount: document.getElementById("places-result-count"),
+      placesShowMore: document.getElementById("places-show-more"),
+      stopsShowMore: document.getElementById("stops-show-more"),
 
       // Patterns section
       patternsSection: document.getElementById("patterns-section"),
@@ -146,11 +154,63 @@ class VisitsPageController {
   setupEventListeners() {
     const { signal } = this.listenerAbortController;
 
-    // Listen for date filter changes
-    document.addEventListener(
-      "filtersApplied",
+    // Visits are explicitly all-time; unrelated global date changes do not
+    // repeat the historical analysis.
+    this.elements.page?.addEventListener(
+      "click",
+      (event) => {
+        const retry = event.target.closest("[data-visits-retry]");
+        if (!retry) return;
+        const section = retry.dataset.visitsRetry;
+        if (section === "discoveries") void this.loadSuggestions();
+        else if (section === "stops") void this.loadOtherStops();
+        else if (section === "detail") void this.showPlaceDetail(this.activePlaceId);
+        else void this.loadData();
+      },
+      { signal }
+    );
+    this.elements.placeSearch?.addEventListener(
+      "input",
+      (event) => {
+        this.placeSearch = event.target.value.trim().toLowerCase();
+        this.placesShown = 12;
+        this.renderPlaces();
+      },
+      { signal }
+    );
+    this.elements.placeSort?.addEventListener(
+      "change",
+      (event) => {
+        this.placeSort = event.target.value;
+        this.placesShown = 12;
+        this.renderPlaces();
+      },
+      { signal }
+    );
+    this.elements.placesShowMore?.addEventListener(
+      "click",
       () => {
-        this.loadData();
+        this.placesShown += 12;
+        this.renderPlaces();
+      },
+      { signal }
+    );
+    this.elements.stopsShowMore?.addEventListener(
+      "click",
+      () => {
+        this.stopsShown += 10;
+        this.renderOtherStops();
+      },
+      { signal }
+    );
+    this.elements.placesGrid?.addEventListener(
+      "keydown",
+      (event) => {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        const card = event.target.closest(".place-card[data-place-id]");
+        if (!card) return;
+        event.preventDefault();
+        void this.showPlaceDetail(card.dataset.placeId);
       },
       { signal }
     );
@@ -342,7 +402,11 @@ class VisitsPageController {
 
     document.addEventListener(
       "hidden.bs.modal",
-      () => {
+      (event) => {
+        if (event.target.id === "place-detail-modal") {
+          this.detailAbortController?.abort();
+          this.detailGeneration++;
+        }
         this._cleanupOrphanedModalState();
       },
       { signal }
@@ -545,93 +609,120 @@ class VisitsPageController {
     this.activePlaceId = "";
   }
 
-  async loadData(initialData = null) {
-    if (this.destroyed) {
-      return;
-    }
+  async loadData() {
+    if (this.destroyed) return;
+    const generation = ++this.loadGeneration;
+    this.loadAbortController?.abort();
+    this.loadAbortController = new AbortController();
+    const options = { signal: this.loadAbortController.signal };
+    const current = () => !this.destroyed && generation === this.loadGeneration;
+    this.clearSectionError("places");
+    this.clearSectionError("stats");
+    let allStats = null;
+    let placesReady = false;
+    this.statsReady = false;
 
-    try {
-      const [places, allStats, monthStats] = initialData
-        ? await Promise.all([
-            initialData.places,
-            initialData.stats,
-            this.fetchAllStats("month"),
-          ])
-        : await Promise.all([
-            this.fetchPlaces(),
-            this.fetchAllStats("all"),
-            this.fetchAllStats("month"),
-          ]);
-
-      if (this.destroyed) {
-        return;
-      }
-
-      this.places = places;
-      this.placesStats = this.mergePlacesWithStats(places, allStats);
-
-      // Update hero stats
-      this.updateHeroStats(allStats, monthStats);
-
-      // Render places
+    const render = () => {
+      if (!placesReady || !current()) return;
+      this.placesStats = this.mergePlacesWithStats(this.places, allStats);
+      this.visitsManager?.setPlaces(this.places);
+      this.visitsManager?.updateVisitsData(this.placesStats);
       this.renderPlaces();
-
-      // Load patterns
-      this.renderPatterns();
-
-      // Load suggestions
-      await this.loadSuggestions();
-      if (this.destroyed) {
-        return;
+      if (allStats) {
+        this.renderPatterns();
       }
+    };
+    const placesTask = this.dataService
+      .fetchPlaces(options)
+      .then((places) => {
+        if (!current()) return;
+        this.places = places;
+        placesReady = true;
+        if (this.elements.totalPlacesCount)
+          this.elements.totalPlacesCount.textContent = places.length;
+        render();
+        this.processInitialPlaceDeepLink();
+      })
+      .catch(() => {
+        if (current())
+          this.showSectionError("places", "Your places could not be loaded.");
+      });
+    const statsTask = this.dataService
+      .fetchPlaceStatistics({ timeframe: "all" }, options)
+      .then((stats) => {
+        if (!current()) return;
+        allStats = stats;
+        this.statsReady = true;
+        if (this.elements.totalVisitsCount)
+          this.elements.totalVisitsCount.textContent = stats
+            .reduce((sum, item) => sum + item.totalVisits, 0)
+            .toLocaleString();
+        render();
+      })
+      .catch(() => {
+        if (!current()) return;
+        if (this.elements.totalVisitsCount)
+          this.elements.totalVisitsCount.textContent = "—";
+        this.showSectionError(
+          "stats",
+          "Visit statistics could not be loaded. Your places are still available."
+        );
+      });
+    const monthTask = this.dataService
+      .fetchPlaceStatistics({ timeframe: "month" }, options)
+      .then((stats) => {
+        if (!current()) return;
+        if (this.elements.monthVisitsCount)
+          this.elements.monthVisitsCount.textContent = stats
+            .reduce((sum, item) => sum + item.totalVisits, 0)
+            .toLocaleString();
+      })
+      .catch(() => {
+        if (!current()) return;
+        if (this.elements.monthVisitsCount)
+          this.elements.monthVisitsCount.textContent = "—";
+        this.showSectionError("stats", "Some visit statistics could not be loaded.");
+      });
+    await Promise.all([placesTask, statsTask, monthTask]);
+    if (!current()) return;
+    // Optional sections never hold up places, deep links, or the map.
+    void this.loadSuggestions();
+    void this.loadOtherStops();
+  }
 
-      // Load other stops
-      await this.loadOtherStops();
-      if (this.destroyed) {
-        return;
-      }
+  clearSectionError(section) {
+    const element = this.elements[`${section}Error`];
+    if (element) {
+      element.hidden = true;
+      element.innerHTML = "";
+    }
+  }
 
-      // Deep-link to a place once after initial data is available.
-      this.processInitialPlaceDeepLink();
-    } catch (error) {
-      if (!this.destroyed) {
-        console.error("Error loading visits data:", error);
-        this.showNotification("Error loading data. Please try refreshing.", "error");
-      }
+  showSectionError(section, message) {
+    const element = this.elements[`${section}Error`];
+    if (!element) return;
+    element.hidden = false;
+    element.innerHTML = `<span>${escapeHtml(message)}</span> <button type="button" class="btn btn-outline-secondary btn-sm" data-visits-retry="${section}">Try again</button>`;
+    if (section === "places" && !this.places.length) {
+      this.elements.placesGrid.innerHTML = "";
+      this.elements.placesEmptyState.style.display = "none";
     }
   }
 
   // API Methods
-  fetchPlaces() {
-    return this.dataService.fetchPlaces();
-  }
-
-  fetchAllStats(timeframe = "all") {
-    return this.dataService.fetchPlaceStatistics({ timeframe });
-  }
-
-  fetchPlaceStats(placeId) {
-    return this.dataService.fetchPlaceDetailStatistics(placeId);
-  }
-
-  fetchPlaceTrips(placeId) {
-    return this.dataService.fetchPlaceTrips(placeId);
-  }
-
   fetchSuggestions(
     cellSizeFt = this.currentSuggestionSize,
     minVisits = this.discoveryMinVisits
   ) {
     // Convert feet to meters for API
     const cellSizeM = Math.round(cellSizeFt / M_TO_FT);
-    return this.dataService.fetchVisitSuggestions({
-      cell_size_m: cellSizeM,
-      min_visits: minVisits,
-    });
-  }
-
-  fetchNonCustomPlaces() {
-    return this.dataService.fetchNonCustomVisits();
+    return this.dataService.fetchVisitSuggestions(
+      {
+        cell_size_m: cellSizeM,
+        min_visits: minVisits,
+      },
+      { signal: this.suggestionAbortController?.signal }
+    );
   }
 
   createPlace(name, geometry) {
@@ -647,11 +738,12 @@ class VisitsPageController {
 
   // Data processing
   mergePlacesWithStats(places, stats) {
+    const byId = new Map((stats || []).map((item) => [String(item.id), item]));
     return places.map((place) => {
-      const placeStats = stats.find((s) => s.id === place.id) || {};
+      const placeStats = byId.get(String(place.id)) || {};
       return {
         ...place,
-        totalVisits: placeStats.totalVisits || 0,
+        totalVisits: stats === null ? null : placeStats.totalVisits || 0,
         averageTimeSpent: placeStats.averageTimeSpent || "N/A",
         firstVisit: placeStats.firstVisit,
         lastVisit: placeStats.lastVisit,
@@ -660,50 +752,56 @@ class VisitsPageController {
     });
   }
 
-  updateHeroStats(allStats, monthStats) {
-    const totalPlaces = this.places.length;
-    const totalVisits = allStats.reduce((sum, s) => sum + (s.totalVisits || 0), 0);
-    const monthVisits = monthStats.reduce((sum, s) => sum + (s.totalVisits || 0), 0);
-
-    if (this.elements.totalPlacesCount) {
-      this.elements.totalPlacesCount.textContent = totalPlaces;
-    }
-    if (this.elements.totalVisitsCount) {
-      this.elements.totalVisitsCount.textContent = totalVisits;
-    }
-    if (this.elements.monthVisitsCount) {
-      this.elements.monthVisitsCount.textContent = monthVisits;
-    }
+  // Rendering
+  getVisiblePlaces() {
+    return this.placesStats
+      .filter((place) =>
+        String(place.name || "")
+          .toLowerCase()
+          .includes(this.placeSearch)
+      )
+      .sort((a, b) => {
+        if (this.placeSort === "name")
+          return String(a.name).localeCompare(String(b.name));
+        const difference =
+          this.placeSort === "recent"
+            ? (Date.parse(b.lastVisit) || 0) - (Date.parse(a.lastVisit) || 0)
+            : (b.totalVisits ?? -1) - (a.totalVisits ?? -1);
+        return difference || String(a.name).localeCompare(String(b.name));
+      });
   }
 
-  // Rendering
   renderPlaces() {
     this.clearPlacePreviewMaps();
-
-    if (!this.elements.placesGrid || !this.elements.placesEmptyState) {
-      return;
+    if (!this.elements.placesGrid || !this.elements.placesEmptyState) return;
+    const places = this.getVisiblePlaces();
+    if (this.elements.placesCount)
+      this.elements.placesCount.textContent = `${places.length} of ${this.places.length} places`;
+    if (this.elements.placesShowMore) {
+      this.elements.placesShowMore.hidden =
+        this.currentView !== "cards" || places.length <= this.placesShown;
+      this.elements.placesShowMore.textContent = `Show more places (${Math.max(0, places.length - this.placesShown)} remaining)`;
     }
-
-    if (this.placesStats.length === 0) {
+    this.elements.placesEmptyState.style.display = this.places.length
+      ? "none"
+      : "block";
+    if (!this.places.length) {
       this.elements.placesGrid.style.display = "none";
-      this.elements.placesEmptyState.style.display = "block";
+      this.elements.placesListView.style.display = "none";
       return;
     }
-
-    this.elements.placesEmptyState.style.display = "none";
-
     if (this.currentView === "cards") {
-      this.renderPlaceCards();
+      this.renderPlaceCards(places.slice(0, this.placesShown));
     } else {
       this.renderPlaceList();
     }
   }
 
-  renderPlaceCards() {
+  renderPlaceCards(places = this.getVisiblePlaces().slice(0, this.placesShown)) {
     const maxVisits = Math.max(...this.placesStats.map((p) => p.totalVisits));
     const placePreviewConfigs = [];
 
-    const cardsHTML = this.placesStats
+    const cardsHTML = places
       .map((place, index) => {
         const accent = this.getPlaceAccent(place.totalVisits, maxVisits);
         const patterns = this.detectPatterns(place);
@@ -721,7 +819,7 @@ class VisitsPageController {
         }
 
         return `
-        <div class="place-card card card--object" data-place-id="${placeId}">
+        <div class="place-card card card--object" role="button" tabindex="0" aria-label="View visits to ${escapeHtml(place.name)}" data-place-id="${escapeHtml(placeId)}">
           <div class="place-card-header ${accent}">
             <div class="place-map-preview" id="${mapId}">
               <div class="map-preview-default">
@@ -736,7 +834,7 @@ class VisitsPageController {
             <div class="place-meta">
               <div class="place-stat">
                 <i class="fas fa-calendar"></i>
-                <span>${place.totalVisits} visits</span>
+                <span>${place.totalVisits === null ? "—" : place.totalVisits.toLocaleString()} visits</span>
               </div>
               <div class="place-stat">
                 <i class="fas fa-clock"></i>
@@ -754,15 +852,17 @@ class VisitsPageController {
             }
           </div>
           <div class="place-card-footer">
-            <span class="visit-count">${place.totalVisits} visits</span>
-            <span class="last-visit">${this.formatRelativeDate(place.lastVisit)}</span>
+            <span class="visit-count">${place.totalVisits === null ? "—" : place.totalVisits.toLocaleString()} visits</span>
+            <span class="last-visit">${place.totalVisits === null ? "Statistics pending" : this.formatRelativeDate(place.lastVisit)}</span>
           </div>
         </div>
       `;
       })
       .join("");
 
-    this.elements.placesGrid.innerHTML = cardsHTML;
+    this.elements.placesGrid.innerHTML =
+      cardsHTML ||
+      '<p class="visits-inline-state" role="status">No places match your search.</p>';
     this.elements.placesGrid.style.display = "grid";
     this.elements.placesListView.style.display = "none";
     this.renderPlacePreviewMaps(placePreviewConfigs);
@@ -773,10 +873,24 @@ class VisitsPageController {
     this.clearPlacePreviewMaps();
     this.elements.placesGrid.style.display = "none";
     this.elements.placesListView.style.display = "block";
+    const table = this.visitsManager?.visitsTable;
+    table?.search(this.placeSearch);
+    table
+      ?.order([
+        [
+          this.placeSort === "name" ? 0 : this.placeSort === "recent" ? 3 : 1,
+          this.placeSort === "name" ? "asc" : "desc",
+        ],
+      ])
+      .draw();
+    table?.columns.adjust();
   }
 
   renderPatterns() {
-    const placesWithPatterns = this.placesStats.filter((p) => p.totalVisits >= 5);
+    const placesWithPatterns = this.placesStats
+      .filter((p) => p.totalVisits >= 5)
+      .sort((a, b) => b.totalVisits - a.totalVisits)
+      .slice(0, 6);
 
     if (placesWithPatterns.length === 0) {
       this.elements.patternsSection.style.display = "none";
@@ -810,16 +924,44 @@ class VisitsPageController {
   }
 
   async loadSuggestions() {
+    if (this.destroyed) return;
+    const generation = ++this.suggestionGeneration;
+    this.suggestionAbortController?.abort();
+    this.suggestionAbortController = new AbortController();
+    this.suggestions = [];
+    if (this.elements.discoverySort) this.elements.discoverySort.disabled = true;
+    if (this.elements.discoveriesSection)
+      this.elements.discoveriesSection.style.display = "block";
+    if (this.elements.discoveriesEmptyState)
+      this.elements.discoveriesEmptyState.style.display = "none";
+    if (this.elements.discoveriesPagination)
+      this.elements.discoveriesPagination.style.display = "none";
+    if (this.elements.discoveriesGrid) {
+      this.elements.discoveriesGrid.style.display = "grid";
+      this.elements.discoveriesGrid.innerHTML =
+        '<p class="visits-inline-state" role="status">Finding your frequent stops…</p>';
+    }
     try {
       const suggestions = await this.fetchSuggestions(
         this.currentSuggestionSize,
         this.discoveryMinVisits
       );
+      if (this.destroyed || generation !== this.suggestionGeneration) return;
       this.suggestions = sortDiscoveries(suggestions, this.discoverySort);
       this.suggestionPage = 1;
       this.renderSuggestions();
-    } catch (error) {
-      console.error("Error loading suggestions:", error);
+    } catch {
+      if (this.destroyed || generation !== this.suggestionGeneration) return;
+      if (this.elements.discoveriesGrid)
+        this.elements.discoveriesGrid.innerHTML =
+          '<div class="visits-inline-state" role="status">Discoveries could not be loaded. <button type="button" class="btn btn-outline-secondary btn-sm" data-visits-retry="discoveries">Try again</button></div>';
+    } finally {
+      if (
+        !this.destroyed &&
+        generation === this.suggestionGeneration &&
+        this.elements.discoverySort
+      )
+        this.elements.discoverySort.disabled = false;
     }
   }
 
@@ -852,7 +994,7 @@ class VisitsPageController {
       .map((suggestion, pageIndex) => {
         const index = startIndex + pageIndex;
         // Convert boundary size from meters to feet for display
-        const boundarySizeFt = IMPERIAL_CONFIG.metersToFeet(this.currentSuggestionSize);
+        const boundarySizeFt = this.currentSuggestionSize;
 
         return `
         <div class="discovery-card" data-suggestion-index="${index}">
@@ -903,11 +1045,30 @@ class VisitsPageController {
   }
 
   async loadOtherStops() {
+    if (this.destroyed) return;
+    this.stopsAbortController?.abort();
+    const request = new AbortController();
+    this.stopsAbortController = request;
+    if (this.elements.stopsShowMore) this.elements.stopsShowMore.hidden = true;
+    const current = () => !this.destroyed && this.stopsAbortController === request;
+    if (this.elements.otherStopsSection)
+      this.elements.otherStopsSection.style.display = "block";
+    if (this.elements.otherStopsList)
+      this.elements.otherStopsList.innerHTML =
+        '<p class="visits-inline-state" role="status">Loading other stops…</p>';
     try {
-      this.nonCustomPlaces = await this.fetchNonCustomPlaces();
+      const places = await this.dataService.fetchNonCustomVisits(
+        {},
+        { signal: request.signal }
+      );
+      if (!current()) return;
+      this.nonCustomPlaces = places;
       this.renderOtherStops();
-    } catch (error) {
-      console.error("Error loading other stops:", error);
+    } catch {
+      if (!current()) return;
+      if (this.elements.otherStopsList)
+        this.elements.otherStopsList.innerHTML =
+          '<div class="visits-inline-state" role="status">Other stops could not be loaded. <button type="button" class="btn btn-outline-secondary btn-sm" data-visits-retry="stops">Try again</button></div>';
     }
   }
 
@@ -919,7 +1080,11 @@ class VisitsPageController {
 
     this.elements.otherStopsSection.style.display = "block";
 
+    if (this.elements.stopsShowMore)
+      this.elements.stopsShowMore.hidden =
+        this.nonCustomPlaces.length <= this.stopsShown;
     const stopsHTML = this.nonCustomPlaces
+      .slice(0, this.stopsShown)
       .map(
         (stop) => `
       <div class="other-stop-item">
@@ -970,7 +1135,7 @@ class VisitsPageController {
     const patterns = [];
 
     if (place.totalVisits >= 10) {
-      patterns.push(`You visit regularly (${place.totalVisits} times)`);
+      patterns.push(`${place.totalVisits.toLocaleString()} recorded visits`);
     }
 
     if (place.firstVisit && place.lastVisit) {
@@ -1087,6 +1252,7 @@ class VisitsPageController {
   }
 
   focusPlace(place) {
+    this.pendingMapPlace = place;
     this.visitsManager?.mapController?.animateToPlace?.(place);
 
     const placeId = this.getPlaceIdentifier(place);
@@ -1144,10 +1310,14 @@ class VisitsPageController {
       return "Never";
     }
     const date = new Date(dateString);
+    if (!Number.isFinite(date.getTime())) return "Unknown";
     const now = new Date();
-    const diffMs = now - date;
+    const diffMs =
+      Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()) -
+      Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
+    if (diffDays < 0) return this.formatDate(dateString);
     if (diffDays === 0) {
       return "Today";
     }
@@ -1165,25 +1335,47 @@ class VisitsPageController {
 
   // Event handlers
   handleViewToggle(e) {
-    const { view } = e.target.dataset;
+    const button = e.currentTarget || e.target.closest("[data-view]");
+    const { view } = button.dataset;
     this.currentView = view;
 
     // Update active state
     this.elements.viewBtns.forEach((btn) => btn.classList.remove("active"));
-    e.target.classList.add("active");
+    button.classList.add("active");
+    this.elements.viewBtns.forEach((btn) =>
+      btn.setAttribute("aria-pressed", String(btn.dataset.view === view))
+    );
 
     // Re-render
     this.renderPlaces();
   }
 
   async showPlaceDetail(placeId) {
+    if (this.destroyed) return;
+    this.activePlaceId = String(placeId);
+    const generation = ++this.detailGeneration;
+    this.detailAbortController?.abort();
+    this.detailAbortController = new AbortController();
+    const options = { signal: this.detailAbortController.signal };
+    const modalEl = document.getElementById("place-detail-modal");
+    if (!bootstrap?.Modal || !modalEl) return;
+    document.getElementById("modal-place-name").textContent =
+      this.getPlaceByIdentifier(placeId)?.name || "Place details";
+    document.getElementById("modal-stats-row").innerHTML =
+      '<p role="status">Loading visit statistics…</p>';
+    document.getElementById("modal-visit-timeline").innerHTML =
+      '<p role="status">Loading visit history…</p>';
+    document.getElementById("modal-timeline-count").textContent = "";
+    document.getElementById("modal-timeline-show-more").style.display = "none";
+    this.modalTrips = [];
+    this._cleanupOrphanedModalState();
+    bootstrap.Modal.getOrCreateInstance(modalEl).show();
     try {
-      this.activePlaceId = String(placeId);
-
       const [stats, tripsResponse] = await Promise.all([
-        this.fetchPlaceStats(placeId),
-        this.fetchPlaceTrips(placeId),
+        this.dataService.fetchPlaceDetailStatistics(placeId, options),
+        this.dataService.fetchPlaceTrips(placeId, options),
       ]);
+      if (this.destroyed || generation !== this.detailGeneration) return;
 
       const trips = Array.isArray(tripsResponse?.trips) ? tripsResponse.trips : [];
 
@@ -1197,23 +1389,15 @@ class VisitsPageController {
           <span class="modal-stat-label">Total Visits</span>
         </div>
         <div class="modal-stat">
-          <span class="modal-stat-value">${stats.averageTimeSpent}</span>
+          <span class="modal-stat-value">${escapeHtml(stats.averageTimeSpent)}</span>
           <span class="modal-stat-label">Avg Duration</span>
         </div>
         <div class="modal-stat">
-          <span class="modal-stat-value">${stats.averageTimeSinceLastVisit}</span>
+          <span class="modal-stat-value">${escapeHtml(stats.averageTimeSinceLastVisit)}</span>
           <span class="modal-stat-label">Time Between</span>
         </div>
       `;
       document.getElementById("modal-stats-row").innerHTML = statsHTML;
-      const editPlaceIdInput = document.getElementById("edit-place-id");
-      const editPlaceNameInput = document.getElementById("edit-place-name");
-      if (editPlaceIdInput) {
-        editPlaceIdInput.value = this.activePlaceId;
-      }
-      if (editPlaceNameInput) {
-        editPlaceNameInput.value = stats.name || "";
-      }
 
       // Store trips for progressive rendering
       this.modalTrips = trips;
@@ -1232,19 +1416,18 @@ class VisitsPageController {
       const timelineEl = document.getElementById("modal-visit-timeline");
       timelineEl.innerHTML = "";
       this._renderTimelineBatch(timelineEl);
-
-      // Show modal
-      const modalEl = document.getElementById("place-detail-modal");
-      if (!bootstrap?.Modal || !modalEl) {
-        console.warn("Bootstrap modal is unavailable for place details.");
-        return;
-      }
-      this._cleanupOrphanedModalState();
-      const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
-      modal.show();
-    } catch (error) {
-      console.error("Error loading place detail:", error);
-      this.showNotification("Error loading place details", "error");
+    } catch {
+      if (this.destroyed || generation !== this.detailGeneration) return;
+      document.getElementById("modal-stats-row").innerHTML = "";
+      const timeline = document.getElementById("modal-visit-timeline");
+      timeline.innerHTML =
+        '<p role="status">Visit details could not be loaded.</p><button type="button" class="btn btn-outline-secondary" id="retry-place-detail">Try again</button>';
+      document
+        .getElementById("retry-place-detail")
+        .addEventListener("click", () => this.showPlaceDetail(placeId), {
+          once: true,
+          signal: this.listenerAbortController.signal,
+        });
     }
   }
 
@@ -1265,7 +1448,7 @@ class VisitsPageController {
 
     for (let i = start; i < end; i++) {
       const trip = trips[i];
-      const sinceLast = i > 0 ? trip.timeSinceLastVisit : null;
+      const sinceLast = trip.timeSinceLastVisit;
 
       const item = document.createElement("div");
       item.className = "timeline-item";
@@ -1273,8 +1456,8 @@ class VisitsPageController {
         <div class="timeline-date">${this.formatDate(trip.endTime)}</div>
         <div class="timeline-content">
           <span>${new Date(trip.endTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })} - ${trip.departureTime ? new Date(trip.departureTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }) : "Unknown"}</span>
-          <span class="duration">${trip.timeSpent}</span>
-          ${sinceLast ? `<span class="since-last">${sinceLast} since last</span>` : ""}
+          <span class="duration">${escapeHtml(trip.timeSpent)}</span>
+          ${sinceLast ? `<span class="since-last">${escapeHtml(sinceLast)} since previous visit</span>` : ""}
         </div>
       `;
       fragment.appendChild(item);
@@ -1301,6 +1484,10 @@ class VisitsPageController {
       return;
     }
     this.destroyed = true;
+    this.loadAbortController?.abort();
+    this.suggestionAbortController?.abort();
+    this.stopsAbortController?.abort();
+    this.detailAbortController?.abort();
     this.visitsManager?.destroy?.();
     this.visitsManager = null;
     this.clearPlacePreviewMaps();
@@ -1452,15 +1639,10 @@ class VisitsPageController {
           return;
         }
 
-        const rendered = renderGeometryPreview(
-          container,
-          geometry,
-          inks,
-          {
-            backgroundImageUrl: previewImageUrl,
-            previewBounds,
-          }
-        );
+        const rendered = renderGeometryPreview(container, geometry, inks, {
+          backgroundImageUrl: previewImageUrl,
+          previewBounds,
+        });
         if (!rendered) {
           this.updatePreviewFallback(container, "Boundary unavailable");
         }
@@ -1478,11 +1660,7 @@ class VisitsPageController {
         return;
       }
 
-      const rendered = renderGeometryPreview(
-        container,
-        boundary,
-        inks
-      );
+      const rendered = renderGeometryPreview(container, boundary, inks);
       if (!rendered) {
         this.updatePreviewFallback(container, "Map preview unavailable");
       }

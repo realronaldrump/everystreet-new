@@ -22,6 +22,7 @@ const VisitsHelpers = {
    * Show initial loading overlay
    */
   showInitialLoading() {
+    document.getElementById("map")?.setAttribute("aria-busy", "true");
     const loadingOverlay = document.getElementById("map-loading");
     if (loadingOverlay) {
       loadingOverlay.style.display = "flex";
@@ -31,35 +32,74 @@ const VisitsHelpers = {
   },
 
   /**
-   * Hide initial loading overlay with animation
+   * Hide the map-only loading state immediately, including after failures.
    */
   hideInitialLoading() {
+    document.getElementById("map")?.setAttribute("aria-busy", "false");
     const loadingOverlay = document.getElementById("map-loading");
     if (loadingOverlay) {
       loadingOverlay.style.pointerEvents = "none";
-      setTimeout(() => {
-        loadingOverlay.style.transition = "opacity 0.3s ease";
-        loadingOverlay.style.opacity = "0";
-        setTimeout(() => {
-          loadingOverlay.style.display = "none";
-        }, 300);
-      }, 500);
+      loadingOverlay.style.opacity = "0";
+      loadingOverlay.style.display = "none";
     }
   },
 
   /**
    * Show error state in the map container
    */
-  showErrorState() {
+  showErrorState(onRetry) {
+    this.hideInitialLoading();
     const mapContainer = document.getElementById("map");
     if (mapContainer) {
       mapContainer.innerHTML = `
-          <div class="empty-state">
-            <i class="fas fa-exclamation-triangle"></i>
-            <h5>Unable to Load Map</h5>
-            <p>Please refresh the page to try again</p>
+          <div class="empty-state" role="status">
+            <i class="fas fa-exclamation-triangle" aria-hidden="true"></i>
+            <h5>Map unavailable</h5>
+            <p>Your places and visit history are still available.</p>
+            <button type="button" class="btn btn-outline-primary" data-action="retry-map">Retry map</button>
           </div>
         `;
+      mapContainer.querySelector('[data-action="retry-map"]')?.addEventListener(
+        "click",
+        () => onRetry?.(),
+        { once: true }
+      );
+    }
+  },
+
+  setMapControlsEnabled(enabled, drawingEnabled = enabled) {
+    for (const id of ["zoom-to-fit", "map-style-toggle"]) {
+      const button = document.getElementById(id);
+      if (button) {
+        button.disabled = !enabled;
+      }
+    }
+    for (const id of [
+      "start-drawing", "start-edit-boundary", "start-drawing-fab",
+      "add-first-place-btn", "edit-place-boundary", "modal-edit-boundary",
+    ]) {
+      const button = document.getElementById(id);
+      if (button) {
+        button.disabled = !drawingEnabled;
+      }
+    }
+  },
+
+  setTableState(state, onRetry) {
+    const status = document.getElementById("visits-table-status");
+    const wrapper = document.getElementById("visits-table")?.closest(".table-responsive");
+    if (wrapper) {
+      wrapper.hidden = state !== "ready";
+    }
+    if (!status) {
+      return;
+    }
+    status.hidden = state === "ready";
+    if (state === "loading") {
+      status.textContent = "Loading list view… Your places are available in Cards.";
+    } else if (state === "error") {
+      status.innerHTML = '<p>List view could not load. Your places are available in Cards.</p><button type="button" class="btn btn-outline-secondary btn-sm">Retry list</button>';
+      status.querySelector("button")?.addEventListener("click", () => onRetry?.(), { once: true });
     }
   },
 

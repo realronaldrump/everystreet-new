@@ -36,7 +36,7 @@ const routes = [
   ["/trip-import", "../../pages/trip-import.js"],
   ["/routes/*", "../../pages/routes.js", ["map", "chart"]],
   ["/insights", "../../pages/insights.js", ["chart", "deck"]],
-  ["/visits", "../../pages/visits.js", ["map", "mapDraw", "datatables"]],
+  ["/visits", "../../pages/visits.js"],
   ["/control-center", "../../pages/control-center.js"],
   ["/vehicles", "../../pages/vehicles.js"],
   ["/gas-tracking", "../../pages/gas-tracking.js", ["map"]],

@@ -1791,3 +1791,76 @@
   transform: none;
   box-shadow: none;
 }
+
+/* Defer offscreen map imagery while keeping the boundary aligned with it. */
+.map-preview-background,
+.map-preview-boundary {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.map-preview-background {
+  object-fit: fill;
+}
+
+.places-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.places-filter-bar > div:first-child {
+  flex: 1 1 14rem;
+}
+
+.places-filter-bar label {
+  display: block;
+  margin-bottom: 0.35rem;
+  font-size: 0.85rem;
+}
+
+#places-result-count {
+  padding-bottom: 0.5rem;
+  color: var(--text-secondary);
+}
+
+.visits-inline-state {
+  padding: 1rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  margin-bottom: 1rem;
+  grid-column: 1 / -1;
+}
+
+.visits-inline-state button {
+  margin-left: 0.5rem;
+}
+
+.visits-show-more {
+  margin-block: 1rem;
+}
+
+.visits-container [hidden] {
+  display: none !important;
+}
+
+.place-card:focus-visible {
+  outline: var(--focus-outline);
+  outline-offset: 3px;
+}
+
+@media (width <= 600px) {
+  .places-section-actions {
+    flex-wrap: wrap;
+  }
+
+  .places-filter-bar > div {
+    flex: 1 1 100%;
+  }
+}

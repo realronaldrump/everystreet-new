@@ -44,19 +44,20 @@ Every Street - Places & Visits
       </div>
       <span class="figure-rule" aria-hidden="true"></span>
       <div class="figure">
-        <span class="figure-label">Visits captured</span>
+        <span class="figure-label">Visits · all time</span>
         <span class="figure-readout">
           <span class="figure-value" id="total-visits-count">-</span>
         </span>
       </div>
       <span class="figure-rule" aria-hidden="true"></span>
       <div class="figure">
-        <span class="figure-label">This month</span>
+        <span class="figure-label">Last 30 days</span>
         <span class="figure-readout">
           <span class="figure-value" id="month-visits-count">-</span>
         </span>
       </div>
     </div>
+    <div id="stats-error" class="visits-inline-state" role="status" hidden></div>
     <section class="visits-section places-section">
       <div class="section-header">
         <div class="section-title-wrapper">
@@ -64,24 +65,41 @@ Every Street - Places & Visits
             Your places
           </h2>
           <p class="section-subtitle">
-Places you've defined with visit tracking
+All-time visits to your saved places. Date filters do not apply here.
           </p>
         </div>
         <div class="places-section-actions">
+          <button class="btn btn-outline-secondary btn-sm" type="button" data-visits-retry="places">Refresh visits</button>
           <button class="places-preview-refresh-btn" id="refresh-place-previews" type="button">
             <i class="fas fa-sync-alt"></i>
             <span>Refresh previews</span>
           </button>
           <div class="view-toggle segmented-control">
-            <button class="view-btn segment active" data-view="cards">
+            <button type="button" class="view-btn segment active" data-view="cards" aria-pressed="true">
 Cards
             </button>
-            <button class="view-btn segment" data-view="list">
+            <button type="button" class="view-btn segment" data-view="list" aria-pressed="false">
 List
             </button>
           </div>
         </div>
       </div>
+      <div class="places-filter-bar">
+        <div>
+          <label for="place-search">Find a place</label>
+          <input type="search" id="place-search" class="form-control" placeholder="Search your places…" />
+        </div>
+        <div>
+          <label for="place-sort">Sort places</label>
+          <select id="place-sort" class="form-select">
+            <option value="visits">Most visits</option>
+            <option value="recent">Most recent</option>
+            <option value="name">Name</option>
+          </select>
+        </div>
+        <span id="places-result-count" role="status"></span>
+      </div>
+      <div id="places-error" class="visits-inline-state" role="status" hidden></div>
       <div class="places-grid" id="places-grid">
         <div class="places-loading">
           <div class="spinner-border text-primary" role="status">
@@ -92,7 +110,9 @@ Loading your places...
           </p>
         </div>
       </div>
+      <button type="button" class="btn btn-outline-secondary visits-show-more" id="places-show-more" hidden>Show more places</button>
       <div class="places-list-view" id="places-list-view" style="display: none">
+        <div id="visits-table-status" class="visits-inline-state" role="status" hidden></div>
         <div class="table-responsive">
           <table id="visits-table" class="table visits-table" style="width: 100%">
             <thead>
@@ -138,10 +158,10 @@ No places yet
       <div class="section-header">
         <div class="section-title-wrapper">
           <h2 class="section-title">
-            Your routines
+            Frequent places
           </h2>
           <p class="section-subtitle">
-          Places you visit with consistent patterns detected from your data
+          Your six most visited places with at least five recorded visits
           </p>
         </div>
       </div>
@@ -196,6 +216,7 @@ Min visits:
                    type="number"
                    inputmode="numeric"
                    min="1"
+                   max="1000"
                    step="1"
                    value="5" />
           </div>
@@ -422,6 +443,7 @@ Please enter a name for this place.
 
       <div class="other-stops-list" id="other-stops-list">
       </div>
+      <button type="button" class="btn btn-outline-secondary visits-show-more" id="stops-show-more" hidden>Show more stops</button>
     </section>
     <section class="visits-section trips-section"
              id="trips-section"
@@ -482,7 +504,7 @@ Actions
     <span>Add a place</span>
   </button>
 </div>
-<div class="modal fade visits-modal" id="place-detail-modal" tabindex="-1">
+<div class="modal fade visits-modal" id="place-detail-modal" tabindex="-1" aria-labelledby="modal-place-name">
   <div class="modal-dialog modal-lg modal-dialog-scrollable">
     <div class="modal-content">
       <div class="modal-header visits-modal-header">

@@ -34,12 +34,19 @@ function loadScript(key, id, isReady) {
   const promise = new Promise((resolve, reject) => {
     const script = findScript(src, id) || document.createElement("script");
     let timer = null;
+    let settled = false;
 
     const done = (error) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
       clearTimeout(timer);
       if (error) {
+        script.remove();
         reject(error);
       } else if (isReady && !isReady()) {
+        script.remove();
         reject(new Error(`Library loaded without expected global: ${key}`));
       } else {
         resolve();

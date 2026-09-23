@@ -12,6 +12,7 @@ from typing import Any, Literal
 from urllib.parse import quote
 
 import httpx
+from pydantic import BaseModel, Field
 
 from config import require_mapbox_token
 from db.models import Place, PlacePreviewImage, PlacePreviewThemeImage
@@ -43,6 +44,15 @@ class PreviewGenerationResult:
 
     status: PreviewStatus
     error: str | None = None
+
+
+class PlacePreviewMetadata(BaseModel):
+    """List-page preview availability without downloading cached image bytes."""
+
+    place_id: str
+    geometry_hash: str
+    bounds: list[float] = Field(default_factory=list)
+    images: dict[str, Any] = Field(default_factory=dict)
 
 
 def _is_finite_number(value: Any) -> bool:
@@ -269,13 +279,26 @@ class PlacePreviewService:
     @staticmethod
     async def get_previews_for_places(
         place_ids: list[str],
-    ) -> dict[str, PlacePreviewImage]:
+    ) -> dict[str, PlacePreviewMetadata]:
         if not place_ids:
             return {}
-        previews = await PlacePreviewImage.find(
-            {"place_id": {"$in": list(dict.fromkeys(place_ids))}}
-        ).to_list()
-        return {preview.place_id: preview for preview in previews}
+        collection = PlacePreviewImage.get_pymongo_collection()
+        docs = await collection.find(
+            {"place_id": {"$in": list(dict.fromkeys(place_ids))}},
+            {
+                "_id": 0,
+                "place_id": 1,
+                "geometry_hash": 1,
+                "bounds": 1,
+                **{
+                    f"images.{theme}.content_type": 1
+                    for theme in SUPPORTED_PREVIEW_THEMES
+                },
+            },
+        ).to_list(None)
+        return {
+            doc["place_id"]: PlacePreviewMetadata.model_validate(doc) for doc in docs
+        }
 
     @staticmethod
     async def delete_preview(place_id: str) -> None:

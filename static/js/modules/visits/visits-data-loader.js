@@ -15,56 +15,6 @@ class VisitsDataLoader {
   }
 
   /**
-   * Load all places from the server
-   * @param {Function} onPlacesLoaded - Callback with places array
-   * @returns {Promise<Map>} Map of place ID to place data
-   */
-  async loadPlaces(onPlacesLoaded) {
-    this.loadingManager?.show("Loading Places");
-
-    try {
-      const places = await this.dataService.fetchPlaces();
-      const placesMap = new Map(
-        places
-          .map((place) => {
-            const placeId = place?.id;
-            if (placeId === undefined || placeId === null) {
-              return null;
-            }
-            return [String(placeId), place];
-          })
-          .filter(Boolean)
-      );
-
-      if (onPlacesLoaded) {
-        await onPlacesLoaded(places);
-      }
-
-      this.loadingManager?.hide();
-      return placesMap;
-    } catch (error) {
-      console.error("Error loading places:", error);
-      this.notificationManager?.show("Failed to load custom places", "danger");
-      this.loadingManager?.hide();
-      return new Map();
-    }
-  }
-
-  /**
-   * Load place statistics
-   * @param {Object} params - Query parameters
-   * @returns {Promise<Array>} Array of statistics
-   */
-  async loadPlaceStatistics(params = {}) {
-    try {
-      return await this.dataService.fetchPlaceStatistics(params);
-    } catch (error) {
-      console.error("Error loading place statistics:", error);
-      throw error;
-    }
-  }
-
-  /**
    * Load detailed statistics for a specific place
    * @param {string} placeId - Place ID
    * @returns {Promise<Object>} Place statistics

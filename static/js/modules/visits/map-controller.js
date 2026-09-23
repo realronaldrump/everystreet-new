@@ -1,5 +1,6 @@
 
 import { resolveMapStyle } from "../core/map-style-resolver.js";
+import { ensureLibraries } from "../core/library-loader.js";
 import { createMap } from "../map-core.js";
 import MapStyles from "../map-styles.js";
 import { VisitsGeometry } from "./geometry.js";
@@ -9,10 +10,16 @@ class VisitsMapController {
     geometryUtils = VisitsGeometry,
     mapStyles = MapStyles,
     onPlaceClicked,
+    mapFactory = createMap,
+    initializationTimeoutMs = 12000,
+    loadLibraries = () => ensureLibraries(["map", "mapDraw"]),
   } = {}) {
     this.geometryUtils = geometryUtils;
     this.mapStyles = mapStyles;
     this.onPlaceClicked = onPlaceClicked;
+    this.mapFactory = mapFactory;
+    this.initializationTimeoutMs = initializationTimeoutMs;
+    this.loadLibraries = loadLibraries;
     this.map = null;
     this.mapStyle = "dark";
     this.customPlacesData = { type: "FeatureCollection", features: [] };
@@ -20,51 +27,114 @@ class VisitsMapController {
     this.activePopup = null;
     this.placeInteractionHandlers = null;
     this.destroyed = false;
-    this.resolveInitialization = null;
+    this.initializationPromise = null;
+    this.cancelInitialization = null;
+    this.ready = false;
   }
 
   initialize(theme) {
-    return new Promise((resolve, reject) => {
-      this.resolveInitialization = resolve;
-      try {
-        const initialStyle = resolveMapStyle({ requestedType: theme || "dark", theme });
-        this.mapStyle = initialStyle.styleType;
-        this.map = createMap("map", {
-          library: "mapbox",
-          style: initialStyle.styleUrl,
-          center: [-95.7129, 37.0902],
-          zoom: 4,
-          attributionControl: false,
-          pitchWithRotate: false,
-          dragRotate: false,
-          touchZoomRotate: false,
-          navigationControl: { showCompass: false, position: "bottom-right" },
-        });
+    if (this.destroyed) {
+      return Promise.resolve(false);
+    }
+    if (this.ready) {
+      return Promise.resolve(true);
+    }
+    if (this.initializationPromise) {
+      return this.initializationPromise;
+    }
 
-        this.map.on("load", () => {
-          this.resolveInitialization = null;
-          if (this.destroyed || !this.map) {
-            resolve();
-            return;
-          }
+    const pending = new Promise((resolve, reject) => {
+      let map;
+      let timeout;
+      let settled = false;
+      const finish = (error = null, ready = false) => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        clearTimeout(timeout);
+        map?.off("load", onLoad);
+        this.cancelInitialization = null;
+        this.ready = ready;
+        if (!ready) {
+          map?.remove();
+          this.map = null;
+          this.placeInteractionHandlers = null;
+        }
+        if (error) {
+          reject(error);
+        } else {
+          resolve(ready);
+        }
+      };
+      const onLoad = () => {
+        if (this.destroyed || this.map !== map) {
+          finish();
+          return;
+        }
+        try {
           this._addPlacesSource();
           this._addPlacesLayers();
           this._bindPlaceInteractions();
-
-          // Ensure map fills container after load
           requestAnimationFrame(() => {
-            this.map.resize();
+            if (!this.destroyed && this.map === map) {
+              map.resize();
+            }
           });
+          finish(null, true);
+        } catch (error) {
+          finish(error);
+        }
+      };
 
-          resolve();
-        });
+      this.cancelInitialization = () => finish();
+      timeout = setTimeout(
+        () => finish(new Error("The map timed out while loading. Please retry.")),
+        this.initializationTimeoutMs
+      );
+      const create = () => {
+        if (settled || this.destroyed) {
+          return;
+        }
+        try {
+          const initialStyle = resolveMapStyle({ requestedType: theme || "dark", theme });
+          this.mapStyle = initialStyle.styleType;
+          map = this.mapFactory("map", {
+            library: "mapbox",
+            style: initialStyle.styleUrl,
+            center: [-95.7129, 37.0902],
+            zoom: 4,
+            attributionControl: false,
+            pitchWithRotate: false,
+            dragRotate: false,
+            touchZoomRotate: false,
+            navigationControl: { showCompass: false, position: "bottom-right" },
+          });
+          this.map = map;
+          map.on("load", onLoad);
+        } catch (error) {
+          finish(error);
+        }
+      };
+      try {
+        const libraries = this.loadLibraries();
+        if (libraries?.then) {
+          libraries.then(create, (error) => finish(error));
+        } else {
+          create();
+        }
       } catch (error) {
-        this.resolveInitialization = null;
-        this.map?.remove();
-        this.map = null;
-        reject(error);
+        finish(error);
       }
     });
+    this.initializationPromise = pending;
+    const clearPending = () => {
+      if (this.initializationPromise === pending) {
+        this.initializationPromise = null;
+      }
+    };
+    pending.then(clearPending, clearPending);
+    return pending;
   }
 
   getMap() {
@@ -132,6 +202,9 @@ class VisitsMapController {
   }
 
   toggleMapStyle() {
+    if (!this.map || !this.ready) {
+      return;
+    }
     const nextStyleType = this.mapStyle === "satellite" ? "dark" : "satellite";
     const { styleType, styleUrl } = resolveMapStyle({ requestedType: nextStyleType });
     this.mapStyle = styleType;
@@ -149,6 +222,9 @@ class VisitsMapController {
   }
 
   updateTheme(theme) {
+    if (!this.map || !this.ready) {
+      return;
+    }
     const { styleType, styleUrl } = resolveMapStyle({
       requestedType: theme === "light" ? "light" : "dark",
       theme,
@@ -234,17 +310,22 @@ class VisitsMapController {
     this.activePopup = null;
   }
 
-  destroy() {
-    this.destroyed = true;
-    this.resolveInitialization?.();
-    this.resolveInitialization = null;
+  reset() {
+    this.cancelInitialization?.();
+    this.cancelInitialization = null;
+    this.ready = false;
     this.closePopup();
     this.map?.remove();
     this.map = null;
+    this.placeInteractionHandlers = null;
+  }
+
+  destroy() {
+    this.destroyed = true;
+    this.reset();
     this.placeFeatures.clear();
     this.customPlacesData.features = [];
     this.onPlaceClicked = null;
-    this.placeInteractionHandlers = null;
   }
 
   static _resolvePlaceId(place) {

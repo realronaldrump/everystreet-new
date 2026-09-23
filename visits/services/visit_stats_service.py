@@ -1,5 +1,6 @@
 """Business logic for visit statistics and suggestions."""
 
+import asyncio
 import logging
 import math
 from collections import Counter, defaultdict, deque
@@ -43,9 +44,9 @@ def _resolve_timeframe_start(
     *,
     error_message: str,
 ) -> datetime | None:
-    if not timeframe:
+    timeframe_key = (timeframe or "").strip().lower()
+    if not timeframe_key or timeframe_key == "all":
         return None
-    timeframe_key = timeframe.lower()
     delta = TIMEFRAME_DELTAS.get(timeframe_key)
     if delta is None:
         raise ValueError(error_message)
@@ -85,7 +86,7 @@ def _is_point_within_existing(
     pt = ShpPoint(lng, lat)
     for idx in tree.query(pt):
         try:
-            if polygons[idx].contains(pt):
+            if polygons[idx].covers(pt):
                 return True
         except Exception:
             continue
@@ -421,6 +422,46 @@ def _build_cluster_suggestion(
     )
 
 
+def _build_visit_suggestions(
+    docs: list[dict[str, Any]],
+    existing_places: list[Place],
+    *,
+    min_visits: int,
+    cell_size_m: int,
+) -> list[VisitSuggestion]:
+    """Run spatial work outside the web event loop."""
+    existing_polygons, tree = _build_existing_place_index(existing_places)
+    candidates = _build_candidates(docs, tree=tree, polygons=existing_polygons)
+    if not candidates:
+        return []
+
+    all_points = [(c["lng"], c["lat"]) for c in candidates]
+    to_meters, _ = get_local_transformers(MultiPoint(all_points))
+    points_m = [to_meters(lng, lat) for lng, lat in all_points]
+    labels = _dbscan(points_m, cell_size_m, min_visits)
+    refined_clusters = _collect_refined_clusters(
+        points_m=points_m,
+        cluster_indices=_collect_cluster_indices(labels),
+        min_visits=min_visits,
+        cell_size_m=cell_size_m,
+    )
+
+    suggestions = []
+    for indices in refined_clusters:
+        suggestion = _build_cluster_suggestion(
+            indices=indices,
+            candidates=candidates,
+            min_visits=min_visits,
+            cell_size_m=cell_size_m,
+            tree=tree,
+            existing_polygons=existing_polygons,
+        )
+        if suggestion is not None:
+            suggestions.append(suggestion)
+    suggestions.sort(key=lambda suggestion: suggestion.totalVisits, reverse=True)
+    return suggestions
+
+
 class VisitStatsService:
     """Service class for visit statistics and suggestions."""
 
@@ -499,12 +540,13 @@ class VisitStatsService:
         if not places:
             return []
 
+        visits_by_place = await VisitTrackingService.calculate_visits_for_places(
+            places,
+            arrival_since=arrival_since,
+        )
         results = []
         for place_model in places:
-            visits = await VisitTrackingService.calculate_visits_for_place(
-                place_model,
-                arrival_since=arrival_since,
-            )
+            visits = visits_by_place[str(place_model.id)]
 
             total_visits = len(visits)
             durations = [
@@ -734,7 +776,28 @@ class VisitStatsService:
                     "destinationPlaceName": 1,
                     "destination": 1,
                     "destinationGeoPoint": 1,
-                    "gps": 1,
+                    # Only the endpoint is needed. Full route histories can be
+                    # hundreds of MB even though the discovery result is small.
+                    "gps": {
+                        "type": {"$literal": "Point"},
+                        "coordinates": {
+                            "$switch": {
+                                "branches": [
+                                    {
+                                        "case": {"$eq": ["$gps.type", "LineString"]},
+                                        "then": {
+                                            "$arrayElemAt": ["$gps.coordinates", -1]
+                                        },
+                                    },
+                                    {
+                                        "case": {"$eq": ["$gps.type", "Point"]},
+                                        "then": "$gps.coordinates",
+                                    },
+                                ],
+                                "default": None,
+                            }
+                        },
+                    },
                 },
             },
         ]
@@ -745,38 +808,10 @@ class VisitStatsService:
             return []
 
         existing_places = await Place.find_all().to_list()
-        existing_polygons, tree = _build_existing_place_index(existing_places)
-        candidates = _build_candidates(docs, tree=tree, polygons=existing_polygons)
-
-        if not candidates:
-            return []
-
-        all_points = [(c["lng"], c["lat"]) for c in candidates]
-        all_points_geom = MultiPoint(all_points)
-        to_meters, _ = get_local_transformers(all_points_geom)
-        points_m = [to_meters(lng, lat) for lng, lat in all_points]
-
-        labels = _dbscan(points_m, cell_size_m, min_visits)
-        cluster_indices = _collect_cluster_indices(labels)
-        refined_clusters = _collect_refined_clusters(
-            points_m=points_m,
-            cluster_indices=cluster_indices,
+        return await asyncio.to_thread(
+            _build_visit_suggestions,
+            docs,
+            existing_places,
             min_visits=min_visits,
             cell_size_m=cell_size_m,
         )
-
-        suggestions: list[VisitSuggestion] = []
-        for indices in refined_clusters:
-            suggestion = _build_cluster_suggestion(
-                indices=indices,
-                candidates=candidates,
-                min_visits=min_visits,
-                cell_size_m=cell_size_m,
-                tree=tree,
-                existing_polygons=existing_polygons,
-            )
-            if suggestion is not None:
-                suggestions.append(suggestion)
-
-        suggestions.sort(key=lambda s: s.totalVisits, reverse=True)
-        return suggestions

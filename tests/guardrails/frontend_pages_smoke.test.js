@@ -73,8 +73,12 @@ test("global app bootstrap stays light and route libraries load lazily", () => {
   assert.doesNotMatch(baseTemplate, /<script src="{{ CDN\.datatables_js }}"/);
   [
     /"\/routes\/\*"[\s\S]*\["map",\s*"chart"\]/,
-    /"\/visits"[\s\S]*\["map",\s*"mapDraw",\s*"datatables"\]/,
+    /\["\/visits",\s*"\.\.\/\.\.\/pages\/visits\.js"\]/,
   ].forEach((pattern) => assert.match(routeLoaderSource, pattern));
+  const visitsMapSource = readRepoFile(
+    "static", "js", "modules", "visits", "map-controller.js"
+  );
+  assert.match(visitsMapSource, /ensureLibraries\(\["map",\s*"mapDraw"\]\)/);
 });
 
 test("route-loader remains the only owner of page entrypoints", () => {

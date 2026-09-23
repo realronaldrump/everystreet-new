@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 import pytest
 from db_helpers import init_mock_beanie
 
-from db.models import Place, PlacePreviewImage
+from db.models import Place, PlacePreviewImage, PlacePreviewThemeImage
 from visits.services.place_preview_service import (
     PREVIEW_HEIGHT,
     PREVIEW_THEME_STYLES,
@@ -164,3 +164,32 @@ async def test_place_create_succeeds_when_preview_generation_fails(
     assert response.previewImageUrl is None
     assert await Place.get(response.id) is not None
     assert await PlacePreviewService.get_preview(response.id) is None
+
+
+@pytest.mark.asyncio
+async def test_place_list_reads_preview_metadata_without_image_bytes(
+    place_preview_db,
+) -> None:
+    del place_preview_db
+    place = Place(name="Coffee Shop", geometry=_polygon())
+    await place.insert()
+    await PlacePreviewImage(
+        place_id=str(place.id),
+        geometry_hash=geometry_hash(place.geometry),
+        bounds=[-98.0, 30.0, -97.0, 31.0],
+        images={
+            "dark": PlacePreviewThemeImage(image_bytes=b"large-private-image"),
+            "light": PlacePreviewThemeImage(image_bytes=b"large-private-image-light"),
+        },
+    ).insert()
+
+    metadata = await PlacePreviewService.get_previews_for_places([str(place.id)])
+
+    assert set(metadata[str(place.id)].images) == {"dark", "light"}
+    assert all(
+        "image_bytes" not in image for image in metadata[str(place.id)].images.values()
+    )
+    places = await PlaceService.get_places()
+    assert len(places) == 1
+    assert set(places[0].previewImageUrls) == {"dark", "light"}
+    assert places[0].previewBounds == [-98.0, 30.0, -97.0, 31.0]

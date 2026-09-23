@@ -59,6 +59,7 @@ test("minimum discovery visits normalizes numeric input", () => {
   assert.equal(normalizeDiscoveryMinVisits("0"), DEFAULT_DISCOVERY_MIN_VISITS);
   assert.equal(normalizeDiscoveryMinVisits(""), DEFAULT_DISCOVERY_MIN_VISITS);
   assert.equal(normalizeDiscoveryMinVisits("bad", 4), 4);
+  assert.equal(normalizeDiscoveryMinVisits("5000"), 1000);
 });
 
 test("visits page defaults discovery radius to small", () => {

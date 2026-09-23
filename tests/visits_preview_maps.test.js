@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { buildGeometryPreviewMarkup } from "../static/js/modules/visits/preview-map-renderer.js";
+import {
+  buildGeometryPreviewMarkup,
+  renderGeometryPreview,
+} from "../static/js/modules/visits/preview-map-renderer.js";
 import { assertHasId, readStaticJs, readTemplate } from "./helpers/fs-smoke.js";
 
 test("geometry preview renderer outputs inline svg for polygon boundaries", () => {
@@ -59,9 +62,49 @@ test("geometry preview renderer uses cached image background when available", ()
   assert.match(markup, /data-layer="map-background"/);
   assert.match(
     markup,
-    /href="\/api\/places\/place-1\/preview\.png\?v=abc&amp;mode=card"/
+    /src="\/api\/places\/place-1\/preview\.png\?v=abc&amp;mode=card"/
   );
+  assert.match(markup, /<img\b[^>]*loading="lazy"[^>]*decoding="async"/);
+  assert.match(markup, /fetchpriority="low"/);
+  assert.match(markup, /preserveAspectRatio="none"/);
+  assert.doesNotMatch(markup, /<image\b/);
   assert.doesNotMatch(markup, /data-layer="grid"/);
+});
+
+test("preview replacement removes the prior image and boundary together", () => {
+  const actions = [];
+  const container = {
+    querySelector(selector) {
+      actions.push(["find", selector]);
+      return { remove: () => actions.push(["remove"]) };
+    },
+    insertAdjacentHTML(position, markup) {
+      actions.push(["insert", position, markup]);
+    },
+    classList: {
+      add: (name) => actions.push(["add", name]),
+      remove: (name) => actions.push(["removeClass", name]),
+    },
+  };
+  assert.equal(
+    renderGeometryPreview(
+      container,
+      { type: "Point", coordinates: [-97.744, 30.267] },
+      { fill: "#6f8fce", line: "#8aa7df" },
+      {
+        backgroundImageUrl: '/preview.png?theme="light"',
+        previewBounds: [-98, 30, -97, 31],
+      }
+    ),
+    true
+  );
+  assert.deepEqual(actions.slice(0, 2), [["find", ".map-preview-graphic"], ["remove"]]);
+  assert.match(actions[2][2], /^<div class="map-preview-graphic"/);
+  assert.match(actions[2][2], /theme=&quot;light&quot;/);
+  assert.deepEqual(actions.at(-1), ["add", "has-map"]);
+
+  assert.equal(renderGeometryPreview(container, null, {}), false);
+  assert.deepEqual(actions.at(-1), ["removeClass", "has-map"]);
 });
 
 test("visits controller renders preview cards without a hard preview-map cap", () => {
@@ -99,5 +142,5 @@ test("visits page re-renders place previews when theme changes", () => {
   const visitsIndexSource = readStaticJs("modules", "features", "visits", "index.js");
 
   assert.match(visitsIndexSource, /data-bs-theme/);
-  assert.match(visitsIndexSource, /visitsPage\?\.renderPlaces\?\.\(\)/);
+  assert.match(visitsIndexSource, /page\.renderPlaces\?\.\(\)/);
 });

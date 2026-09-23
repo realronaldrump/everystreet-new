@@ -58,7 +58,7 @@ class PlaceService:
                     theme,
                 )
                 for theme in PlacePreviewService.preview_themes()
-                if PlacePreviewService.get_theme_image(preview, theme) is not None
+                if theme in preview.images
             }
             preview_image_url = preview_image_urls.get(
                 "dark"

@@ -269,7 +269,7 @@ function renderGridLines() {
 
 function renderMapBackground(imageUrl) {
   const escapedImageUrl = escapeAttribute(imageUrl);
-  return `<image data-layer="map-background" href="${escapedImageUrl}" xlink:href="${escapedImageUrl}" x="0" y="0" width="${VIEWBOX_WIDTH}" height="${VIEWBOX_HEIGHT}" preserveAspectRatio="none" />`;
+  return `<img class="map-preview-background" data-layer="map-background" src="${escapedImageUrl}" width="${VIEWBOX_WIDTH}" height="${VIEWBOX_HEIGHT}" loading="lazy" decoding="async" fetchpriority="low" alt="" />`;
 }
 
 function renderCenterMarker(bounds, project, colors) {
@@ -323,21 +323,27 @@ function buildGeometryPreviewMarkup(geometry, colors, options = {}) {
     return "";
   }
 
-  return `
+  const svg = `
     <svg
-      class="map-preview-graphic"
+      class="${hasMapBackground ? "map-preview-boundary" : "map-preview-graphic"}"
       viewBox="0 0 ${VIEWBOX_WIDTH} ${VIEWBOX_HEIGHT}"
-      preserveAspectRatio="xMidYMid meet"
+      preserveAspectRatio="${hasMapBackground ? "none" : "xMidYMid meet"}"
       xmlns="http://www.w3.org/2000/svg"
       aria-hidden="true"
       data-preview-geometry="${geometry.type}"
       data-preview-background="${hasMapBackground ? "map" : "grid"}"
     >
-      ${hasMapBackground ? renderMapBackground(backgroundImageUrl) : renderGridLines()}
+      ${hasMapBackground ? "" : renderGridLines()}
       <g data-layer="boundary">${shapes}</g>
       ${hasMapBackground ? "" : renderCenterMarker(bounds, project, colors)}
     </svg>
   `.trim();
+  if (!hasMapBackground) {
+    return svg;
+  }
+  // Native images can defer offscreen requests and decode without blocking paint.
+  // Keep the image and boundary in one removable layer for theme changes.
+  return `<div class="map-preview-graphic" aria-hidden="true">${renderMapBackground(backgroundImageUrl)}${svg}</div>`;
 }
 
 function renderGeometryPreview(container, geometry, colors, options = {}) {

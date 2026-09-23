@@ -609,7 +609,7 @@ async function initializeNavigation() {
     emitNavigation("page:view", visit);
     navigationUI.viewed(visit);
   });
-  for (const hook of ["visit:end", "visit:abort", "visit:fail"]) {
+  for (const hook of ["visit:end", "visit:abort", "fetch:error"]) {
     swup.hooks.on(hook, (visit) => navigationUI.finish(visit));
   }
   document.addEventListener("es:data-changed", invalidateNavigationCache);
