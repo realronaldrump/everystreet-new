@@ -244,8 +244,8 @@ class VisitsManager {
           id: d.id,
           name: d.name,
           totalVisits: d.totalVisits,
-          firstVisit: d.firstVisit,
-          lastVisit: d.lastVisit,
+          firstVisit: d.firstVisit ?? null,
+          lastVisit: d.lastVisit ?? null,
           avgTimeSpent: d.averageTimeSpent || "N/A",
         }));
 

@@ -77,6 +77,7 @@ function createVisitsTable({ onPlaceSelected }) {
       },
       {
         data: "firstVisit",
+        defaultContent: "—",
         className: "date-cell",
         type: "num",
         render: (data, type) =>
@@ -87,6 +88,7 @@ function createVisitsTable({ onPlaceSelected }) {
       },
       {
         data: "lastVisit",
+        defaultContent: "—",
         className: "date-cell",
         type: "num",
         render: (data, type) =>

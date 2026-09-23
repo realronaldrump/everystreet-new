@@ -229,6 +229,8 @@ test("table libraries do not block events, map initialization, or incoming place
   finishLibraries();
   assert.equal(await manager.tablesInitialization, true);
   assert.equal(displayed[0].totalVisits, 9);
+  assert.equal(displayed[0].firstVisit, null, "pending dates must be explicit null values for DataTables");
+  assert.equal(displayed[0].lastVisit, null);
   assert.equal(readyCallbacks, 1);
 });
 

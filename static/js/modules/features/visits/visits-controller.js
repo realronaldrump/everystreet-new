@@ -745,8 +745,8 @@ class VisitsPageController {
         ...place,
         totalVisits: stats === null ? null : placeStats.totalVisits || 0,
         averageTimeSpent: placeStats.averageTimeSpent || "N/A",
-        firstVisit: placeStats.firstVisit,
-        lastVisit: placeStats.lastVisit,
+        firstVisit: placeStats.firstVisit ?? null,
+        lastVisit: placeStats.lastVisit ?? null,
         averageTimeSinceLastVisit: placeStats.averageTimeSinceLastVisit || "N/A",
       };
     });
