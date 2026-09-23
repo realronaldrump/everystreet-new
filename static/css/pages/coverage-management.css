@@ -1303,7 +1303,7 @@
 }
 
 .map-legend-swatch--undriveable {
-  background: var(--text-tertiary);
+  background: var(--map-undriveable);
 }
 
 .map-legend-text {

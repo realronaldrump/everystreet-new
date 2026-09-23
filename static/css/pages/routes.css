@@ -671,13 +671,29 @@
   align-items: center;
 }
 
+/* The route color prints as an ink-ruled swatch. */
 .routes-modal-color {
   width: 44px;
   height: 44px;
-  border-radius: 12px;
-  border: 1px solid var(--manual-rule-faint);
-  background: transparent;
+  border-radius: 0;
+  border: 1px solid var(--manual-ink);
+  background: var(--manual-paper);
+  padding: 3px;
+  cursor: pointer;
+}
+
+.routes-modal-color::-webkit-color-swatch-wrapper {
   padding: 0;
+}
+
+.routes-modal-color::-webkit-color-swatch {
+  border: 0;
+  border-radius: 0;
+}
+
+.routes-modal-color::-moz-color-swatch {
+  border: 0;
+  border-radius: 0;
 }
 
 .routes-modal-edit-hint {

@@ -4,6 +4,7 @@
  */
 
 import { createFeatureApi } from "../../core/feature-api.js";
+import { readToken } from "../../core/theme-tokens.js";
 import { createMap } from "../../map-core.js";
 import notificationManager from "../../ui/notifications.js";
 import {
@@ -442,40 +443,39 @@ function getPreloadRouteIdFromUrl(href = window.location.href) {
   }
 }
 
-/* ───── Chart.js defaults ───── */
+/* ───── Chart.js defaults ─────
+   Inks, fonts, and tooltips come from the global chart theme
+   (core/library-loader.js); these set layout only. */
 function getChartDefaults() {
-  const textColor = "rgba(255,255,255,0.6)";
-  const gridColor = "rgba(255,255,255,0.07)";
   return {
     responsive: true,
     maintainAspectRatio: false,
     animation: { duration: 400 },
     plugins: {
       legend: { display: false },
-      tooltip: {
-        backgroundColor: "rgba(15,20,30,0.92)",
-        titleColor: "#fff",
-        bodyColor: "rgba(255,255,255,0.8)",
-        borderColor: "rgba(255,255,255,0.1)",
-        borderWidth: 1,
-        cornerRadius: 8,
-        padding: 10,
-      },
+      tooltip: {},
     },
     scales: {
       x: {
-        ticks: { color: textColor, font: { size: 11 } },
+        ticks: { font: { size: 11 } },
         grid: { display: false },
         border: { display: false },
       },
       y: {
-        ticks: { color: textColor, font: { size: 11 } },
-        grid: { color: gridColor },
+        ticks: { font: { size: 11 } },
         border: { display: false },
         beginAtZero: true,
       },
     },
   };
+}
+
+/** A palette ink as a hex color with the given opacity (0 to 1). */
+function tokenWithAlpha(name, alpha) {
+  const alphaHex = Math.round(alpha * 255)
+    .toString(16)
+    .padStart(2, "0");
+  return `${readToken(name)}${alphaHex}`;
 }
 
 function destroyChartRef(chartRef) {
@@ -1061,7 +1061,7 @@ function ensureModalMap() {
         source: MODAL_TRIPS_SOURCE_ID,
         paint: {
           "line-width": 2,
-          "line-color": "#e8853d",
+          "line-color": readToken("--map-trip-path"),
           "line-opacity": 0.35,
         },
         layout: {
@@ -1093,7 +1093,7 @@ function ensureModalMap() {
         filter: ["==", ["get", "kind"], "start"],
         paint: {
           "circle-radius": 7,
-          "circle-color": "#ffffff",
+          "circle-color": readToken("--basemap-halo"),
           "circle-stroke-width": 3,
           "circle-stroke-color": ["coalesce", ["get", "color"], "#5f82a0"],
         },
@@ -1109,7 +1109,7 @@ function ensureModalMap() {
           "circle-radius": 7,
           "circle-color": ["coalesce", ["get", "color"], "#c49d4c"],
           "circle-stroke-width": 3,
-          "circle-stroke-color": "#ffffff",
+          "circle-stroke-color": readToken("--basemap-halo"),
         },
       });
     }
@@ -1311,7 +1311,6 @@ function renderMonthlyChart(data) {
           backgroundColor: `${color}66`,
           borderColor: color,
           borderWidth: 1.5,
-          borderRadius: 4,
           barPercentage: 0.7,
         },
       ],
@@ -1389,7 +1388,6 @@ function renderHourChart(data) {
                 .toString(16)
                 .padStart(2, "0")}`
           ),
-          borderRadius: 3,
           barPercentage: 0.85,
         },
       ],
@@ -1462,7 +1460,6 @@ function renderDowChart(data) {
                 .toString(16)
                 .padStart(2, "0")}`
           ),
-          borderRadius: 4,
           barPercentage: 0.65,
         },
       ],
@@ -1547,7 +1544,7 @@ function renderDistanceTrendChart(data) {
         {
           label: "Duration (min)",
           data: durations,
-          borderColor: "#c49d4c",
+          borderColor: readToken("--cat-ochre"),
           backgroundColor: "transparent",
           borderDash: [4, 3],
           tension: 0.3,
@@ -1563,12 +1560,7 @@ function renderDistanceTrendChart(data) {
         ...defaults.plugins,
         legend: {
           display: true,
-          labels: {
-            color: "rgba(255,255,255,0.6)",
-            boxWidth: 12,
-            padding: 8,
-            font: { size: 11 },
-          },
+          labels: { padding: 8 },
         },
         tooltip: {
           ...defaults.plugins.tooltip,
@@ -1591,20 +1583,18 @@ function renderDistanceTrendChart(data) {
           title: {
             display: true,
             text: "Miles",
-            color: "rgba(255,255,255,0.4)",
             font: { size: 11 },
           },
         },
         y1: {
           position: "right",
-          ticks: { color: "rgba(255,255,255,0.4)", font: { size: 11 } },
+          ticks: { font: { size: 11 } },
           grid: { display: false },
           border: { display: false },
           beginAtZero: true,
           title: {
             display: true,
             text: "Minutes",
-            color: "rgba(255,255,255,0.4)",
             font: { size: 11 },
           },
         },
@@ -2236,14 +2226,13 @@ function renderExplorerVariantShareChart(items) {
         {
           data: source.map((entry) => Number(entry.share || 0) * 100),
           backgroundColor: [
-            "#5f82a0",
-            "#c49d4c",
-            "#7893a6",
-            "#c26a4a",
-            "#857d6e",
-            "#8b6f8a",
-          ],
-          borderRadius: 8,
+            "--cat-cobalt",
+            "--cat-ochre",
+            "--cat-steel",
+            "--cat-coral",
+            "--cat-slate",
+            "--cat-purple",
+          ].map((name) => readToken(name)),
           barPercentage: 0.8,
         },
       ],
@@ -2265,7 +2254,7 @@ function renderExplorerVariantShareChart(items) {
         y: {
           ...getChartDefaults().scales.y,
           grid: { display: false },
-          ticks: { color: "rgba(255,255,255,0.72)", font: { size: 11 } },
+          ticks: { font: { size: 11 } },
         },
       },
     },
@@ -2297,10 +2286,9 @@ function renderExplorerMonthlyChart(byMonth) {
       datasets: [
         {
           data: source.map((entry) => entry.count),
-          backgroundColor: "rgba(111,143,206,0.48)",
-          borderColor: "#5f82a0",
+          backgroundColor: tokenWithAlpha("--cat-cobalt", 0.48),
+          borderColor: readToken("--cat-cobalt"),
           borderWidth: 1.5,
-          borderRadius: 5,
           barPercentage: 0.75,
         },
       ],
@@ -2334,10 +2322,9 @@ function renderExplorerHourChart(byHour) {
       datasets: [
         {
           data: source.map((entry) => entry.count),
-          backgroundColor: "rgba(98,144,173,0.48)",
-          borderColor: "#7893a6",
+          backgroundColor: tokenWithAlpha("--cat-steel", 0.48),
+          borderColor: readToken("--cat-steel"),
           borderWidth: 1.2,
-          borderRadius: 4,
           barPercentage: 0.86,
         },
       ],
@@ -2371,10 +2358,9 @@ function renderExplorerDayChart(byDay) {
       datasets: [
         {
           data: source.map((entry) => entry.count),
-          backgroundColor: "rgba(212,162,74,0.45)",
-          borderColor: "#c49d4c",
+          backgroundColor: tokenWithAlpha("--cat-ochre", 0.45),
+          borderColor: readToken("--cat-ochre"),
           borderWidth: 1.2,
-          borderRadius: 4,
           barPercentage: 0.74,
         },
       ],

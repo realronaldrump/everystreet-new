@@ -22,6 +22,7 @@ import {
 } from "../../core/exploration-map.js";
 import { updateRegion } from "../../core/partial-update.js";
 import { createFeatureApi } from "../../core/feature-api.js";
+import { readToken } from "../../core/theme-tokens.js";
 import { getCurrentTheme, resolveMapStyle } from "../../core/map-style-resolver.js";
 import {
   getDriveableMiles,
@@ -133,6 +134,27 @@ const STREET_LAYERS = ["streets-undriven", "streets-driven", "streets-undriveabl
 const HIGHLIGHT_LAYER_ID = "streets-highlight";
 const HOVER_LAYER_ID = "streets-hover";
 
+/** Street layers print in the map inks the legend names. */
+const STREET_LAYER_INKS = {
+  "streets-undriven": "--map-undriven",
+  "streets-driven": "--map-driven",
+  "streets-undriveable": "--map-undriveable",
+  [HOVER_LAYER_ID]: "--basemap-halo",
+  [HIGHLIGHT_LAYER_ID]: "--map-route",
+};
+
+function inkStreetLayers() {
+  const { map } = state;
+  if (!map) {
+    return;
+  }
+  for (const [layerId, token] of Object.entries(STREET_LAYER_INKS)) {
+    if (map.getLayer(layerId)) {
+      map.setPaintProperty(layerId, "line-color", readToken(token));
+    }
+  }
+}
+
 // Ring math: r=60, cx/cy=70, viewBox 140×140
 const RING_R = 60;
 const RING_CIRCUMFERENCE = 2 * Math.PI * RING_R; // ≈376.99
@@ -222,6 +244,7 @@ export default async function initCoverageManagementPage({
 
 function setupEventListeners(signal) {
   const opt = signal ? { signal } : false;
+  document.addEventListener("themeChanged", inkStreetLayers, opt);
   document.addEventListener(
     "historicalTripsUpdated",
     async () => {
@@ -1947,7 +1970,7 @@ async function loadStreets(areaId, areaSyncToken = null, retry = true) {
         type: "line",
         source: "streets",
         filter: ["==", ["get", "status"], "undriven"],
-        paint: { "line-color": "#c26a4a", "line-width": 4, "line-opacity": 0.85 },
+        paint: { "line-width": 4, "line-opacity": 0.85 },
       });
 
       // Driven streets
@@ -1956,7 +1979,7 @@ async function loadStreets(areaId, areaSyncToken = null, retry = true) {
         type: "line",
         source: "streets",
         filter: ["==", ["get", "status"], "driven"],
-        paint: { "line-color": "#5f82a0", "line-width": 4, "line-opacity": 0.85 },
+        paint: { "line-width": 4, "line-opacity": 0.85 },
       });
 
       // Undriveable streets (dashed)
@@ -1966,20 +1989,19 @@ async function loadStreets(areaId, areaSyncToken = null, retry = true) {
         source: "streets",
         filter: ["==", ["get", "status"], "undriveable"],
         paint: {
-          "line-color": "#857d6e",
           "line-width": 2,
           "line-opacity": 0.5,
           "line-dasharray": [2, 2],
         },
       });
 
-      // Hover layer (white glow, no pointer events — driven by JS filter)
+      // Hover layer (a paper halo, no pointer events — driven by JS filter)
       state.map.addLayer({
         id: HOVER_LAYER_ID,
         type: "line",
         source: "streets",
         filter: ["==", ["get", "segment_id"], ""],
-        paint: { "line-color": "#ffffff", "line-width": 7, "line-opacity": 0.3 },
+        paint: { "line-width": 7, "line-opacity": 0.5 },
       });
 
       // Highlight layer (selected segment, on top)
@@ -1988,9 +2010,10 @@ async function loadStreets(areaId, areaSyncToken = null, retry = true) {
         type: "line",
         source: "streets",
         filter: ["==", ["get", "segment_id"], ""],
-        paint: { "line-color": "#c49d4c", "line-width": 6, "line-opacity": 0.95 },
+        paint: { "line-width": 6, "line-opacity": 0.95 },
       });
 
+      inkStreetLayers();
       setupStreetInteractivity();
     }
   } catch (error) {
