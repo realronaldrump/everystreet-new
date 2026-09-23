@@ -95,6 +95,7 @@ Every Street
         data-auth-role="{{ auth_context.role }}"
         data-viewer-mode="{{ 'true' if auth_context.viewer_mode else 'false' }}">
     <a href="#main-content" class="visually-hidden-focusable">Skip to main content</a>
+    {% include "partials/plates/_plate_defs.html" %}
 
     <div id="app" class="layout-wrapper">
       <header class="app-header" role="banner">

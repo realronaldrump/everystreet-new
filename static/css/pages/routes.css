@@ -269,7 +269,7 @@
   transition: all var(--transition-fast);
   appearance: none;
   cursor: pointer;
-  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='rgba(255,255,255,0.65)' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e");
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23c2b79f' stroke-linecap='square' stroke-width='1.6' d='M2 5l6 6 6-6'/%3e%3c/svg%3e");
   background-repeat: no-repeat;
   background-position: right var(--space-3) center;
   background-size: 16px 12px;
@@ -776,21 +776,9 @@
 }
 
 /* Light theme tweaks */
-html[data-bs-theme="light"] .routes-search {
-  background: rgb(var(--text-rgb) / 65%);
-}
-
-html[data-bs-theme="light"] .routes-search-input::placeholder {
-  color: var(--text-tertiary);
-}
-
 html[data-bs-theme="light"] .routes-filter-select,
 html.light-mode body .routes-filter-select {
-  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='rgba(0,0,0,0.6)' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e");
-}
-
-html[data-bs-theme="light"] .route-preview-svg path {
-  stroke: rgb(var(--primary-rgb) / 100%);
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23564f41' stroke-linecap='square' stroke-width='1.6' d='M2 5l6 6 6-6'/%3e%3c/svg%3e");
 }
 
 /* Masthead aside sizing for the build card */
@@ -1499,10 +1487,6 @@ html[data-bs-theme="light"] .route-personality-tag {
   color: rgb(var(--primary-rgb) / 90%);
   background: var(--manual-paper-shade);
   border-color: var(--manual-rule);
-}
-
-html[data-bs-theme="light"] .route-card-visual {
-  background: var(--manual-paper-shade);
 }
 
 html[data-bs-theme="light"] .route-label-arrow {

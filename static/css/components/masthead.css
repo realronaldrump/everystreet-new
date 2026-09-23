@@ -61,6 +61,31 @@
   padding-bottom: var(--space-1);
 }
 
+/* A small pen-and-ink plate beside the title (partials/plates). It sits
+   against the right edge, next to any actions, and bows out on phones
+   where the title needs the room. */
+.pm-plate {
+  flex: 0 0 auto;
+  width: var(--pm-plate-width, 6rem);
+  margin-left: auto;
+  color: var(--manual-ink);
+  pointer-events: none;
+}
+
+.pm-plate--wide {
+  --pm-plate-width: 11rem;
+}
+
+.pm-plate--car {
+  --pm-plate-width: 10rem;
+}
+
+@media (width <= 640px) {
+  .pm-plate {
+    display: none;
+  }
+}
+
 /* ---- Figure band: hairline-divided numerals, no boxes -------- */
 .figure-band {
   display: flex;

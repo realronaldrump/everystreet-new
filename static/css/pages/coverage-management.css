@@ -195,13 +195,25 @@
   align-items: center;
   gap: var(--space-2);
   width: 100%;
-  color: var(--text-secondary);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
+  color: var(--manual-rust-ink);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  font-family: var(--font-family-label);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+
+.coverage-sort-control > span {
+  justify-self: start;
+  white-space: nowrap;
 }
 
 .coverage-sort-control .form-select {
   grid-column: 1 / -1;
+  font-family: var(--font-family-text);
+  font-weight: var(--font-weight-regular);
+  letter-spacing: var(--tracking-normal);
+  text-transform: none;
   width: 100%;
   min-height: 2.75rem;
 }
