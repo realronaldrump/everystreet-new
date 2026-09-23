@@ -127,3 +127,16 @@ async def test_contribution_pagination_has_stable_order(journal_db):
     ]
     assert len(dates) == len(set(dates)) == 3
     assert dates == sorted(dates, reverse=True)
+
+
+async def test_history_attributes_a_closed_hole_and_reconciles_exactly(journal_db):
+    # A 1 mi street; the second drive starts 0.8 m after the first one ended.
+    area, ids = await area_with_streets([1])
+    await drive(area, {ids[0]: [[0, 0.5]]}, datetime(2025, 5, 1, tzinfo=UTC))
+    await drive(area, {ids[0]: [[0.5005, 1]]}, datetime(2025, 6, 1, tzinfo=UTC))
+    assert (await CoverageArea.get(area.id)).driven_segments == 1
+    await rebuild_journal_rollup(area.id)
+    payload = await get_journal_payload(area.id)
+    assert [row["new_miles"] for row in payload["series"]] == [0.5, 0.5]
+    assert payload["series"][-1]["new_segments"] == 1
+    assert payload["series"][-1]["coverage_percentage"] == 100

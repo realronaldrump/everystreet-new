@@ -20,9 +20,11 @@ from db.models import (
 )
 from street_coverage.identity import road_key
 from street_coverage.intervals import (
+    METERS_PER_MILE,
+    continuity_tolerance,
     covered_fraction,
-    union_intervals,
     interval_discoveries,
+    union_intervals,
 )
 from street_coverage.matching import MATCHING_VERSION
 
@@ -107,10 +109,16 @@ def state_from_evidence(street, events, override=None) -> dict[str, Any] | None:
     evidence = [
         event for event in events if event.segment_intervals.get(street.segment_id)
     ]
+    # Pieces credited by different trips join across sub-meter holes, as one
+    # trip's pieces do in matching.
+    tolerance = continuity_tolerance(street.length_miles * METERS_PER_MILE)
     intervals = union_intervals(
-        interval
-        for event in evidence
-        for interval in event.segment_intervals[street.segment_id]
+        (
+            interval
+            for event in evidence
+            for interval in event.segment_intervals[street.segment_id]
+        ),
+        tolerance=tolerance,
     )
     if override:
         intervals = [[0.0, 1.0]] if override.status == "driven" else []
@@ -138,7 +146,7 @@ def state_from_evidence(street, events, override=None) -> dict[str, Any] | None:
     ]
     if override and override.status == "driven":
         timeline.append((override.marked_at, [[0.0, 1.0]]))
-    discoveries = interval_discoveries(timeline, intervals)
+    discoveries = interval_discoveries(timeline, intervals, tolerance=tolerance)
     first = min((row["first_driven_at"] for row in discoveries), default=None)
     return {
         "area_id": street.area_id,

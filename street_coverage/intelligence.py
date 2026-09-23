@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import math
-import statistics
 from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
+from zoneinfo import ZoneInfo
 
 from beanie import PydanticObjectId
 
@@ -21,30 +21,20 @@ from db.models import (
     Street,
 )
 from driving.services.driving_service import DrivingService
+from street_coverage.journal import normalize_timezone
 
 MILES_PER_METER = 1 / 1609.344
 DEFAULT_COVERAGE_SPEED_MPH = 22.0
+# Trailing windows for pace scenarios; None is the whole drive history.
+PACE_WINDOWS = (("90d", 90), ("365d", 365), ("all", None))
+MIN_PACE_ACTIVE_DAYS = 4
+FORECAST_HORIZON_DAYS = 365 * 50
 MISSION_COMPLETION_RATIO = 0.95
 MISSION_ACTIVE_STATES = {"route_generating", "ready", "active"}
 
 
 def _iso(value: datetime | None) -> str | None:
     return value.astimezone(UTC).isoformat() if value else None
-
-
-def _percentile(values: list[float], probability: float) -> float:
-    ordered = sorted(values)
-    if not ordered:
-        return 0.0
-    if len(ordered) == 1:
-        return ordered[0]
-    position = (len(ordered) - 1) * probability
-    lower = math.floor(position)
-    upper = math.ceil(position)
-    if lower == upper:
-        return ordered[lower]
-    fraction = position - lower
-    return ordered[lower] + (ordered[upper] - ordered[lower]) * fraction
 
 
 def _serialize_goal(goal: CoverageGoal | None) -> dict[str, Any] | None:
@@ -128,10 +118,8 @@ async def _current_street_lengths(area: CoverageArea) -> dict[str, float]:
     }
 
 
-async def _daily_new_miles(area, *, since, timezone="UTC"):
-    from zoneinfo import ZoneInfo
-    from street_coverage.journal import normalize_timezone
-
+async def _daily_new_miles(area, *, timezone="UTC"):
+    """New trip-derived miles per local calendar day, over the whole history."""
     rollup = await CoverageJournalRollup.find_one(
         {"area_id": area.id, "area_version": area.area_version}
     )
@@ -144,7 +132,6 @@ async def _daily_new_miles(area, *, since, timezone="UTC"):
             "revision": rollup.revision,
             "kind": "contribution",
             "data.source": "trip",
-            "occurred_at": {"$gte": since},
         }
     ).to_list()
     totals = {}
@@ -155,10 +142,41 @@ async def _daily_new_miles(area, *, since, timezone="UTC"):
     return totals
 
 
-def _pace_date(now, days):
-    if not math.isfinite(days) or days > 365 * 50:
+def _pace_date(today, days):
+    if not math.isfinite(days) or days > FORECAST_HORIZON_DAYS:
         return None
-    return (now + timedelta(days=days)).date().isoformat()
+    return (today + timedelta(days=math.ceil(days))).isoformat()
+
+
+def coverage_paces(daily: dict, today) -> list[dict[str, Any]]:
+    """Mileage pace over trailing windows, counting every elapsed calendar day.
+
+    A window never reaches back before the first drive that added coverage, so a
+    new area is not diluted by the months before anyone drove it.
+    """
+    gains = {day: miles for day, miles in daily.items() if miles > 0}
+    if not gains:
+        return []
+    first = min(gains)
+    paces = []
+    for key, days in PACE_WINDOWS:
+        start = first if days is None else max(first, today - timedelta(days=days - 1))
+        span = (today - start).days + 1
+        window = [miles for day, miles in gains.items() if start <= day <= today]
+        total = math.fsum(window)
+        paces.append(
+            {
+                "window": key,
+                "days": span,
+                "active_days": len(window),
+                "new_miles": round(total, 3),
+                "miles_per_week": round(total / span * 7, 3),
+                "miles_per_active_day": round(total / len(window), 3)
+                if window
+                else None,
+            }
+        )
+    return paces
 
 
 def target_reached(area, percentage):
@@ -233,86 +251,94 @@ class CoverageIntelligenceService:
         remaining_miles = max(target_miles - driven_miles, 0.0)
         now = datetime.now(UTC)
 
-        recent = await _daily_new_miles(
-            area, since=now - timedelta(days=90), timezone=timezone
+        today = now.astimezone(ZoneInfo(normalize_timezone(timezone))).date()
+        daily = await _daily_new_miles(area, timezone=timezone)
+        paces = coverage_paces(daily, today)
+        usable = [
+            pace
+            for pace in paces
+            if pace["active_days"] >= MIN_PACE_ACTIVE_DAYS
+            and pace["miles_per_week"] > 0
+        ]
+        # The most recent window with enough drives sets the expected date.
+        primary = usable[0] if usable else None
+        last_progress = max(
+            (day for day, miles in daily.items() if miles > 0), default=None
         )
-        window_days = 90
-        daily = recent
-        if len(recent) < 4:
-            daily = await _daily_new_miles(
-                area, since=now - timedelta(days=365), timezone=timezone
-            )
-            window_days = 365
-
-        values = [value for value in daily.values() if value > 0]
-        active_days = len(values)
         forecast: dict[str, Any] = {
-            "available": active_days >= 4 and remaining_miles > 0,
-            "window_days": window_days,
-            "active_days": active_days,
-            "median_new_miles_per_active_day": None,
-            "active_days_per_week": None,
+            "available": False,
+            "window": primary["window"] if primary else None,
+            "window_days": primary["days"] if primary else None,
+            "active_days": primary["active_days"] if primary else 0,
+            "miles_per_week": primary["miles_per_week"] if primary else None,
+            "miles_per_active_day": primary["miles_per_active_day"]
+            if primary
+            else None,
+            "active_days_per_week": round(
+                primary["active_days"] / primary["days"] * 7, 2
+            )
+            if primary
+            else None,
+            "paces": paces,
             "expected_completion_date": None,
             "completion_date_range": None,
             "confidence": "insufficient",
+            "last_progress_date": last_progress.isoformat() if last_progress else None,
+            "days_since_progress": (today - last_progress).days
+            if last_progress
+            else None,
             "required_miles_per_week": None,
             "required_active_days_per_week": None,
+            "reason": None,
         }
         if target_reached(area, target_percentage):
             forecast.update(
                 {
                     "available": True,
-                    "expected_completion_date": now.date().isoformat(),
+                    "expected_completion_date": today.isoformat(),
                     "completion_date_range": {
-                        "earliest": now.date().isoformat(),
-                        "latest": now.date().isoformat(),
+                        "earliest": today.isoformat(),
+                        "latest": today.isoformat(),
                     },
                     "confidence": "complete",
                 },
             )
-        elif active_days >= 4:
-            median_daily = statistics.median(values)
-            latest_day = max(daily)
-            span_days = window_days
-            active_days_per_week = active_days / span_days * 7
-            weekly_miles = median_daily * active_days_per_week
-            expected_days = remaining_miles / max(weekly_miles, 0.001) * 7
-            p25 = max(_percentile(values, 0.25), 0.001)
-            p75 = max(_percentile(values, 0.75), 0.001)
-            fast_days = remaining_miles / max(p75 * active_days_per_week, 0.001) * 7
-            slow_days = remaining_miles / max(p25 * active_days_per_week, 0.001) * 7
-            confidence = (
-                "medium"
-                if active_days >= 12 and (now.date() - latest_day).days <= 30
-                else "low"
+        elif primary is None:
+            forecast["reason"] = (
+                f"A date needs at least {MIN_PACE_ACTIVE_DAYS} days that added "
+                "new streets."
             )
-            forecast.update(
-                {
-                    "median_new_miles_per_active_day": round(median_daily, 3),
-                    "active_days_per_week": round(active_days_per_week, 2),
-                    "expected_completion_date": _pace_date(now, expected_days),
-                    "completion_date_range": {
-                        "earliest": _pace_date(now, fast_days),
-                        "latest": _pace_date(now, slow_days),
-                    },
-                    "confidence": confidence,
-                    "basis": f"Trailing {window_days} calendar days, including days without new coverage",
-                    "last_progress_date": latest_day.isoformat(),
-                },
-            )
-
-        if (
-            remaining_miles > 0
-            and forecast["available"]
-            and forecast["expected_completion_date"] is None
-        ):
-            forecast.update(
-                {
-                    "available": False,
-                    "confidence": "insufficient",
-                    "reason": "Recent coverage pace does not support a useful completion date.",
-                }
-            )
+        else:
+            dates = [
+                _pace_date(today, remaining_miles / pace["miles_per_week"] * 7)
+                for pace in usable
+            ]
+            expected = dates[0]
+            if expected is None:
+                forecast["reason"] = (
+                    "At this pace, finishing would take more than 50 years."
+                )
+            else:
+                known = sorted(date for date in dates if date)
+                recent = (
+                    forecast["days_since_progress"] is not None
+                    and forecast["days_since_progress"] <= 30
+                )
+                forecast.update(
+                    {
+                        "available": True,
+                        "expected_completion_date": expected,
+                        "completion_date_range": {
+                            "earliest": known[0],
+                            "latest": known[-1] if len(known) == len(dates) else None,
+                        },
+                        "confidence": "medium"
+                        if primary["window"] == "90d"
+                        and primary["active_days"] >= 12
+                        and recent
+                        else "low",
+                    }
+                )
 
         if goal and goal.target_date and remaining_miles > 0:
             days_until_target = max((goal.target_date - now).total_seconds() / 86400, 0)
@@ -323,10 +349,10 @@ class CoverageIntelligenceService:
             forecast["required_miles_per_week"] = (
                 round(required_weekly, 3) if required_weekly is not None else None
             )
-            median_daily = forecast.get("median_new_miles_per_active_day")
-            if required_weekly is not None and median_daily:
+            per_day = forecast.get("miles_per_active_day")
+            if required_weekly is not None and per_day:
                 forecast["required_active_days_per_week"] = round(
-                    required_weekly / median_daily,
+                    required_weekly / per_day,
                     2,
                 )
 

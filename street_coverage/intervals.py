@@ -6,6 +6,22 @@ import math
 from collections.abc import Iterable, Sequence
 
 POSITION_EPSILON = 1e-9
+METERS_PER_MILE = 1609.344
+# Independently projected road and trace vertices, and pieces credited by
+# different trips, leave sub-meter holes in continuous evidence. No vehicle
+# can drive both sides of such a hole without driving the hole itself.
+INTERVAL_CONTINUITY_METERS = 1.0
+MAX_CONTINUITY_FRACTION = 0.05
+
+
+def continuity_tolerance(length_meters: float) -> float:
+    """Normalized gap below which two covered pieces of one street are joined."""
+    if not length_meters or not math.isfinite(length_meters) or length_meters <= 0:
+        return POSITION_EPSILON
+    return max(
+        POSITION_EPSILON,
+        min(MAX_CONTINUITY_FRACTION, INTERVAL_CONTINUITY_METERS / length_meters),
+    )
 
 
 def union_intervals(
@@ -62,13 +78,21 @@ def intersect_intervals(left, right):
     )
 
 
-def interval_discoveries(timeline, effective):
-    """First supported timestamp for each disjoint covered portion."""
-    seen = []
+def interval_discoveries(timeline, effective, *, tolerance=POSITION_EPSILON):
+    """First supported timestamp for each disjoint covered portion.
+
+    Each step joins its evidence with everything seen before, using the same
+    continuity tolerance as the effective coverage, so a hole closed by a later
+    drive is discovered by that drive and the discoveries sum to ``effective``.
+    """
+    seen: list[list[float]] = []
     discoveries = []
     for when, intervals in sorted(timeline, key=lambda item: item[0]):
         accepted = intersect_intervals(intervals, effective)
-        for start, end in intersect_intervals(accepted, missing_intervals(seen)):
+        after = intersect_intervals(
+            union_intervals([*seen, *accepted], tolerance=tolerance), effective
+        )
+        for start, end in intersect_intervals(after, missing_intervals(seen)):
             discoveries.append({"start": start, "end": end, "first_driven_at": when})
-        seen = union_intervals([*seen, *accepted])
+        seen = after
     return discoveries

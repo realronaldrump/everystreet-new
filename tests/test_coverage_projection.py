@@ -270,3 +270,27 @@ def test_completion_never_depends_on_rounded_percentage():
             undriveable_segments=0,
             undriveable_length_miles=0,
         )
+
+
+async def test_trips_meeting_across_a_sub_meter_hole_complete_the_street(
+    evidence_area,
+):
+    area, ids, trip = evidence_area
+    second = Trip(
+        transactionId="interval-2",
+        source="bouncie",
+        startTime=datetime(2026, 1, 2, tzinfo=UTC),
+        endTime=datetime(2026, 1, 2, 1, tzinfo=UTC),
+    )
+    await second.insert()
+    # The street is 0.5 mi (805 m); the trips leave a 0.4 m hole between them.
+    await credit(area, trip, ids[0], [[0, 0.5]])
+    await credit(area, second, ids[0], [[0.5005, 1]])
+    current = await CoverageArea.get(area.id)
+    state = await CoverageState.find_one({"segment_id": ids[0]})
+    assert state.status == "driven"
+    assert state.intervals == [[0.0, 1.0]]
+    assert current.driven_segments == 1
+    assert current.driven_length_miles == 0.5
+    discovered = [row["end"] - row["start"] for row in state.discovery_intervals]
+    assert sum(discovered) == pytest.approx(1)

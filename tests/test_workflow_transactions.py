@@ -27,6 +27,7 @@ from routing.route_store import (
     get_generated_route,
 )
 from street_coverage import trip_credit
+from street_coverage.matching import MATCHING_VERSION
 from street_coverage.api.optimal_routes import (
     export_route_by_id,
     get_optimal_route_result,
@@ -113,7 +114,7 @@ async def area_and_trip(workflow_db, monkeypatch):
     area = CoverageArea(
         display_name="Workflow test area",
         status="ready",
-        coverage_matching_version="coverage-intervals-v2",
+        coverage_matching_version=MATCHING_VERSION,
         total_segments=1,
         total_length_miles=1.0,
         driveable_length_miles=1.0,

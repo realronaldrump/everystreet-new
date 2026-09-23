@@ -18,6 +18,10 @@ from street_coverage.projection import area_metrics, set_manual_status
 
 router = APIRouter(prefix="/api/coverage", tags=["coverage-streets"])
 VIEWPORT_LIMIT = 2000
+# Areas up to this size draw every street from one cached response; larger
+# areas load streets for the visible viewport instead.
+FULL_MAP_SEGMENT_LIMIT = 30000
+MAP_PROPERTIES = ("segment_id", "street_name", "status", "segment_status")
 
 
 class StreetFeature(BaseModel):
@@ -108,7 +112,7 @@ def _feature(street, state):
     )
 
 
-async def _features(area, streets, *, parts=False):
+async def _features(area, streets, *, parts=False, keep=None):
     states = await CoverageState.find(
         {
             "area_id": area.id,
@@ -117,14 +121,24 @@ async def _features(area, streets, *, parts=False):
     ).to_list()
     by_id = {state.segment_id: state for state in states}
     features = [_feature(street, by_id.get(street.segment_id)) for street in streets]
-    if parts:
-        from street_coverage.rendering import feature_parts
+    if parts or keep:
+        from street_coverage.rendering import (
+            feature_parts,
+            local_projection,
+            slim_parts,
+        )
 
         def split():
+            projection = local_projection(street.geometry for street in streets)
+            rows = [feature.model_dump(mode="json") for feature in features]
+            if keep:
+                return [
+                    part for row in rows for part in slim_parts(row, keep, projection)
+                ]
             return [
                 StreetFeature(**part)
-                for feature in features
-                for part in feature_parts(feature.model_dump(mode="json"))
+                for row in rows
+                for part in feature_parts(row, projection)
             ]
 
         features = await asyncio.to_thread(split)
@@ -144,7 +158,12 @@ def _geojson_response(features, *, etag, **extra):
         json.dumps(
             {
                 "type": "FeatureCollection",
-                "features": [feature.model_dump(mode="json") for feature in features],
+                "features": [
+                    feature
+                    if isinstance(feature, dict)
+                    else feature.model_dump(mode="json")
+                    for feature in features
+                ],
                 **extra,
             },
             separators=(",", ":"),
@@ -216,21 +235,9 @@ async def get_all_streets(
     area = await _area(area_id)
     if status_filter not in {None, "undriven", "driven", "undriveable"}:
         raise HTTPException(422, "Unknown street status")
-    etag = (
-        '"'
-        + hashlib.sha256(
-            f"{area_id}:{area.area_version}:{area.journal_revision}:{status_filter}:{render_parts}".encode()
-        ).hexdigest()[:24]
-        + '"'
-    )
+    etag = _revision_etag(area_id, area, status_filter, render_parts)
     if request.headers.get("if-none-match") == etag:
-        return Response(
-            status_code=304,
-            headers={
-                "ETag": etag,
-                "Cache-Control": "private, max-age=0, must-revalidate",
-            },
-        )
+        return _not_modified(etag)
     streets = await Street.find(
         {"area_id": area_id, "area_version": area.area_version}
     ).to_list()
@@ -241,6 +248,46 @@ async def get_all_streets(
             for feature in features
             if feature.properties["status"] == status_filter
         ]
+    return _geojson_response(
+        features,
+        etag=etag,
+        coverage_revision=area.journal_revision,
+        area_version=area.area_version,
+    )
+
+
+def _revision_etag(area_id, area, *parts):
+    seed = ":".join(
+        str(value)
+        for value in (area_id, area.area_version, area.journal_revision, *parts)
+    )
+    return '"' + hashlib.sha256(seed.encode()).hexdigest()[:24] + '"'
+
+
+def _not_modified(etag):
+    return Response(
+        status_code=304,
+        headers={"ETag": etag, "Cache-Control": "private, max-age=0, must-revalidate"},
+    )
+
+
+@router.get("/areas/{area_id}/streets/map")
+async def get_street_map(request: Request, area_id: PydanticObjectId):
+    """Every street's driven and undriven portions, with only what a map draws.
+
+    The response depends only on the area revision, so a browser revalidates it
+    with one conditional request instead of reloading streets on every pan.
+    """
+    area = await _area(area_id)
+    if area.total_segments > FULL_MAP_SEGMENT_LIMIT:
+        raise HTTPException(413, "This area is drawn from viewport requests")
+    etag = _revision_etag(area_id, area, "map-v1")
+    if request.headers.get("if-none-match") == etag:
+        return _not_modified(etag)
+    streets = await Street.find(
+        {"area_id": area_id, "area_version": area.area_version}
+    ).to_list()
+    features = await _features(area, streets, keep=MAP_PROPERTIES)
     return _geojson_response(
         features,
         etag=etag,

@@ -1,3 +1,4 @@
+import math
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -28,11 +29,43 @@ async def test_forecast_uses_historical_gains_and_includes_idle_calendar_days(
     await set_manual_status(area.id, [ids[4]], "driven")
     await rebuild_journal_rollup(area.id)
     payload = await CoverageIntelligenceService.get_intelligence(area.id)
-    assert payload["forecast"]["available"]
-    assert payload["forecast"]["active_days"] == 4
-    assert payload["forecast"]["median_new_miles_per_active_day"] == 2
-    assert payload["forecast"]["active_days_per_week"] == round(4 / 90 * 7, 2)
+    forecast = payload["forecast"]
+    assert forecast["available"]
+    assert forecast["window"] == "90d"
+    assert forecast["active_days"] == 4
+    assert forecast["miles_per_active_day"] == 2
+    # The window starts at the first drive 40 days ago and counts idle days.
+    assert forecast["window_days"] == 41
+    assert forecast["miles_per_week"] == round(8 / 41 * 7, 3)
+    assert forecast["active_days_per_week"] == round(4 / 41 * 7, 2)
+    expected = datetime.now(UTC).date() + timedelta(days=math.ceil(42 / (8 / 41)))
+    assert forecast["expected_completion_date"] == expected.isoformat()
     assert payload["area"]["remaining_miles"] == 42
+
+
+async def test_forecast_pace_is_total_miles_not_a_typical_day(intelligence_db):
+    # One long day and several short ones: a median day would say 0.1 mi.
+    area, ids = await area_with_streets([0.1, 0.1, 0.1, 5, 94.7])
+    now = datetime.now(UTC)
+    for sid, days in zip(ids, [7, 14, 21, 28]):
+        await drive(area, {sid: [[0, 1]]}, now - timedelta(days=days))
+    await rebuild_journal_rollup(area.id)
+    forecast = (await CoverageIntelligenceService.get_intelligence(area.id))["forecast"]
+    assert forecast["miles_per_week"] == round(5.3 / 29 * 7, 3)
+    assert forecast["days_since_progress"] == 7
+
+
+async def test_a_stalled_area_explains_why_it_has_no_date(intelligence_db):
+    area, ids = await area_with_streets([0.01, 0.01, 0.01, 0.01, 1000])
+    now = datetime.now(UTC)
+    for sid, days in zip(ids, [300, 310, 320, 330]):
+        await drive(area, {sid: [[0, 1]]}, now - timedelta(days=days))
+    await rebuild_journal_rollup(area.id)
+    forecast = (await CoverageIntelligenceService.get_intelligence(area.id))["forecast"]
+    assert not forecast["available"]
+    assert forecast["window"] == "365d"
+    assert "50 years" in forecast["reason"]
+    assert forecast["paces"][0]["new_miles"] == 0
 
 
 async def test_forecast_does_not_invent_eta_from_sparse_history(intelligence_db):

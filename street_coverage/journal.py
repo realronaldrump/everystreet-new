@@ -23,13 +23,27 @@ from db.models import (
     Street,
 )
 from street_coverage import transactions
-from street_coverage.intervals import covered_fraction, union_intervals
+from street_coverage.intervals import (
+    METERS_PER_MILE,
+    continuity_tolerance,
+    covered_fraction,
+    intersect_intervals,
+    union_intervals,
+)
 from street_coverage.matching import MATCHING_VERSION
 
 JOURNAL_MATCHING_VERSION = MATCHING_VERSION
 JOURNAL_RANGES = {"all", "365d", "90d"}
 JOURNAL_SOURCES = {"all", "trip", "manual"}
-MILESTONE_THRESHOLDS = (10, 25, 50, 75, 100)
+MILESTONE_THRESHOLDS = (10, 25, 50, 75, 90, 100)
+JOURNAL_VIEWPORT_LIMIT = 2000
+JOURNAL_MAP_LIMIT = 30000
+JOURNAL_MAP_PROPERTIES = (
+    "segment_id",
+    "status",
+    "first_driven_at",
+    "period_trip_count",
+)
 
 
 class JournalPending(ValueError):
@@ -100,17 +114,6 @@ async def clear_journal_data(area_id):
         await model.find({"area_id": area_id}).delete()
 
 
-def _intersection_intervals(left, right):
-    return union_intervals(
-        [
-            [max(a, c), min(b, d)]
-            for a, b in left
-            for c, d in right
-            if min(b, d) > max(a, c)
-        ]
-    )
-
-
 def _build_read_model(area, streets, states, events, notes):
     street_by_id = {street.segment_id: street for street in streets}
     state_by_id = {state.segment_id: state for state in states}
@@ -125,7 +128,7 @@ def _build_read_model(area, streets, states, events, notes):
             state = state_by_id.get(sid)
             if sid not in street_by_id or not state:
                 continue
-            effective = _intersection_intervals(intervals, state.intervals)
+            effective = intersect_intervals(intervals, state.intervals)
             if not effective:
                 continue
             portions[sid] = effective
@@ -161,12 +164,20 @@ def _build_read_model(area, streets, states, events, notes):
     seen = defaultdict(list)
     cumulative = 0.0
     contributions = []
+    tolerances = {
+        sid: continuity_tolerance(street.length_miles * METERS_PER_MILE)
+        for sid, street in street_by_id.items()
+    }
     for when, source, trip_id, portions in timeline:
         gains = {}
         completed = 0
         for sid, intervals in portions.items():
             before = covered_fraction(seen[sid])
-            seen[sid] = union_intervals([*seen[sid], *intervals])
+            # Join pieces as the projection does, never beyond its coverage.
+            seen[sid] = intersect_intervals(
+                union_intervals([*seen[sid], *intervals], tolerance=tolerances[sid]),
+                state_by_id[sid].intervals,
+            )
             after = covered_fraction(seen[sid])
             if after > before + 1e-12:
                 gains[sid] = (after - before) * street_by_id[sid].length_miles
@@ -210,7 +221,7 @@ def _build_read_model(area, streets, states, events, notes):
         milestones.append(
             {
                 "key": "first",
-                "label": "First mark",
+                "label": "First street",
                 "threshold": 0,
                 "reached_at": first["occurred_at"],
                 "coverage": first["coverage_after"],
@@ -233,7 +244,9 @@ def _build_read_model(area, streets, states, events, notes):
                 milestones.append(
                     {
                         "key": f"pct-{threshold}",
-                        "label": f"{threshold}% covered",
+                        "label": "Every street"
+                        if threshold == 100
+                        else f"{threshold}% driven",
                         "threshold": threshold,
                         "reached_at": crossing["occurred_at"],
                         "coverage": crossing["coverage_after"],
@@ -401,7 +414,11 @@ def _build_read_model(area, streets, states, events, notes):
             "longest_pause_days": max(pauses, default=0),
             "historical_trip_count": len(events),
         },
-        "methodology": "Supported traveled intervals from Bouncie history, with owner overrides, against the current eligible street inventory. Dates use trip completion time.",
+        "methodology": (
+            "Each street counts the length you have driven along it, once, from "
+            "Bouncie trips and your own corrections. Percentages use today's "
+            "street list for the area. Dates are trip end times."
+        ),
     }
     return header, {
         "contribution": contributions,
@@ -820,28 +837,29 @@ async def get_journal_segments(
         query["street_key"] = normalize_street_key(street_name)
     if segment_ids:
         query["segment_id"] = {"$in": segment_ids}
-    streets = await Street.find(query).limit(2001).to_list()
-    truncated = len(streets) > 2000
-    streets = streets[:2000]
+    # A whole-area request draws every street; a viewport stays bounded.
+    whole_area = not (bounds or segment_ids or street_name)
+    limit = JOURNAL_MAP_LIMIT if whole_area else JOURNAL_VIEWPORT_LIMIT
+    streets = await Street.find(query).limit(limit + 1).to_list()
+    truncated = len(streets) > limit
+    streets = streets[:limit]
     ids = [street.segment_id for street in streets]
+    metric_query = _entry_query(rollup, "segment")
+    if not whole_area:
+        metric_query["key"] = {"$in": ids}
     metrics = {
         row.key: row.data
-        for row in await CoverageJournalEntry.find(
-            {**_entry_query(rollup, "segment"), "key": {"$in": ids}}
-        ).to_list()
+        for row in await CoverageJournalEntry.find(metric_query).to_list()
     }
     start = _range_start(
         normalize_journal_range(range_key), datetime.now(UTC), timezone
     )
     counts = {}
     if start:
-        visits = await CoverageJournalEntry.find(
-            {
-                **_entry_query(rollup, "visit"),
-                "occurred_at": {"$gte": start},
-                "data.segment_ids": {"$in": ids},
-            }
-        ).to_list()
+        visit_query = {**_entry_query(rollup, "visit"), "occurred_at": {"$gte": start}}
+        if not whole_area:
+            visit_query["data.segment_ids"] = {"$in": ids}
+        visits = await CoverageJournalEntry.find(visit_query).to_list()
         sets = defaultdict(set)
         for visit in visits:
             for sid in visit.data["segment_ids"]:
@@ -866,11 +884,17 @@ async def get_journal_segments(
         }
         for street in streets
     ]
-    from street_coverage.rendering import feature_parts
+    from street_coverage.rendering import local_projection, slim_parts
 
-    features = await asyncio.to_thread(
-        lambda: [part for feature in features for part in feature_parts(feature)]
-    )
+    def split():
+        projection = local_projection(street.geometry for street in streets)
+        return [
+            part
+            for feature in features
+            for part in slim_parts(feature, JOURNAL_MAP_PROPERTIES, projection)
+        ]
+
+    features = await asyncio.to_thread(split)
     return (
         {
             "type": "FeatureCollection",

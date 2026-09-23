@@ -4,6 +4,14 @@ Flat buffers select evidence without extending a trace past its endpoints.
 Roads compete only where they overlap the same local trace interval. GEOS performs
 candidate selection and intersection in vectorized batches; no whole-trip heading
 or whole-road midpoint can discard an unrelated turn or neighboring segment.
+
+Junctions need one more rule. A trace cuts corners when it turns, and where
+two roads leave a junction almost together (a ramp and its motorway) neither
+wins the shared stretch. Both leave the driven road short of its junction. When
+a trip drove at least half of a road, passed through the junction at its end,
+and went there directly, the short remainder inside that junction is credited.
+Conversely, a pass along a neighbouring road can graze a side road for a few
+centimetres at their shared junction; such slivers are not a drive.
 """
 
 from __future__ import annotations
@@ -17,15 +25,19 @@ import numpy as np
 import shapely
 from shapely.geometry import LineString
 
-from street_coverage.intervals import union_intervals
+from street_coverage.intervals import continuity_tolerance, union_intervals
 
-MATCHING_VERSION = "coverage-intervals-v2"
+MATCHING_VERSION = "coverage-intervals-v3"
 MAX_LOCAL_ANGLE_DEGREES = 45
 AMBIGUITY_METERS = 0.75
 TRACE_BATCH_SIZE = 512
-# Sub-meter discrepancies between independently projected road/trace vertices
-# must not leave centimeter-sized holes in otherwise continuous evidence.
-INTERVAL_CONTINUITY_METERS = 0.5
+# Longest uncredited stretch at a road end that a junction can explain.
+JUNCTION_REACH_METERS = 25.0
+# A trip must have driven this much of a road (or half of a shorter one)
+# before its junction remainder is credited.
+JUNCTION_EVIDENCE_METERS = 3.0
+# Evidence shorter than this (or than half of a shorter road) is a graze.
+MIN_EVIDENCE_METERS = 1.0
 
 
 def _road_positions(street, points, *, near_end=False):
@@ -56,7 +68,7 @@ def match_projected_intervals(
     roads = np.asarray(geometries, dtype=object)
     intervals: dict[str, list[list[float]]] = defaultdict(list)
     offsets: dict[str, float] = defaultdict(float)
-    lengths: dict[str, float] = {}
+    road_by_id: dict[str, Any] = {}
     cosine_limit = math.cos(math.radians(MAX_LOCAL_ANGLE_DEGREES))
 
     for batch_start in range(0, len(edges), TRACE_BATCH_SIZE):
@@ -134,18 +146,55 @@ def match_projected_intervals(
                 if high <= low:
                     continue
                 sid = segment_ids[best[2]]
-                lengths[sid] = street.length
+                road_by_id[sid] = street
                 intervals[sid].append(
                     [max(0.0, low / street.length), min(1.0, high / street.length)]
                 )
                 offsets[sid] = max(offsets[sid], best[5])
 
-    return {
-        sid: {
-            "intervals": union_intervals(
-                parts, tolerance=min(0.01, INTERVAL_CONTINUITY_METERS / lengths[sid])
-            ),
-            "max_offset_meters": offsets[sid],
-        }
-        for sid, parts in intervals.items()
-    }
+    result = {}
+    for sid, parts in intervals.items():
+        street = road_by_id[sid]
+        merged = _extend_to_junctions(
+            street,
+            union_intervals(parts, tolerance=continuity_tolerance(street.length)),
+            trace,
+            tolerance,
+        )
+        covered = math.fsum(end - start for start, end in merged) * street.length
+        if covered < min(MIN_EVIDENCE_METERS, street.length / 2):
+            continue
+        result[sid] = {"intervals": merged, "max_offset_meters": offsets[sid]}
+    return result
+
+
+def _extend_to_junctions(street, merged, trace, tolerance):
+    """Credit a road's unmatched end when the trip drove through that junction."""
+    if not merged:
+        return merged
+    length = street.length
+    covered = math.fsum(end - start for start, end in merged) * length
+    merged = [list(interval) for interval in merged]
+    coords = street.coords
+    for at_start in (True, False):
+        position = merged[0][0] if at_start else merged[-1][1]
+        gap = (position if at_start else 1.0 - position) * length
+        if (
+            gap <= 0
+            or gap > JUNCTION_REACH_METERS
+            or covered < max(gap, min(JUNCTION_EVIDENCE_METERS, length / 2))
+        ):
+            continue
+        node = shapely.Point(coords[0] if at_start else coords[-1])
+        if trace.distance(node) > tolerance:
+            continue
+        # The trace must go from the credited end to the junction directly,
+        # not return to it later after a detour.
+        anchor = street.interpolate(position, normalized=True)
+        if abs(trace.project(anchor) - trace.project(node)) > gap + 2 * tolerance:
+            continue
+        if at_start:
+            merged[0][0] = 0.0
+        else:
+            merged[-1][1] = 1.0
+    return merged

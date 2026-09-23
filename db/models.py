@@ -40,6 +40,7 @@ from core.spatial import (
     sanitize_geojson_point,
 )
 from map_data.models import GeoServiceHealth, MapServiceConfig
+from street_coverage.matching import MATCHING_VERSION
 
 
 class MapProvider(str, Enum):
@@ -836,7 +837,7 @@ class CoverageDriveEvent(Document):
     timezone: str | None = None
     geometry_source: str = "unknown"
     matching_mode: str = "both"
-    matching_version: str = "coverage-intervals-v2"
+    matching_version: str = MATCHING_VERSION
     input_revision: str = ""
     segment_intervals: dict[str, list[list[float]]] = Field(default_factory=dict)
     segment_offsets: dict[str, float] = Field(default_factory=dict)
