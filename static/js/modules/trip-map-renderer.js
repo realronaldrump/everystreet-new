@@ -9,6 +9,10 @@ import heatmapUtils from "./heatmap-utils.js";
 import MapStyles from "./map-styles.js";
 import tripInteractions from "./trip-interactions.js";
 
+/** A trip layer's ink, falling back to the trips layer's for custom layers. */
+const tripLayerColor = (layerInfo) =>
+  MapStyles.layerColor(layerInfo) || MapStyles.layerColor(CONFIG.LAYER_DEFAULTS.trips);
+
 const TRIP_LAYER_NAMES = new Set(["trips", "matchedTrips"]);
 const WORKER_URL = new URL("./trip-map-worker.js", import.meta.url);
 const NATIVE_LAYER_SUFFIXES = ["-hitbox", "-layer-2", "-layer-1", "-layer-0", "-layer"];
@@ -754,7 +758,7 @@ const tripMapRenderer = {
     );
 
     const paint = {
-      "line-color": layerInfo.color || CONFIG.LAYER_DEFAULTS.trips.color,
+      "line-color": tripLayerColor(layerInfo),
       "line-opacity": layerInfo.opacity ?? 1,
       "line-width": toMapboxLineWidth(layerInfo.weight || 2),
     };
@@ -1072,10 +1076,7 @@ const tripMapRenderer = {
         ...common,
         id: `${layerName}-trip-map-line`,
         pickable: true,
-        getColor: colorWithAlpha(
-          layerInfo.color || CONFIG.LAYER_DEFAULTS.trips.color,
-          230
-        ),
+        getColor: colorWithAlpha(tripLayerColor(layerInfo), 230),
         getWidth: layerInfo.weight || 2,
         opacity: layerInfo.opacity ?? 1,
         onClick: (info) => this.handleTripClick(info, layerName),
@@ -1130,7 +1131,7 @@ const tripMapRenderer = {
       // tier the same red with a cool cast on top and no sense of frequency.
       return {
         halo: "#6d2029",
-        glow: colors.default || "#b5523f",
+        glow: colors.default,
         core: "#ffdcd2",
       };
     }

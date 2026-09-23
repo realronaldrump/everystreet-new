@@ -8,7 +8,7 @@
  * left as they are: someone who picks them wants that imagery.
  */
 
-import { readToken } from "../core/theme-tokens.js";
+import { readMapColor } from "../core/theme-tokens.js";
 
 const PRINTABLE_STYLE = /\b(light|dark)\b/i;
 const UNPRINTABLE_STYLE = /satellite|streets/i;
@@ -24,21 +24,8 @@ const MAJOR_ROAD = /motorway|trunk|primary|highway|major/;
 const ROAD =
   /road|street|bridge|tunnel|link|minor|secondary|tertiary|service|path|track|pedestrian|steps|ferry/;
 
-// Mapbox GL only parses the comma form of rgb(); tokens use the modern one.
-function toGlColor(value) {
-  const match = value.match(
-    /^rgba?\(\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)\s*(?:\/\s*([\d.]+)(%?))?\s*\)$/
-  );
-  if (!match) {
-    return value;
-  }
-  const [, r, g, b, alpha = "1", percent] = match;
-  const a = percent ? Number(alpha) / 100 : Number(alpha);
-  return `rgba(${r}, ${g}, ${b}, ${a})`;
-}
-
 function readInks() {
-  const token = (name) => toGlColor(readToken(`--basemap-${name}`));
+  const token = (name) => readMapColor(`--basemap-${name}`);
   return {
     paper: token("paper"),
     land: token("land"),

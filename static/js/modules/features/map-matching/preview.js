@@ -4,7 +4,9 @@
  */
 
 import { CONFIG } from "../../core/config.js";
+import { toMapColor } from "../../core/theme-tokens.js";
 import { createMap } from "../../map-core.js";
+import MapStyles from "../../map-styles.js";
 import { clearInlineStatus, setInlineStatus } from "../settings/status-utils.js";
 import { elements } from "./context.js";
 import { buildBoundsFromGeojson, formatTripDate } from "./labels.js";
@@ -46,16 +48,15 @@ export function destroyPreviewMap() {
   matchedPreviewSelectedId = null;
 }
 
+/** The preview route ink, set on the map container as --matched-preview-color. */
 function getMatchedPreviewColor() {
-  if (!elements.previewMap) {
-    return CONFIG.LAYER_DEFAULTS.matchedTrips.color;
-  }
-  const container = elements.previewMap.closest(".mm-results-map-container");
+  const container = elements.previewMap?.closest(".mm-results-map-container");
   if (!container) {
-    return CONFIG.LAYER_DEFAULTS.matchedTrips.color;
+    return "";
   }
-  const color = getComputedStyle(container).getPropertyValue("--matched-preview-color");
-  return color?.trim() || CONFIG.LAYER_DEFAULTS.matchedTrips.color;
+  return toMapColor(
+    getComputedStyle(container).getPropertyValue("--matched-preview-color").trim()
+  );
 }
 
 function ensureMatchedPreviewMap() {
@@ -240,7 +241,10 @@ export function updateMatchedPreviewMap(geojson) {
   const layerId = "matched-preview-layer";
   const highlightId = "matched-preview-highlight";
   const color = getMatchedPreviewColor();
-  const { highlightColor } = CONFIG.LAYER_DEFAULTS.matchedTrips;
+  const highlightColor = MapStyles.layerColor(
+    CONFIG.LAYER_DEFAULTS.matchedTrips,
+    "highlightColor"
+  );
 
   if (map.getSource(sourceId)) {
     map.getSource(sourceId).setData(geojson);
@@ -267,7 +271,7 @@ export function updateMatchedPreviewMap(geojson) {
       source: sourceId,
       layout: { "line-join": "round", "line-cap": "round" },
       paint: {
-        "line-color": highlightColor || "#8aa7df",
+        "line-color": highlightColor,
         "line-opacity": 0.95,
         "line-width": 6,
       },

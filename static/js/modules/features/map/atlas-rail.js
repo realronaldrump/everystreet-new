@@ -14,6 +14,7 @@ import createCoverageLens from "./lens-coverage.js";
 import createFlowLens from "./lens-flow.js";
 import createPlacesLens from "./lens-places.js";
 import createTripsLens from "./lens-trips.js";
+import tripMapRenderer from "../../trip-map-renderer.js";
 import {
   getTripLayerHeatmapPreference,
   TRIP_LAYER_RENDER_MODE_EVENT,
@@ -28,52 +29,43 @@ const LEGEND_PRESETS = {
     {
       label: "Recorded paths",
       type: "line",
-      color: CONFIG.LAYER_DEFAULTS.trips.color,
-    },
-  ],
-  tripHeat: [
-    {
-      label: "Frequency · low → high",
-      type: "gradient",
-      color: "#b93b24",
-      color2: "#f06a2a",
-      color3: "#fff0c2",
+      color: "var(--map-trip-path)",
     },
   ],
   tripsMatched: {
     label: "Matched",
     type: "line",
-    color: CONFIG.LAYER_DEFAULTS.matchedTrips.color,
+    color: "var(--cat-rose)",
   },
   coverage: [
     {
       label: "Undriven",
       type: "dashed",
-      color: CONFIG.LAYER_DEFAULTS.undrivenStreets.color,
+      color: "var(--map-undriven)",
     },
     {
       label: "Driven",
       type: "line",
-      color: CONFIG.LAYER_DEFAULTS.drivenStreets.color,
+      color: "var(--map-driven)",
     },
     {
       label: "All",
       type: "line",
-      color: CONFIG.LAYER_DEFAULTS.allStreets.color,
+      color: "var(--cat-indigo)",
     },
     {
       label: "Boundary",
       type: "line",
-      color: CONFIG.LAYER_DEFAULTS.coverageAreaBoundingBox.color,
+      color: "var(--manual-rule)",
     },
   ],
-  places: [{ label: "Destinations", type: "dot", color: "#5f82a0" }],
+  places: [{ label: "Destinations", type: "dot", color: "var(--map-place)" }],
   flow: [
     {
       label: "Flow",
       type: "gradient",
-      color: CONFIG.LAYER_DEFAULTS.trips.color,
-      color2: "#f4d03f",
+      color: "var(--manual-rust)",
+      color2: "var(--manual-mustard)",
     },
   ],
 };
@@ -148,10 +140,22 @@ export default function initAtlasRail({ registerCleanup }) {
 
   let activeLens = null;
 
-  const getTripLegend = () =>
-    getTripLayerHeatmapPreference()
-      ? LEGEND_PRESETS.tripHeat
-      : LEGEND_PRESETS.tripPaths;
+  const getTripLegend = () => {
+    if (!getTripLayerHeatmapPreference()) {
+      return LEGEND_PRESETS.tripPaths;
+    }
+    // The heat ramp differs by edition; show the one the map is drawing.
+    const { halo, glow, core } = tripMapRenderer.getHeatmapPalette("trips");
+    return [
+      {
+        label: "Frequency · low → high",
+        type: "gradient",
+        color: halo,
+        color2: glow,
+        color3: core,
+      },
+    ];
+  };
 
   const renderLegend = () => {
     if (!legendList) {
@@ -350,6 +354,7 @@ export default function initAtlasRail({ registerCleanup }) {
   // Matched-trips visibility affects the trips legend
   on(document, "es:layers-change", renderLegend);
   on(document, TRIP_LAYER_RENDER_MODE_EVENT, renderLegend);
+  on(document, "themeChanged", renderLegend);
 
   // ---- Boot ---------------------------------------------------------
   const savedLens = utils.getStorage(LENS_STORAGE_KEY);

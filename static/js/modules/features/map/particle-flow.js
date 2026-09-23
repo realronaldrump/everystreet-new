@@ -11,9 +11,9 @@
  */
 
 import store from "../../core/store.js";
+import { readTokenChannels } from "../../core/theme-tokens.js";
 import tripMapRenderer from "../../trip-map-renderer.js";
 import { clearTripInteractionState } from "../../trip-selection-state.js";
-import { resolveActiveStyleType } from "./map-style.js";
 
 // ---------------------------------------------------------------------------
 // Tunables
@@ -591,10 +591,9 @@ const particleFlow = {
     const radius = particleRadius(tripCount, zoom);
     const globalAlpha = this._opacity;
 
-    // Determine theme colors
-    const isDark = this._isDarkTheme();
-    const coreColor = isDark ? [240, 184, 64] : [200, 120, 50]; // golden / warm brown
-    const glowColor = isDark ? [200, 104, 50] : [180, 100, 60]; // orange
+    // Mustard cores in a rust glow, in the current edition's inks
+    const coreColor = readTokenChannels("--manual-mustard-rgb");
+    const glowColor = readTokenChannels("--manual-rust-rgb");
 
     // Use additive-like compositing for the glow buildup
     ctx.globalCompositeOperation = "screen";
@@ -693,11 +692,6 @@ const particleFlow = {
 
     // Reset compositing
     ctx.globalCompositeOperation = "source-over";
-  },
-
-  _isDarkTheme() {
-    const mapType = resolveActiveStyleType();
-    return mapType !== "light" && mapType !== "streets";
   },
 };
 

@@ -1,201 +1,77 @@
 /**
- * Map Styles Configuration
- * Centralized color and style definitions for map layers and UI elements
- * Uses CSS variables for theme consistency
+ * Map layer inks, read from the --map-* and related tokens in
+ * core/variables.css and re-read when the theme changes.
  */
 
-import { readToken } from "./core/theme-tokens.js";
+import { readMapColor, readMapColorAlpha } from "./core/theme-tokens.js";
 
 const CAN_READ_DOCUMENT = typeof document !== "undefined";
 
-// Fallbacks for environments without computed styles (tests, workers).
-// The live values come from the --map-* inks in core/variables.css.
-const DEFAULT_MAP_LAYER_COLORS = Object.freeze({
-  trips: {
-    default: "#7fb0cf",
-    selected: "#e9dfc6",
-    recentLight: "#2f6f95",
-    recentDark: "#7fb0cf",
-  },
-  matchedTrips: {
-    default: "#b5523f",
-    highlight: "#93acbf",
-  },
-  streets: {
-    undriven: "#d27b58",
-    driven: "#8fb1c8",
-    all: "#93acbf",
-  },
-  routes: {
-    default: "#dcb35a",
-    active: "#8fb1c8",
-    completed: "#8fb1c8",
-  },
-  clusters: {
-    small: "#c49d4c",
-    medium: "#b5824a",
-    large: "#b5523f",
-  },
-  coverage: {
-    driven: "#8fb1c8",
-    undriven: "#d27b58",
-    undriveable: "#7d7568",
-  },
-  customPlaces: {
-    fill: "#8fb1c8",
-    outline: "#6e93ad",
-    highlight: "#dcb35a",
-  },
-  optimalRoute: {
-    driven: "#8fb1c8",
-    undriven: "#d27b58",
-    route: "#dcb35a",
-    arrow: "#dcb35a",
-  },
-  googleDefaults: {
-    line: "#dcb35a",
-    circle: "#9c7a33",
-    circleStroke: "#22201b",
-    fill: "#9c7a33",
-    fillOutline: "#9c7a33",
-  },
-  county: {
-    visitedFill: "#8fb1c8",
-    visitedBorder: "#6e93ad",
-    stoppedFill: "#7893a6",
-    stoppedBorder: "#4f6b80",
-    hoverFill: "#f1e8d5",
-    borderCounty: "rgba(236, 226, 203, 0.15)",
-    borderCity: "rgba(236, 226, 203, 0.25)",
-    stateLow: "rgba(236, 226, 203, 0.08)",
-    stateMedium: "rgba(143, 177, 200, 0.45)",
-    stateHigh: "rgba(79, 107, 128, 0.75)",
-    cityUnvisited: "rgba(236, 226, 203, 0.08)",
-  },
-});
-
-const getCSSVariable = readToken;
+const getCSSVariable = readMapColor;
 
 const buildMapLayerColors = () => ({
   trips: {
-    default: getCSSVariable("--map-trip-path", DEFAULT_MAP_LAYER_COLORS.trips.default),
-    selected: getCSSVariable(
-      "--map-trip-path-selected",
-      DEFAULT_MAP_LAYER_COLORS.trips.selected
-    ),
+    default: getCSSVariable("--map-trip-path"),
+    selected: getCSSVariable("--map-trip-path-selected"),
     recent: {
-      light: getCSSVariable(
-        "--map-trip-path",
-        DEFAULT_MAP_LAYER_COLORS.trips.recentLight
-      ),
-      dark: getCSSVariable(
-        "--map-trip-path",
-        DEFAULT_MAP_LAYER_COLORS.trips.recentDark
-      ),
+      light: getCSSVariable("--map-trip-path"),
+      dark: getCSSVariable("--map-trip-path"),
     },
   },
   matchedTrips: {
-    default: getCSSVariable("--danger", DEFAULT_MAP_LAYER_COLORS.matchedTrips.default),
-    highlight: getCSSVariable(
-      "--cat-sky",
-      DEFAULT_MAP_LAYER_COLORS.matchedTrips.highlight
-    ),
+    default: getCSSVariable("--danger"),
+    highlight: getCSSVariable("--cat-sky"),
   },
   streets: {
-    undriven: getCSSVariable(
-      "--map-undriven",
-      DEFAULT_MAP_LAYER_COLORS.streets.undriven
-    ),
-    driven: getCSSVariable("--map-driven", DEFAULT_MAP_LAYER_COLORS.streets.driven),
-    all: getCSSVariable("--cat-sky", DEFAULT_MAP_LAYER_COLORS.streets.all),
+    undriven: getCSSVariable("--map-undriven"),
+    driven: getCSSVariable("--map-driven"),
+    all: getCSSVariable("--cat-sky"),
   },
   routes: {
-    default: getCSSVariable("--map-route", DEFAULT_MAP_LAYER_COLORS.routes.default),
-    active: getCSSVariable("--map-driven", DEFAULT_MAP_LAYER_COLORS.routes.active),
-    completed: getCSSVariable(
-      "--map-driven",
-      DEFAULT_MAP_LAYER_COLORS.routes.completed
-    ),
+    default: getCSSVariable("--map-route"),
+    active: getCSSVariable("--map-driven"),
+    completed: getCSSVariable("--map-driven"),
   },
   clusters: {
-    small: getCSSVariable("--warning", DEFAULT_MAP_LAYER_COLORS.clusters.small),
-    medium: getCSSVariable("--cat-amber", DEFAULT_MAP_LAYER_COLORS.clusters.medium),
-    large: getCSSVariable("--danger", DEFAULT_MAP_LAYER_COLORS.clusters.large),
+    small: getCSSVariable("--warning"),
+    medium: getCSSVariable("--cat-amber"),
+    large: getCSSVariable("--danger"),
   },
   coverage: {
-    driven: getCSSVariable("--map-driven", DEFAULT_MAP_LAYER_COLORS.coverage.driven),
-    undriven: getCSSVariable(
-      "--map-undriven",
-      DEFAULT_MAP_LAYER_COLORS.coverage.undriven
-    ),
-    undriveable: getCSSVariable(
-      "--map-undriveable",
-      DEFAULT_MAP_LAYER_COLORS.coverage.undriveable
-    ),
+    driven: getCSSVariable("--map-driven"),
+    undriven: getCSSVariable("--map-undriven"),
+    undriveable: getCSSVariable("--map-undriveable"),
   },
   customPlaces: {
-    fill: getCSSVariable("--map-place", DEFAULT_MAP_LAYER_COLORS.customPlaces.fill),
-    outline: getCSSVariable(
-      "--map-place-outline",
-      DEFAULT_MAP_LAYER_COLORS.customPlaces.outline
-    ),
-    highlight: getCSSVariable(
-      "--map-route",
-      DEFAULT_MAP_LAYER_COLORS.customPlaces.highlight
-    ),
+    fill: getCSSVariable("--map-place"),
+    outline: getCSSVariable("--map-place-outline"),
+    highlight: getCSSVariable("--map-route"),
   },
   optimalRoute: {
-    driven: getCSSVariable(
-      "--map-driven",
-      DEFAULT_MAP_LAYER_COLORS.optimalRoute.driven
-    ),
-    undriven: getCSSVariable(
-      "--map-undriven",
-      DEFAULT_MAP_LAYER_COLORS.optimalRoute.undriven
-    ),
-    route: getCSSVariable("--map-route", DEFAULT_MAP_LAYER_COLORS.optimalRoute.route),
-    arrow: getCSSVariable("--map-route", DEFAULT_MAP_LAYER_COLORS.optimalRoute.arrow),
+    driven: getCSSVariable("--map-driven"),
+    undriven: getCSSVariable("--map-undriven"),
+    route: getCSSVariable("--map-route"),
+    arrow: getCSSVariable("--map-route"),
   },
   googleDefaults: {
-    line: getCSSVariable("--map-route", DEFAULT_MAP_LAYER_COLORS.googleDefaults.line),
-    circle: getCSSVariable(
-      "--warning-dark",
-      DEFAULT_MAP_LAYER_COLORS.googleDefaults.circle
-    ),
-    circleStroke: getCSSVariable(
-      "--surface-1",
-      DEFAULT_MAP_LAYER_COLORS.googleDefaults.circleStroke
-    ),
-    fill: getCSSVariable(
-      "--warning-dark",
-      DEFAULT_MAP_LAYER_COLORS.googleDefaults.fill
-    ),
-    fillOutline: getCSSVariable(
-      "--warning-dark",
-      DEFAULT_MAP_LAYER_COLORS.googleDefaults.fillOutline
-    ),
+    line: getCSSVariable("--map-route"),
+    circle: getCSSVariable("--warning-dark"),
+    circleStroke: getCSSVariable("--surface-1"),
+    fill: getCSSVariable("--warning-dark"),
+    fillOutline: getCSSVariable("--warning-dark"),
   },
   county: {
-    visitedFill: getCSSVariable(
-      "--map-driven",
-      DEFAULT_MAP_LAYER_COLORS.county.visitedFill
-    ),
-    visitedBorder: getCSSVariable(
-      "--map-place-outline",
-      DEFAULT_MAP_LAYER_COLORS.county.visitedBorder
-    ),
-    stoppedFill: getCSSVariable("--info", DEFAULT_MAP_LAYER_COLORS.county.stoppedFill),
-    stoppedBorder: getCSSVariable(
-      "--info-dark",
-      DEFAULT_MAP_LAYER_COLORS.county.stoppedBorder
-    ),
-    hoverFill: getCSSVariable("--surface-1", DEFAULT_MAP_LAYER_COLORS.county.hoverFill),
-    borderCounty: DEFAULT_MAP_LAYER_COLORS.county.borderCounty,
-    borderCity: DEFAULT_MAP_LAYER_COLORS.county.borderCity,
-    stateLow: DEFAULT_MAP_LAYER_COLORS.county.stateLow,
-    stateMedium: DEFAULT_MAP_LAYER_COLORS.county.stateMedium,
-    stateHigh: DEFAULT_MAP_LAYER_COLORS.county.stateHigh,
-    cityUnvisited: DEFAULT_MAP_LAYER_COLORS.county.cityUnvisited,
+    visitedFill: getCSSVariable("--map-driven"),
+    visitedBorder: getCSSVariable("--map-place-outline"),
+    stoppedFill: getCSSVariable("--info"),
+    stoppedBorder: getCSSVariable("--info-dark"),
+    hoverFill: getCSSVariable("--surface-1"),
+    borderCounty: readMapColorAlpha("--manual-ink-rgb", 0.15),
+    borderCity: readMapColorAlpha("--manual-ink-rgb", 0.25),
+    stateLow: readMapColorAlpha("--manual-ink-rgb", 0.08),
+    stateMedium: readMapColorAlpha("--manual-navy-rgb", 0.45),
+    stateHigh: readMapColorAlpha("--manual-navy-rgb", 0.8),
+    cityUnvisited: readMapColorAlpha("--manual-ink-rgb", 0.08),
   },
 });
 
@@ -234,6 +110,20 @@ const updateNestedValues = (target, source) => {
   return target;
 };
 
+/**
+ * The ink a Map page layer draws in: a colour set on the layer, else its
+ * token read now, so a layer re-added after a theme switch takes the new
+ * edition's ink. `key` picks color, highlightColor, or glowColor.
+ */
+export function layerColor(layerInfo, key = "color") {
+  const set = layerInfo?.[key];
+  if (set) {
+    return set;
+  }
+  const token = layerInfo?.[`${key}Token`];
+  return token ? readMapColor(token) : "";
+}
+
 const MAP_LAYER_COLORS = buildMapLayerColors();
 const MAP_LAYER_STYLES = buildMapLayerStyles(MAP_LAYER_COLORS);
 
@@ -266,6 +156,7 @@ function getTripStyle(state = "default") {
 
 const MapStyles = {
   MAP_LAYER_COLORS,
+  layerColor,
   MAP_LAYER_STYLES,
   refreshMapStyles,
   getClusterColor,

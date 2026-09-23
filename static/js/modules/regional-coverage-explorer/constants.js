@@ -3,17 +3,8 @@
  * Contains FIPS code mappings and configuration values
  */
 
-import { COVERAGE_BBOX_LINE_COLOR } from "../core/coverage-bounds.js";
+import { readMapColor, readMapColorAlpha } from "../core/theme-tokens.js";
 import MapStyles from "../map-styles.js";
-
-const COUNTY_COLORS = MapStyles.MAP_LAYER_COLORS?.county || {};
-
-const colorOr = (value, fallback) => {
-  if (typeof value === "string" && value.trim()) {
-    return value.trim();
-  }
-  return fallback;
-};
 
 /** LocalStorage key for recalculation state */
 export const RECALC_STORAGE_KEY = "countyRecalcStatus";
@@ -26,45 +17,34 @@ export const MAP_CONFIG = {
   maxZoom: 12,
 };
 
-/** Map layer colors */
-export const COLORS = {
-  visited: {
-    fill: colorOr(COUNTY_COLORS.visitedFill, "#5f82a0"),
-    border: colorOr(COUNTY_COLORS.visitedBorder, "#526fae"),
-    opacity: 0.6,
-  },
-  stopped: {
-    fill: colorOr(COUNTY_COLORS.stoppedFill, "#7893a6"),
-    border: colorOr(COUNTY_COLORS.stoppedBorder, "#44688a"),
-    opacity: 0.55,
-  },
-  unvisited: {
-    fill: "rgba(245, 242, 236, 0.02)",
-  },
-  hover: {
-    fill: colorOr(COUNTY_COLORS.hoverFill, "#faf9f7"),
-    opacity: 0.2,
-  },
-  borders: {
-    county: colorOr(COUNTY_COLORS.borderCounty, "rgba(245, 242, 236, 0.15)"),
-    state: COVERAGE_BBOX_LINE_COLOR,
-    city: colorOr(COUNTY_COLORS.borderCity, "rgba(245, 242, 236, 0.25)"),
-  },
-  levels: {
-    state: {
-      low: colorOr(COUNTY_COLORS.stateLow, "rgba(245, 242, 236, 0.08)"),
-      medium: colorOr(COUNTY_COLORS.stateMedium, "rgba(111, 143, 206, 0.45)"),
-      high: colorOr(COUNTY_COLORS.stateHigh, "rgba(82, 111, 174, 0.75)"),
+/**
+ * Map layer colours, from the county inks in map-styles. Read when layers
+ * are built so a theme switch takes the new edition's inks.
+ */
+export function mapColors() {
+  const county = MapStyles.MAP_LAYER_COLORS.county;
+  return {
+    visited: { fill: county.visitedFill, border: county.visitedBorder, opacity: 0.6 },
+    stopped: { fill: county.stoppedFill, border: county.stoppedBorder, opacity: 0.55 },
+    unvisited: { fill: readMapColorAlpha("--manual-ink-rgb", 0.02) },
+    hover: { fill: county.hoverFill, opacity: 0.2 },
+    borders: {
+      county: county.borderCounty,
+      state: readMapColor("--manual-rule"),
+      city: county.borderCity,
     },
-    city: {
-      visited: colorOr(COUNTY_COLORS.visitedFill, "#5f82a0"),
-      stopped: colorOr(COUNTY_COLORS.stoppedFill, "#7893a6"),
-      unvisited: colorOr(COUNTY_COLORS.cityUnvisited, "rgba(245, 242, 236, 0.08)"),
-      visitedBorder: colorOr(COUNTY_COLORS.visitedBorder, "#526fae"),
-      stoppedBorder: colorOr(COUNTY_COLORS.stoppedBorder, "#44688a"),
+    levels: {
+      state: { low: county.stateLow, medium: county.stateMedium, high: county.stateHigh },
+      city: {
+        visited: county.visitedFill,
+        stopped: county.stoppedFill,
+        unvisited: county.cityUnvisited,
+        visitedBorder: county.visitedBorder,
+        stoppedBorder: county.stoppedBorder,
+      },
     },
-  },
-};
+  };
+}
 
 /** FIPS code to state name mapping */
 const STATE_FIPS_TO_NAME = {

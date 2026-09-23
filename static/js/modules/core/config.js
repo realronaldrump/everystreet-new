@@ -3,7 +3,6 @@
  * All API endpoints, storage keys, and constants in one place
  */
 
-import { COVERAGE_BBOX_LINE_COLOR } from "./coverage-bounds.js";
 
 export const CONFIG = {
   // Map configuration
@@ -129,11 +128,12 @@ export const CONFIG = {
   LAYER_DEFAULTS: {
     trips: {
       order: 1,
-      // Keep individual journeys in a cool lane. Heat intensity owns the
-      // warm amber scale, so the two rendering modes read at a glance.
-      color: "#4ca3d2",
-      highlightColor: "#dcefff",
-      glowColor: "#8aa7df",
+      // Individual journeys print in the cool trip ink; heat mode owns the
+      // warm ember scale, so the two modes read at a glance. Colours are
+      // tokens, read when the layer is painted (see map-styles layerColor).
+      colorToken: "--map-trip-path",
+      highlightColorToken: "--map-trip-path-selected",
+      glowColorToken: "--map-trip-path",
       opacity: 1,
       visible: true,
       name: "Trips",
@@ -146,10 +146,10 @@ export const CONFIG = {
     },
     matchedTrips: {
       order: 3,
-      color: "#b5523f",
+      colorToken: "--cat-rose",
       opacity: 1,
       visible: false,
-      highlightColor: "#8aa7df",
+      highlightColorToken: "--map-trip-path-selected",
       name: "Matched Trips",
       weight: 2,
       minzoom: 0,
@@ -160,7 +160,7 @@ export const CONFIG = {
     },
     undrivenStreets: {
       order: 2,
-      color: "#c26a4a",
+      colorToken: "--map-undriven",
       opacity: 0.8,
       visible: false,
       name: "Undriven Streets",
@@ -170,7 +170,7 @@ export const CONFIG = {
     },
     drivenStreets: {
       order: 2,
-      color: "#5f82a0",
+      colorToken: "--map-driven",
       opacity: 0.8,
       visible: false,
       name: "Driven Streets",
@@ -180,7 +180,7 @@ export const CONFIG = {
     },
     allStreets: {
       order: 2,
-      color: "#5e6789",
+      colorToken: "--cat-indigo",
       opacity: 0.7,
       visible: false,
       name: "All Streets",
@@ -190,7 +190,7 @@ export const CONFIG = {
     },
     coverageAreaBoundingBox: {
       order: 2,
-      color: COVERAGE_BBOX_LINE_COLOR,
+      colorToken: "--manual-rule",
       opacity: 0.95,
       visible: false,
       name: "Coverage Bounds",

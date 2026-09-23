@@ -7,6 +7,7 @@
  */
 
 import { CONFIG } from "./core/config.js";
+import MapStyles from "./map-styles.js";
 import layerManager from "./layer-manager.js";
 import { bearing as computeBearing, haversineDistance } from "./utils/geo-math.js";
 
@@ -45,8 +46,8 @@ class TripAnimator {
 
     const {
       duration = 2000,
-      color = CONFIG.LAYER_DEFAULTS.trips.color,
-      glowColor = CONFIG.LAYER_DEFAULTS.trips.glowColor,
+      color = MapStyles.layerColor(CONFIG.LAYER_DEFAULTS.trips),
+      glowColor = MapStyles.layerColor(CONFIG.LAYER_DEFAULTS.trips, "glowColor"),
       lineWidth = 3,
       onComplete = null,
     } = options;
@@ -122,7 +123,7 @@ class TripAnimator {
     const {
       speed = 1,
       followCamera = true,
-      color = CONFIG.LAYER_DEFAULTS.trips.color,
+      color = MapStyles.layerColor(CONFIG.LAYER_DEFAULTS.trips),
       onProgress = null,
       onComplete = null,
     } = options;

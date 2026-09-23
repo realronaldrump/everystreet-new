@@ -12,6 +12,15 @@ import {
   updateStopLayerVisibility,
 } from "../static/js/modules/regional-coverage-explorer/map-layers.js";
 import * as RegionalCoverageExplorerState from "../static/js/modules/regional-coverage-explorer/state.js";
+import MapStyles from "../static/js/modules/map-styles.js";
+import { installThemeTokens } from "./helpers/theme-tokens.js";
+
+let restoreTokens;
+test.before(() => {
+  restoreTokens = installThemeTokens();
+  MapStyles.refreshMapStyles();
+});
+test.after(() => restoreTokens());
 
 test.afterEach(() => {
   RegionalCoverageExplorerState.resetState();
@@ -24,7 +33,7 @@ test("county style expressions switch stopped styling on/off", () => {
     "#7893a6",
     ["boolean", ["feature-state", "visited"], false],
     "#8fb1c8",
-    "rgba(245, 242, 236, 0.02)",
+    "rgba(236, 226, 203, 0.02)",
   ]);
   assert.deepEqual(buildCountyFillOpacityExpression(true), [
     "case",

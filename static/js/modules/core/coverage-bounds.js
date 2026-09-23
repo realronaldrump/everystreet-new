@@ -4,8 +4,6 @@
  * Bounding boxes are represented as [west, south, east, north].
  */
 
-export const COVERAGE_BBOX_LINE_COLOR = "rgba(245, 242, 236, 0.35)";
-
 const BOUNDARY_GEOMETRY_TYPES = new Set(["Polygon", "MultiPolygon"]);
 
 const isBoundaryGeometryType = (geometryType) =>

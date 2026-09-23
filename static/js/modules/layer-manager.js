@@ -867,9 +867,7 @@ const layerManager = {
    * @private
    */
   _updateLayerPaintProperties(layerId, layerInfo) {
-    const colorValue = Array.isArray(layerInfo.color)
-      ? layerInfo.color
-      : layerInfo.color || "#857d6e";
+    const colorValue = MapStyles.layerColor(layerInfo);
 
     store.map.setPaintProperty(layerId, "line-color", colorValue);
     store.map.setPaintProperty(layerId, "line-opacity", layerInfo.opacity);
@@ -1408,9 +1406,7 @@ const layerManager = {
         "line-cap": "round",
       },
       paint: {
-        "line-color": Array.isArray(layerInfo.color)
-          ? layerInfo.color
-          : layerInfo.color || "#857d6e",
+        "line-color": MapStyles.layerColor(layerInfo),
         "line-opacity": layerInfo.opacity,
         "line-width": [
           "interpolate",
@@ -1440,24 +1436,8 @@ const layerManager = {
       return null;
     }
 
-    const matchedTripColors = MapStyles.MAP_LAYER_COLORS?.matchedTrips || {};
-    const fallbackPalette = {
-      glow: "#b5523f",
-      core: "#8aa7df",
-    };
-
-    return {
-      glow:
-        typeof matchedTripColors.default === "string" &&
-        matchedTripColors.default.trim()
-          ? matchedTripColors.default
-          : fallbackPalette.glow,
-      core:
-        typeof matchedTripColors.highlight === "string" &&
-        matchedTripColors.highlight.trim()
-          ? matchedTripColors.highlight
-          : fallbackPalette.core,
-    };
+    const { matchedTrips } = MapStyles.MAP_LAYER_COLORS;
+    return { glow: matchedTrips.default, core: matchedTrips.highlight };
   },
 
   // ============================================================

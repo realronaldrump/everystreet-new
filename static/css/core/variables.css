@@ -201,6 +201,7 @@
   --manual-navy: #8fa6b4;
   --manual-navy-rgb: 143 166 180;
   --manual-rust: #d5805f;
+  --manual-rust-rgb: 213 128 95;
   --manual-rust-ink: #dd8d6c;
   --manual-mustard: #cfae5c;
   --manual-mustard-rgb: 207 174 92;
@@ -369,6 +370,7 @@ html.light-mode body {
   --manual-navy: #465b68;
   --manual-navy-rgb: 70 91 104;
   --manual-rust: #a6533d;
+  --manual-rust-rgb: 166 83 61;
   --manual-rust-ink: #954632;
   --manual-mustard: #b39343;
   --manual-mustard-rgb: 179 147 67;

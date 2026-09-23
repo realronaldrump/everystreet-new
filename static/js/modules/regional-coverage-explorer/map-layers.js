@@ -4,7 +4,7 @@
  */
 
 import { getCurrentTheme, resolveMapStyle } from "../core/map-style-resolver.js";
-import { COLORS } from "./constants.js";
+import { mapColors } from "./constants.js";
 import * as RegionalCoverageExplorerState from "./state.js";
 
 const COUNTIES_SOURCE_ID = "counties";
@@ -60,6 +60,7 @@ function normalizeCountyFipsKey(value) {
 }
 
 export function buildCountyFillColorExpression(showStoppedCounties) {
+  const COLORS = mapColors();
   if (showStoppedCounties) {
     return [
       "case",
@@ -80,6 +81,7 @@ export function buildCountyFillColorExpression(showStoppedCounties) {
 }
 
 export function buildCountyFillOpacityExpression(showStoppedCounties) {
+  const COLORS = mapColors();
   if (showStoppedCounties) {
     return [
       "case",
@@ -100,6 +102,7 @@ export function buildCountyFillOpacityExpression(showStoppedCounties) {
 }
 
 export function buildCountyBorderColorExpression(showStoppedCounties) {
+  const COLORS = mapColors();
   if (showStoppedCounties) {
     return [
       "case",
@@ -135,6 +138,7 @@ export function buildCountyBorderWidthExpression(showStoppedCounties) {
 }
 
 function buildStateFillColorExpression() {
+  const COLORS = mapColors();
   return [
     "interpolate",
     ["linear"],
@@ -149,6 +153,7 @@ function buildStateFillColorExpression() {
 }
 
 function buildCityFillColorExpression(showStoppedCities) {
+  const COLORS = mapColors();
   if (showStoppedCities) {
     return [
       "case",
@@ -184,6 +189,7 @@ function buildCityFillOpacityExpression(showStoppedCities) {
 }
 
 function buildCityBorderColorExpression(showStoppedCities) {
+  const COLORS = mapColors();
   if (showStoppedCities) {
     return [
       "case",
@@ -275,6 +281,7 @@ function applyCityLayerPaint(map, showStoppedCities) {
 }
 
 function addCountyLayers({ map, countyData, statesData, showStoppedCounties }) {
+  const COLORS = mapColors();
   map.addSource(COUNTIES_SOURCE_ID, {
     type: "geojson",
     data: countyData,
@@ -340,6 +347,7 @@ function addCountyLayers({ map, countyData, statesData, showStoppedCounties }) {
 }
 
 function addStateLayers({ map, stateFeatureCollection }) {
+  const COLORS = mapColors();
   map.addSource(STATES_SOURCE_ID, {
     type: "geojson",
     data: stateFeatureCollection,
@@ -395,6 +403,7 @@ function addStateLayers({ map, stateFeatureCollection }) {
 }
 
 function addCityLayers({ map, cityFeatureCollection, showStoppedCities }) {
+  const COLORS = mapColors();
   map.addSource(CITIES_SOURCE_ID, {
     type: "geojson",
     data: cityFeatureCollection,

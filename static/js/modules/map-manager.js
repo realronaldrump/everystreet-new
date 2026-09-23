@@ -237,7 +237,7 @@ const mapManager = {
         return;
       }
 
-      const baseColor = layerInfo.color || CONFIG.LAYER_DEFAULTS.trips.color;
+      const baseColor = MapStyles.layerColor(layerInfo);
       const baseWeight = layerInfo.weight || 2;
 
       // Build color expression
@@ -249,7 +249,7 @@ const mapManager = {
               ["to-string", ["coalesce", ["get", "transactionId"], ["get", "id"]]],
               selectedId,
             ],
-            layerInfo.highlightColor || CONFIG.LAYER_DEFAULTS.trips.highlightColor,
+            MapStyles.layerColor(layerInfo, "highlightColor"),
             baseColor,
           ]
         : baseColor;
@@ -344,16 +344,10 @@ const mapManager = {
       properties: matchingFeature.properties || {},
     };
 
-    const defaultHighlight =
-      selectedLayer === "matchedTrips"
-        ? "#8aa7df"
-        : CONFIG.LAYER_DEFAULTS.trips.highlightColor;
     const highlightColor =
-      (selectedLayer === "matchedTrips"
-        ? MapStyles.MAP_LAYER_COLORS?.matchedTrips?.highlight
-        : MapStyles.MAP_LAYER_COLORS?.trips?.selected) ||
-      layerInfo.highlightColor ||
-      defaultHighlight;
+      selectedLayer === "matchedTrips"
+        ? MapStyles.MAP_LAYER_COLORS.matchedTrips.highlight
+        : MapStyles.MAP_LAYER_COLORS.trips.selected;
 
     const highlightWidth = [
       "interpolate",
