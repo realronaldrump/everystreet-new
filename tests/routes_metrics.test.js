@@ -4,7 +4,7 @@ import test from "node:test";
 import {
   computeDistanceStats,
   fillMissingMonthlyBuckets,
-} from "../static/js/modules/features/routes/index.js";
+} from "../static/js/modules/features/routes/insights.js";
 
 test("route distance range requires observed timeline distances", () => {
   assert.equal(
