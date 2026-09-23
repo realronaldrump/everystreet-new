@@ -4,7 +4,7 @@ import test from "node:test";
 
 const source = await readFile(
   new URL(
-    "../static/js/modules/features/trips/index.js",
+    "../static/js/modules/features/trips/trip-modal.js",
     import.meta.url
   ),
   "utf8"
