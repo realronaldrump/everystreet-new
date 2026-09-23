@@ -1789,23 +1789,10 @@ function updateStatsUI(area) {
       : "—";
   }
 
-  // Completion is expressed as a quiet Atlas stamp and cobalt hairline.
-  applyCompletionCelebration(area);
-}
-
-function applyCompletionCelebration(area) {
-  const sidebar = document.getElementById("coverage-sidebar");
-  if (!sidebar) {
-    return;
-  }
-  const isComplete = area?.is_complete === true;
-
-  if (!isComplete) {
-    sidebar.classList.remove("is-complete");
-    return;
-  }
-
-  sidebar.classList.add("is-complete");
+  // A finished area is stamped complete in the sidebar.
+  document
+    .getElementById("coverage-sidebar")
+    ?.classList.toggle("is-complete", area?.is_complete === true);
 }
 
 function renderProgressRing(fillEl, pct) {

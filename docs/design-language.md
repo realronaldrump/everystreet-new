@@ -1,6 +1,6 @@
 # The motorist's manual: Every Street design language
 
-Every Street is set like a 1960s motorist's manual and road atlas: warm paper
+Every Street is set like a 1960s motorist's manual: warm paper
 stock, one body ink, three spot inks, hairline rules, and pen-and-ink plates.
 It prints in two editions. The night edition (dark, the default) is cream ink
 on dark stock; the day edition (`html.light-mode`) is dark ink on warm paper.
@@ -169,7 +169,8 @@ from the denominator. Exports contain no vehicle identifiers or live-trip data.
 
 Write like the manual: plain, specific, and short. Say what a page holds or
 what a control does ("Stops at your saved places, over time."). No mission
-statements, no slogans, and no cheerful filler.
+statements, no slogans, and no cheerful filler. Name a page for what it
+holds; the app is not described as an atlas or a personal record.
 
 ## Responsive and accessible behavior
 
