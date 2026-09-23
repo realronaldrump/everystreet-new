@@ -7,8 +7,8 @@ import {
   getDriveableMiles,
   getRemainingDriveableMiles,
 } from "../navigation-core/coverage-areas.js";
+import { formatDate, formatPercent } from "../coverage-journal/format.js";
 import {
-  formatRelativeTime,
   getCoverageTierClass,
   normalizeCoveragePercent,
   setMetricValue,
@@ -50,16 +50,13 @@ export function updateStatsUI(area) {
     renderProgressRing(ringFillEl, pct);
   }
 
-  // Ring center label
-  const ringPctEl = document.getElementById("ring-pct-value");
-  if (ringPctEl) {
-    ringPctEl.textContent = `${pct.toFixed(1)}%`;
-  }
-
-  // Map coverage chip
-  const mapPctEl = document.getElementById("map-coverage-pct");
-  if (mapPctEl) {
-    mapPctEl.textContent = `${pct.toFixed(1)}%`;
+  // Ring center label and map chip; neither prints 100% before the area is done.
+  const pctText = formatPercent(pct, { complete: area.is_complete === true });
+  for (const id of ["ring-pct-value", "map-coverage-pct"]) {
+    const element = document.getElementById(id);
+    if (element) {
+      element.textContent = pctText;
+    }
   }
 
   // Quick stats
@@ -98,7 +95,7 @@ export function updateStatsUI(area) {
   const lastActivityEl = document.getElementById("qs-last-activity");
   if (lastActivityEl) {
     lastActivityEl.textContent = area.last_coverage_trip_at
-      ? formatRelativeTime(area.last_coverage_trip_at)
+      ? formatDate(area.last_coverage_trip_at, "short")
       : "—";
   }
 

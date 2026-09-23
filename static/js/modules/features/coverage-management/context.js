@@ -98,11 +98,11 @@ export function normalizeCoverageTripMode(value) {
 export function getCoverageTripModeLabel(mode) {
   switch (normalizeCoverageTripMode(mode)) {
     case "regular":
-      return "GPS traces";
+      return "GPS paths only";
     case "matched":
-      return "map-matched traces";
+      return "map-matched paths only";
     default:
-      return "the best available trace";
+      return "map-matched paths, or GPS when unmatched";
   }
 }
 

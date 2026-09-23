@@ -24,8 +24,7 @@ Coverage Management
           <p class="pm-eyebrow">Coverage &amp; Routes</p>
           <h1 class="pm-title">Coverage</h1>
           <p class="pm-sub">
-            Share of each area&rsquo;s streets driven.
-            <strong id="total-areas-count">0</strong> areas tracked.
+            How much of each area&rsquo;s streets you have driven, measured by length.
           </p>
         </div>
         <div class="pm-plate" aria-hidden="true">
@@ -45,13 +44,13 @@ Coverage Management
                     aria-disabled="true"
                     title="Batch recalculate"
                     disabled>
-              <i class="fas fa-list-check me-1" aria-hidden="true"></i>Batch
+              <i class="fas fa-list-check me-1" aria-hidden="true"></i>Recalculate
             </button>
             <button class="btn btn-primary btn-sm"
                     data-bs-toggle="modal"
                     data-bs-target="#addAreaModal"
                     aria-label="Add a new coverage area">
-              <i class="fas fa-plus me-1" aria-hidden="true"></i>Add Area
+              <i class="fas fa-plus me-1" aria-hidden="true"></i>Add area
             </button>
             <button class="btn btn-outline-secondary btn-sm"
                     id="refresh-list-btn"
@@ -63,14 +62,47 @@ Coverage Management
         </div>
       </header>
 
+      <section class="figure-band coverage-figures"
+               id="coverage-figures"
+               aria-label="All areas"
+               hidden>
+        <div class="figure">
+          <span class="figure-label">Areas</span>
+          <span class="figure-readout">
+            <span class="figure-value figure-value-sm" id="coverage-sum-areas">—</span>
+          </span>
+          <span class="coverage-figure-note" id="coverage-sum-complete"></span>
+        </div>
+        <div class="figure">
+          <span class="figure-label">Miles driven</span>
+          <span class="figure-readout">
+            <span class="figure-value figure-value-sm" id="coverage-sum-driven">—</span>
+            <span class="figure-unit" id="coverage-sum-total"></span>
+          </span>
+        </div>
+        <div class="figure">
+          <span class="figure-label">Left to drive</span>
+          <span class="figure-readout">
+            <span class="figure-value figure-value-sm" id="coverage-sum-left">—</span>
+            <span class="figure-unit">mi</span>
+          </span>
+        </div>
+        <div class="figure">
+          <span class="figure-label">Last drive</span>
+          <span class="figure-readout">
+            <span class="figure-value figure-value-sm" id="coverage-sum-last">—</span>
+          </span>
+          <span class="coverage-figure-note" id="coverage-sum-last-area"></span>
+        </div>
+      </section>
+
       <div class="content-grid" data-stagger>
         <div class="grid-span-12" id="alerts-container">
         </div>
         <div class="grid-span-12">
           <div class="coverage-list-toolbar">
             <label class="coverage-sort-control" for="coverage-area-sort">
-              <i class="fas fa-arrow-down-wide-short" aria-hidden="true"></i>
-              <span>Sort areas</span>
+              <span>Sort</span>
               <select class="form-select form-select-sm" id="coverage-area-sort">
                 <option value="coverage-desc" selected>Completion: high to low</option>
                 <option value="coverage-asc">Completion: low to high</option>
@@ -106,16 +138,16 @@ Coverage Management
               <i class="fas fa-map-marked-alt" aria-hidden="true"></i>
             </div>
             <h3 class="empty-state-title">
-Start Your Street Challenge
+No coverage areas yet
             </h3>
             <p class="empty-state-body">
-            Add a coverage area to begin tracking which streets you've driven.
-            Coverage updates automatically every time you complete a trip.
+            Add a city or county to see how much of it you have driven. Every trip
+            you finish updates it.
             </p>
-            <button class="btn btn-primary btn-lg"
+            <button class="btn btn-primary"
                     data-bs-toggle="modal"
                     data-bs-target="#addAreaModal">
-              <i class="fas fa-plus me-2" aria-hidden="true"></i>Add Your First Area
+              <i class="fas fa-plus me-2" aria-hidden="true"></i>Add an area
             </button>
           </div>
         </div>
@@ -171,15 +203,13 @@ Error details
           <span id="sidebar-area-name" class="sidebar-area-name">Loading…</span>
           <span id="sidebar-area-type" class="sidebar-area-type"></span>
         </div>
-        <div style="display:flex;gap:var(--space-2);margin-left:auto;">
-          <button class="share-coverage-btn"
-                  id="share-coverage-btn"
-                  type="button"
-                  title="Share your exploration"
-                  aria-label="Share your exploration">
-            <i class="fas fa-share-alt"></i>
-          </button>
-        </div>
+        <button class="share-coverage-btn"
+                id="share-coverage-btn"
+                type="button"
+                title="Share a film of this area"
+                aria-label="Share a film of this area">
+          <i class="fas fa-share-alt" aria-hidden="true"></i>
+        </button>
       </div>
       <div class="coverage-sidebar-tabs atlas-tabs" role="tablist" aria-label="Coverage detail tabs">
         <button class="sidebar-tab-btn atlas-tab is-active"
@@ -188,7 +218,7 @@ Error details
                 aria-controls="sidebar-tab-stats"
                 data-tab-target="sidebar-tab-stats"
                 id="tab-btn-stats">
-          <i class="fas fa-chart-pie me-1" aria-hidden="true"></i>Stats
+          Summary
         </button>
         <button class="sidebar-tab-btn atlas-tab"
                 role="tab"
@@ -196,7 +226,7 @@ Error details
                 aria-controls="sidebar-tab-history"
                 data-tab-target="sidebar-tab-history"
                 id="tab-btn-history">
-          <i class="fas fa-history me-1" aria-hidden="true"></i>History
+          History
         </button>
       </div>
       <div id="sidebar-tab-stats"
@@ -215,34 +245,38 @@ Error details
           </svg>
           <div class="progress-ring-center">
             <span id="ring-pct-value" class="progress-ring-pct" aria-live="polite">0%</span>
-            <span class="progress-ring-label">covered</span>
+            <span class="progress-ring-label">driven</span>
           </div>
         </div>
         <div class="completion-celebration" id="completion-celebration" aria-live="polite">
           <div class="completion-headline">Every street driven</div>
-          <div class="completion-subline">Coverage is complete for this area.</div>
         </div>
-        <div class="quick-stats-row">
+        <dl class="quick-stats-row">
           <div class="quick-stat">
-            <span id="qs-driven" class="qs-value" data-value-flash>0 mi</span>
-            <span class="qs-label">Driven</span>
+            <dt class="qs-label">Driven</dt>
+            <dd id="qs-driven" class="qs-value" data-value-flash>0 mi</dd>
           </div>
           <div class="quick-stat">
-            <span id="qs-remaining" class="qs-value" data-value-flash>0 mi</span>
-            <span class="qs-label">Remaining</span>
+            <dt class="qs-label">Left</dt>
+            <dd id="qs-remaining" class="qs-value" data-value-flash>0 mi</dd>
           </div>
           <div class="quick-stat">
-            <span id="qs-total" class="qs-value">0 mi</span>
-            <span class="qs-label">Total</span>
+            <dt class="qs-label">Driveable</dt>
+            <dd id="qs-total" class="qs-value">0 mi</dd>
           </div>
           <div class="quick-stat">
-            <span id="qs-segments-remaining" class="qs-value" data-value-flash>0</span>
-            <span class="qs-label">Segments left</span>
+            <dt class="qs-label">Segments left</dt>
+            <dd id="qs-segments-remaining" class="qs-value" data-value-flash>0</dd>
           </div>
-        </div>
+        </dl>
+        <a id="coverage-journal-summary-link"
+           class="btn btn-secondary btn-sm sidebar-journal-link"
+           href="/coverage-management">
+          <i class="fas fa-book-open" aria-hidden="true"></i>Open the journal
+        </a>
         <div class="segment-breakdown">
           <h4 class="breakdown-title">
-Street Segments
+Segments
           </h4>
           <div class="breakdown-row">
             <div class="breakdown-dot breakdown-dot--driven" aria-hidden="true">
@@ -253,7 +287,7 @@ Street Segments
           <div class="breakdown-row">
             <div class="breakdown-dot breakdown-dot--undriven" aria-hidden="true">
             </div>
-            <span class="breakdown-label">Undriven</span>
+            <span class="breakdown-label">Not driven</span>
             <span id="seg-undriven" class="breakdown-count" aria-live="polite">0</span>
           </div>
           <div class="breakdown-row">
@@ -264,14 +298,15 @@ Street Segments
           </div>
           <div class="breakdown-row breakdown-row--muted">
             <i class="fas fa-clock breakdown-icon" aria-hidden="true"></i>
-            <span class="breakdown-label">Last updated</span>
+            <span class="breakdown-label">Last drive</span>
             <span id="qs-last-activity" class="breakdown-count">—</span>
           </div>
         </div>
-        <div class="sidebar-actions">
+        <details class="sidebar-actions">
+          <summary>Coverage settings</summary>
           <div class="sidebar-action-group">
             <label class="sidebar-toggle-label" for="dashboard-include-service-roads-toggle">
-              <span class="toggle-text">Service Roads</span>
+              <span class="toggle-text">Service roads</span>
               <div class="form-check form-switch mb-0">
                 <input type="checkbox"
                        id="dashboard-include-service-roads-toggle"
@@ -286,19 +321,18 @@ Street Segments
           </div>
           <div class="sidebar-action-group">
             <label class="sidebar-select-label" for="dashboard-coverage-trip-mode">
-              <span class="toggle-text">Trip Source</span>
-              <span class="badge text-bg-secondary">Coverage Math</span>
+              <span class="toggle-text">Trips used</span>
             </label>
             <select id="dashboard-coverage-trip-mode"
                     class="form-select form-select-sm sidebar-select-input">
               <option value="both" selected>
-Best available trace
+Map-matched path, or GPS when unmatched
               </option>
               <option value="regular">
-Regular trips only
+GPS path only
               </option>
               <option value="matched">
-Matched trips only
+Map-matched path only
               </option>
             </select>
             <small class="form-text text-secondary d-block mt-1"
@@ -306,13 +340,13 @@ Matched trips only
                    aria-live="polite"></small>
           </div>
 
-          <button class="btn btn-info btn-sm w-100 mb-2" id="recalculate-coverage-btn">
-            <i class="fas fa-calculator me-1" aria-hidden="true"></i>Recalculate Street Coverage
+          <button class="btn btn-secondary btn-sm w-100" id="recalculate-coverage-btn">
+            <i class="fas fa-calculator me-1" aria-hidden="true"></i>Recalculate coverage
           </button>
-          <button class="btn btn-outline-warning btn-sm w-100" id="rebuild-area-btn">
-            <i class="fas fa-sync me-1" aria-hidden="true"></i>Rebuild from OSM
+          <button class="btn btn-ghost btn-sm w-100" id="rebuild-area-btn">
+            <i class="fas fa-sync me-1" aria-hidden="true"></i>Rebuild streets from OpenStreetMap
           </button>
-        </div>
+        </details>
 
       </div>
 
@@ -325,11 +359,11 @@ Matched trips only
            class="btn btn-outline-primary w-100 mb-3"
            href="/coverage-management"
            aria-label="Open the full coverage history">
-          <i class="fas fa-book-open me-2" aria-hidden="true"></i>Open full history
+          <i class="fas fa-book-open me-2" aria-hidden="true"></i>Open the journal
         </a>
         <section class="history-section">
           <h4 class="history-section-title">
-            <i class="fas fa-book-open me-1" aria-hidden="true"></i>Recent additions
+            Recent drives
           </h4>
           <div id="driving-activity-container">
             <p class="text-secondary small text-center mt-3">
@@ -339,7 +373,7 @@ Matched trips only
         </section>
         <section class="history-section">
           <h4 class="history-section-title">
-            <i class="fas fa-cog me-1" aria-hidden="true"></i>Background jobs
+            Background jobs
           </h4>
           <div id="job-history-container">
             <p class="text-secondary small text-center mt-3">
@@ -363,7 +397,7 @@ Matched trips only
           <span class="map-loading-label">Loading map…</span>
         </div>
       </div>
-      <div class="map-overlay map-overlay--top-right"
+      <div class="map-overlay map-overlay--top-left"
            id="map-filter-overlay"
            role="group"
            aria-label="Street filter">
@@ -376,7 +410,7 @@ All
 Driven
         </button>
         <button class="map-filter-chip" data-filter="undriven" aria-pressed="false">
-Undriven
+Not driven
         </button>
       </div>
       <div class="map-overlay map-overlay--bottom-left"
@@ -388,7 +422,7 @@ Undriven
         </div>
         <div class="map-legend-item">
           <span class="map-legend-swatch map-legend-swatch--undriven" aria-hidden="true"></span>
-          <span class="map-legend-text">Undriven</span>
+          <span class="map-legend-text">Not driven</span>
         </div>
         <div class="map-legend-item">
           <span class="map-legend-swatch map-legend-swatch--undriveable" aria-hidden="true"></span>
@@ -399,7 +433,7 @@ Undriven
            id="map-coverage-chip"
            aria-live="polite">
         <span id="map-coverage-pct" class="map-coverage-pct">0%</span>
-        <span class="map-coverage-label">covered</span>
+        <span class="map-coverage-label">driven</span>
       </div>
       <div id="map-street-tooltip" class="map-street-tooltip" aria-hidden="true">
       </div>
@@ -454,27 +488,27 @@ Last driven
         </dl>
 
         <dl class="street-detail-grid">
-          <dt>Covered</dt><dd id="street-detail-covered">—</dd>
-          <dt>Remaining</dt><dd id="street-detail-remaining">—</dd>
-          <dt>Evidence</dt><dd id="street-detail-source">—</dd>
+          <dt>Driven</dt><dd id="street-detail-covered">—</dd>
+          <dt>Left</dt><dd id="street-detail-remaining">—</dd>
+          <dt>Based on</dt><dd id="street-detail-source">—</dd>
         </dl>
         <ul id="street-detail-evidence" class="street-evidence-list" aria-label="Supporting drives"></ul>
         <div class="street-detail-actions" id="street-detail-actions">
           <button id="street-restore-automatic-btn" class="btn btn-outline-secondary btn-sm w-100 mb-2 d-none">Use drive history</button>
           <button id="street-mark-driven-btn"
-                  class="btn btn-success btn-sm w-100 mb-2 d-none"
+                  class="btn btn-primary btn-sm w-100 mb-2 d-none"
                   aria-label="Mark this segment as driven">
-            <i class="fas fa-check me-1" aria-hidden="true"></i>Mark as Driven
+            <i class="fas fa-check me-1" aria-hidden="true"></i>Mark driven
           </button>
           <button id="street-mark-undriveable-btn"
                   class="btn btn-outline-secondary btn-sm w-100 mb-2 d-none"
                   aria-label="Mark this segment as undriveable">
-            <i class="fas fa-ban me-1" aria-hidden="true"></i>Mark as Undriveable
+            <i class="fas fa-ban me-1" aria-hidden="true"></i>Mark undriveable
           </button>
           <button id="street-mark-undriven-btn"
                   class="btn btn-outline-danger btn-sm w-100 d-none"
-                  aria-label="Reset this segment to undriven">
-            <i class="fas fa-undo me-1" aria-hidden="true"></i>Reset to Undriven
+                  aria-label="Mark this segment not driven">
+            <i class="fas fa-undo me-1" aria-hidden="true"></i>Mark not driven
           </button>
         </div>
       </div>
@@ -487,7 +521,7 @@ Last driven
       <div class="modal-content">
         <div class="modal-header">
           <h5 class="modal-title">
-            Add Coverage Area
+            Add a coverage area
           </h5>
           <button type="button"
                   class="btn-close btn-close-white"
@@ -499,7 +533,7 @@ Last driven
           <form id="add-area-form" novalidate>
             <div class="mb-3">
               <label for="location-input" class="form-label">
-Location Name
+Place
               </label>
               <input type="text"
                      id="location-input"
@@ -507,11 +541,11 @@ Location Name
                      placeholder="e.g., Waco, TX"
                      autocomplete="off"
                      required />
-              <small class="form-text text-secondary">Enter a city, county, or state name</small>
+              <small class="form-text text-secondary">A city, county, or state.</small>
             </div>
             <div class="mb-3">
               <label for="location-type" class="form-label">
-Area Type
+Kind of place
               </label>
               <select id="location-type" class="form-select">
                 <option value="city" selected>
@@ -524,13 +558,12 @@ County
 State / Region
                 </option>
               </select>
-              <small class="form-text text-secondary">Used as a type hint for location matching</small>
+              <small class="form-text text-secondary">Helps pick the right boundary.</small>
             </div>
             <div class="mb-3">
               <label for="include-service-roads-toggle"
                      class="form-label d-flex justify-content-between align-items-center">
-                <span>Service Roads</span>
-                <span class="badge text-bg-secondary">Street Generation</span>
+                <span>Service roads</span>
               </label>
               <div class="form-check form-switch">
                 <input type="checkbox"
@@ -539,11 +572,11 @@ State / Region
                        role="switch"
                        checked />
                 <label class="form-check-label" for="include-service-roads-toggle">
-                Include <code>highway=service</code> roads
+                Include driveways, alleys, and parking aisles
                 </label>
               </div>
               <small class="form-text text-secondary d-block">
-              Applies to new area builds/rebuilds only.
+              Takes effect when the area's streets are built or rebuilt.
               </small>
               <small class="form-text text-secondary d-block mt-1"
                      id="include-service-roads-status"
@@ -553,22 +586,21 @@ State / Region
             <div class="mb-3">
               <label for="modal-coverage-trip-mode"
                      class="form-label d-flex justify-content-between align-items-center">
-                <span>Coverage Trip Source</span>
-                <span class="badge text-bg-secondary">Street Matching</span>
+                <span>Trips used</span>
               </label>
               <select id="modal-coverage-trip-mode" class="form-select">
                 <option value="both" selected>
-Best available trace
+Map-matched path, or GPS when unmatched
                 </option>
                 <option value="regular">
-Regular trips only
+GPS path only
                 </option>
                 <option value="matched">
-Matched trips only
+Map-matched path only
                 </option>
               </select>
               <small class="form-text text-secondary d-block">
-              Controls which trip geometry is used for street coverage calculations.
+              Which path of each trip is compared with the streets.
               </small>
               <small class="form-text text-secondary d-block mt-1"
                      data-coverage-trip-mode-status
@@ -598,14 +630,14 @@ Matched trips only
                    aria-live="polite">
               </div>
               <small class="form-text text-secondary mt-2">
-              Validate and confirm the correct location before adding.
+              Choose the matching place before adding it.
               </small>
             </div>
           </form>
 
           <div class="alert alert-info small mt-3" role="note">
             <i class="fas fa-info-circle me-2" aria-hidden="true"></i>
-          After adding, the area will automatically load street data and calculate coverage from your existing trips.
+          Its streets load in the background, then your past trips are matched to them.
           </div>
         </div>
         <div class="modal-footer">
@@ -614,10 +646,10 @@ Cancel
           </button>
           <button type="button"
                   id="add-coverage-area"
-                  class="btn btn-success"
+                  class="btn btn-primary"
                   disabled
                   aria-disabled="true">
-            <i class="fas fa-plus me-1" aria-hidden="true"></i>Add Area
+            <i class="fas fa-plus me-1" aria-hidden="true"></i>Add area
           </button>
         </div>
       </div>
@@ -629,7 +661,7 @@ Cancel
       <div class="modal-content">
         <div class="modal-header">
           <h5 class="modal-title">
-            Batch Recalculate
+            Recalculate coverage
           </h5>
           <button type="button"
                   class="btn-close btn-close-white"
@@ -646,7 +678,7 @@ Cancel
               <button type="button"
                       class="btn btn-outline-secondary btn-sm"
                       id="batch-select-ready-btn">
-                <i class="fas fa-check-double me-1" aria-hidden="true"></i>Select Ready
+                <i class="fas fa-check-double me-1" aria-hidden="true"></i>Select all
               </button>
               <button type="button"
                       class="btn btn-outline-secondary btn-sm"
@@ -662,7 +694,7 @@ Cancel
           </div>
           <div class="batch-recalculate-note">
             <i class="fas fa-clock" aria-hidden="true"></i>
-            <span>Queued areas run one at a time in the background.</span>
+            <span>Selected areas are rematched with your trips one at a time, in the background.</span>
           </div>
         </div>
         <div class="modal-footer">
@@ -670,7 +702,7 @@ Cancel
 Cancel
           </button>
           <button type="button" id="batch-recalculate-start-btn" class="btn btn-info" disabled>
-            <i class="fas fa-calculator me-1" aria-hidden="true"></i>Queue Batch
+            <i class="fas fa-calculator me-1" aria-hidden="true"></i>Recalculate selected
           </button>
         </div>
       </div>

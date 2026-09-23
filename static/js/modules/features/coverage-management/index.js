@@ -20,6 +20,14 @@ import GlobalJobTracker from "../../ui/global-job-tracker.js";
 import notificationManager from "../../ui/notifications.js";
 import { debounce, escapeHtml } from "../../utils.js";
 import { DEFAULT_AREA_SORT, renderAreaCards, sortCoverageAreas } from "./areas.js";
+import { shortAreaName, splitAreaName } from "./area-name.js";
+import {
+  formatDate,
+  formatMiles,
+  formatNumber,
+  formatPercent,
+  plural,
+} from "../coverage-journal/format.js";
 import { formatRelativeTime, normalizeCoveragePercent } from "./stats.js";
 import {
   COVERAGE_TRIP_MODE_SELECT_IDS,
@@ -774,8 +782,8 @@ function getBatchAreaStatusLabel(area) {
   }
   const includeServiceRoads = getIncludeServiceRoadsSelection();
   return shouldRebuildForServiceFilter(area.id, includeServiceRoads)
-    ? "Rebuild"
-    : "Backfill";
+    ? "Rebuild streets"
+    : "Rematch trips";
 }
 
 function renderBatchRecalculateModal() {
@@ -799,7 +807,7 @@ function renderBatchRecalculateModal() {
     .map((area) => {
       const eligible = isAreaBatchEligible(area);
       const pct = normalizeCoveragePercent(area.coverage_percentage);
-      const areaName = escapeHtml(area.display_name || "Coverage area");
+      const areaName = escapeHtml(shortAreaName(area.display_name));
       const statusLabel = escapeHtml(getBatchAreaStatusLabel(area));
       const lastSynced = area.last_synced
         ? formatRelativeTime(area.last_synced)
@@ -814,7 +822,7 @@ function renderBatchRecalculateModal() {
           <span class="batch-area-copy">
             <span class="batch-area-name">${areaName}</span>
             <span class="batch-area-meta">
-              ${pct.toFixed(1)}% covered · ${escapeHtml(lastSynced)}
+              ${escapeHtml(formatPercent(pct, { complete: area.is_complete }))} driven · updated ${escapeHtml(lastSynced.toLowerCase())}
             </span>
           </span>
           <span class="batch-area-status">${statusLabel}</span>
@@ -973,10 +981,7 @@ async function loadAreas() {
       hideCoverageErrorDetails();
     }
 
-    const countEl = document.getElementById("total-areas-count");
-    if (countEl) {
-      countEl.textContent = state.areaList.length;
-    }
+    renderCoverageSummary(state.areaList);
     updateBatchOpenButtonState();
   } catch (error) {
     console.error("Failed to load areas:", error);
@@ -989,6 +994,44 @@ async function loadAreas() {
     );
     updateBatchOpenButtonState();
   }
+}
+
+/** Totals across every area, above the cards. */
+function renderCoverageSummary(areas) {
+  const band = document.getElementById("coverage-figures");
+  if (!band) {
+    return;
+  }
+  const ready = areas.filter((area) => area.status === "ready");
+  band.hidden = ready.length === 0;
+  if (!ready.length) {
+    return;
+  }
+  const sum = (key) =>
+    ready.reduce((total, area) => total + Number(area[key] || 0), 0);
+  const complete = ready.filter((area) => area.is_complete).length;
+  const latest = ready
+    .filter((area) => area.last_coverage_trip_at)
+    .sort((a, b) => Date.parse(b.last_coverage_trip_at) - Date.parse(a.last_coverage_trip_at))[0];
+  const set = (id, text) => {
+    const element = document.getElementById(id);
+    if (element) {
+      element.textContent = text;
+    }
+  };
+  set("coverage-sum-areas", formatNumber(areas.length));
+  set(
+    "coverage-sum-complete",
+    complete ? `${plural(complete, "area")} fully driven` : "None fully driven yet"
+  );
+  set("coverage-sum-driven", formatNumber(sum("driven_length_miles"), 1));
+  set("coverage-sum-total", `of ${formatMiles(sum("driveable_length_miles"), 1)}`);
+  set("coverage-sum-left", formatNumber(sum("remaining_length_miles"), 1));
+  set(
+    "coverage-sum-last",
+    latest ? formatDate(latest.last_coverage_trip_at, "short") : "—"
+  );
+  set("coverage-sum-last-area", latest ? splitAreaName(latest.display_name).name : "");
 }
 
 function handleAreaCardClick(event) {
@@ -1154,8 +1197,8 @@ async function rebuildArea(areaId, displayName) {
   const tripMode = getCoverageTripModeSelection();
   const tripModeLabel = getCoverageTripModeLabel(tripMode);
   const confirmed = await confirmationDialog.show({
-    title: "Rebuild Coverage Area",
-    message: `Rebuild this area with fresh data from the local OSM extract using <strong>${escapeHtml(tripModeLabel)}</strong>?<br><br>This may take a few minutes.`,
+    title: "Rebuild streets",
+    message: `Rebuild the streets of "<strong>${escapeHtml(displayName)}</strong>" from the local OpenStreetMap extract, then match your trips again using <strong>${escapeHtml(tripModeLabel)}</strong>?<br><br>This runs in the background and takes a few minutes. Your manual corrections are kept.`,
     allowHtml: true,
     confirmText: "Rebuild",
     confirmButtonClass: "btn-warning",
@@ -1199,14 +1242,12 @@ async function recalculateCoverage(areaId, displayName) {
   const policyLabel = includeServiceRoads ? "include" : "exclude";
 
   const confirmed = await confirmationDialog.show({
-    title: "Recalculate Street Coverage",
+    title: "Recalculate coverage",
     message: needsRebuild
-      ? `Recalculate street coverage for "<strong>${escapeHtml(displayName)}</strong>" using service-road policy <strong>${policyLabel}</strong> and <strong>${escapeHtml(tripModeLabel)}</strong>?<br><br>This will rebuild streets from OSM, then rematch trips.`
-      : `Recalculate street coverage for "<strong>${escapeHtml(displayName)}</strong>" using <strong>${escapeHtml(tripModeLabel)}</strong>?<br><br>Street filters already match — this will run in the background.`,
+      ? `Service roads are now <strong>${policyLabel === "include" ? "included" : "excluded"}</strong>, so the streets of "<strong>${escapeHtml(displayName)}</strong>" are rebuilt first. Then your trips are matched again using <strong>${escapeHtml(tripModeLabel)}</strong>.<br><br>This runs in the background. Your manual corrections are kept.`
+      : `Match every trip in "<strong>${escapeHtml(displayName)}</strong>" to its streets again using <strong>${escapeHtml(tripModeLabel)}</strong>?<br><br>This runs in the background. Your manual corrections are kept.`,
     allowHtml: true,
-    confirmText: needsRebuild
-      ? "Recalculate Street Coverage + Rebuild Streets"
-      : "Recalculate Street Coverage",
+    confirmText: needsRebuild ? "Rebuild and recalculate" : "Recalculate",
     confirmButtonClass: needsRebuild ? "btn-warning" : "btn-info",
   });
 
@@ -1312,21 +1353,22 @@ async function viewArea(areaId) {
     setIncludeServiceRoadsStatus(scope.message, scope.tone);
 
     // Update sidebar header
+    const { name, region } = splitAreaName(area.display_name);
     const sidebarNameEl = document.getElementById("sidebar-area-name");
     if (sidebarNameEl) {
-      sidebarNameEl.textContent = area.display_name;
+      sidebarNameEl.textContent = name;
+      sidebarNameEl.title = area.display_name;
     }
     const sidebarTypeEl = document.getElementById("sidebar-area-type");
     if (sidebarTypeEl) {
-      sidebarTypeEl.textContent = area.area_type || "";
+      sidebarTypeEl.textContent = region;
     }
-    const journalLink = document.getElementById("coverage-journal-link");
-    if (journalLink) {
-      journalLink.href = `/coverage-management/${encodeURIComponent(areaId)}/journal`;
-      journalLink.setAttribute(
-        "aria-label",
-        `Open the full coverage history for ${area.display_name}`
-      );
+    for (const id of ["coverage-journal-link", "coverage-journal-summary-link"]) {
+      const journalLink = document.getElementById(id);
+      if (journalLink) {
+        journalLink.href = `/coverage-management/${encodeURIComponent(areaId)}/journal`;
+        journalLink.setAttribute("aria-label", `Open the coverage journal for ${name}`);
+      }
     }
 
     // Update stats UI

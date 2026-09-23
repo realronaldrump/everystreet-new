@@ -1,10 +1,12 @@
 import { escapeHtml } from "../../utils.js";
 import {
+  formatDate,
   formatMiles,
-  formatRelativeTime,
-  getCoverageTierClass,
-  normalizeCoveragePercent,
-} from "./stats.js";
+  formatPercent,
+  plural,
+} from "../coverage-journal/format.js";
+import { splitAreaName } from "./area-name.js";
+import { formatRelativeTime, normalizeCoveragePercent } from "./stats.js";
 
 export const DEFAULT_AREA_SORT = "coverage-desc";
 const AREA_NAME_COLLATOR = new Intl.Collator(undefined, {
@@ -136,10 +138,13 @@ function renderStatus(area, coverageJob) {
       </span>`;
   }
 
+  // A ready area needs no badge; only work in progress and failures do.
+  if (status === "ready") {
+    return "";
+  }
   const statusConfig = {
-    ready: { cls: "success", icon: "check-circle", text: "Ready" },
-    initializing: { cls: "info", icon: "spinner fa-spin", text: "Setting up…" },
-    rebuilding: { cls: "warning", icon: "sync fa-spin", text: "Rebuilding…" },
+    initializing: { cls: "info", icon: "spinner fa-spin", text: "Setting up" },
+    rebuilding: { cls: "warning", icon: "sync fa-spin", text: "Rebuilding" },
     error: { cls: "danger", icon: "exclamation-circle", text: "Error" },
   };
 
@@ -196,124 +201,14 @@ function renderCoverageJobPanel(coverageJob) {
     </div>`;
 }
 
-const US_STATE_NAME_TO_CODE = Object.freeze({
-  alabama: "AL",
-  alaska: "AK",
-  arizona: "AZ",
-  arkansas: "AR",
-  california: "CA",
-  colorado: "CO",
-  connecticut: "CT",
-  delaware: "DE",
-  florida: "FL",
-  georgia: "GA",
-  hawaii: "HI",
-  idaho: "ID",
-  illinois: "IL",
-  indiana: "IN",
-  iowa: "IA",
-  kansas: "KS",
-  kentucky: "KY",
-  louisiana: "LA",
-  maine: "ME",
-  maryland: "MD",
-  massachusetts: "MA",
-  michigan: "MI",
-  minnesota: "MN",
-  mississippi: "MS",
-  missouri: "MO",
-  montana: "MT",
-  nebraska: "NE",
-  nevada: "NV",
-  "new hampshire": "NH",
-  "new jersey": "NJ",
-  "new mexico": "NM",
-  "new york": "NY",
-  "north carolina": "NC",
-  "north dakota": "ND",
-  ohio: "OH",
-  oklahoma: "OK",
-  oregon: "OR",
-  pennsylvania: "PA",
-  "rhode island": "RI",
-  "south carolina": "SC",
-  "south dakota": "SD",
-  tennessee: "TN",
-  texas: "TX",
-  utah: "UT",
-  vermont: "VT",
-  virginia: "VA",
-  washington: "WA",
-  "west virginia": "WV",
-  wisconsin: "WI",
-  wyoming: "WY",
-  "district of columbia": "DC",
-  "american samoa": "AS",
-  guam: "GU",
-  "northern mariana islands": "MP",
-  "puerto rico": "PR",
-  "us virgin islands": "VI",
-  "u.s. virgin islands": "VI",
-  "virgin islands": "VI",
-});
-
-const US_STATE_CODES = new Set(Object.values(US_STATE_NAME_TO_CODE));
-
-function parseUsStateCode(value) {
-  const label = typeof value === "string" ? value.trim() : "";
-  if (!label) {
-    return "";
-  }
-
-  const upper = label.toUpperCase();
-  if (/^[A-Z]{2}$/.test(upper) && US_STATE_CODES.has(upper)) {
-    return upper;
-  }
-
-  return US_STATE_NAME_TO_CODE[label.toLowerCase()] || "";
-}
-
-function formatCityDisplayName(displayName) {
-  const rawName = typeof displayName === "string" ? displayName.trim() : "";
-  if (!rawName) {
-    return "Coverage area";
-  }
-
-  const parts = rawName
-    .split(",")
-    .map((part) => part.trim())
-    .filter(Boolean);
-
-  if (parts.length === 0) {
-    return rawName;
-  }
-
-  const cityName = parts[0];
-  for (let index = parts.length - 1; index >= 1; index -= 1) {
-    const stateCode = parseUsStateCode(parts[index]);
-    if (stateCode) {
-      return `${cityName}, ${stateCode}`;
-    }
-  }
-
-  return rawName;
-}
-
 // -----------------------------------------------------------------------------
 // Area card HTML
 // -----------------------------------------------------------------------------
 
 function renderAreaCard(area, coverageJob, routeJob) {
   const pct = normalizeCoveragePercent(area.coverage_percentage);
-  const tierClass = getCoverageTierClass(pct);
-  const normalizedAreaType = String(area.area_type || "")
-    .trim()
-    .toLowerCase();
-  const displayName =
-    normalizedAreaType === "city"
-      ? formatCityDisplayName(area.display_name)
-      : area.display_name || "Coverage area";
-  const areaName = escapeHtml(displayName);
+  const { name, region } = splitAreaName(area.display_name);
+  const areaName = escapeHtml(name);
   const isReady = area.status === "ready";
   const canRebuild = area.status === "ready" || area.status === "error";
   const isError = area.status === "error";
@@ -328,16 +223,19 @@ function renderAreaCard(area, coverageJob, routeJob) {
     0,
     totalSegments - drivenSegments - undriveableSegments
   );
+  const driveableMiles = Number(
+    area.driveable_length_miles ?? area.total_length_miles ?? 0
+  );
+  const remainingMiles = Math.max(
+    0,
+    Number(area.remaining_length_miles ?? driveableMiles - (area.driven_length_miles || 0))
+  );
 
   const routeStatus = renderRouteStatus(area, routeJob);
   const routeMenuLabel = hasSavedRoute
     ? "Regenerate Optimal Route"
     : "Generate Optimal Route";
   const routeMenuAction = hasSavedRoute ? "restart-route" : "generate-route";
-  const primaryActionLabel = isError ? "Retry Build" : "Explore Map";
-  const primaryActionIcon = isError ? "fa-rotate-right" : "fa-map";
-  const primaryAction = isError ? "rebuild" : "view";
-  const primaryActionDisabled = isError ? !canRebuild : !isReady;
 
   const cardClasses = [
     "area-card card card--object",
@@ -346,92 +244,100 @@ function renderAreaCard(area, coverageJob, routeJob) {
   ]
     .filter(Boolean)
     .join(" ");
-  const completionBanner = isComplete
-    ? `<div class="area-completion-banner" aria-label="Area fully covered">
-         <span>Every Street Driven</span>
-       </div>`
-    : "";
+  const status = renderStatus(area, coverageJob);
+  const lastDrive = area.last_coverage_trip_at
+    ? formatDate(area.last_coverage_trip_at, "short")
+    : "No drives yet";
+  const leftText = isComplete
+    ? "Nothing"
+    : `${formatMiles(remainingMiles)} · ${plural(remainingSegments, "segment")}`;
+  const primaryAction = isError
+    ? `<button class="btn btn-primary btn-sm"
+                data-area-action="rebuild"
+                data-area-id="${area.id}"
+                data-area-name="${areaName}"
+                ${canRebuild ? "" : "disabled"}
+                aria-label="Retry building ${areaName} from OpenStreetMap">
+          <i class="fas fa-rotate-right" aria-hidden="true"></i>Retry build
+        </button>`
+    : `<button class="btn btn-primary btn-sm"
+                data-area-action="view"
+                data-area-id="${area.id}"
+                data-area-name="${areaName}"
+                ${isReady ? "" : "disabled"}
+                aria-label="Open the street map for ${areaName}">
+          <i class="fas fa-map" aria-hidden="true"></i>Map
+        </button>`;
 
   return `
-    <div class="${cardClasses}" data-area-id="${area.id}" role="listitem">
-      <div class="area-card-header">
+    <article class="${cardClasses}" data-area-id="${area.id}" role="listitem">
+      <header class="area-card-header">
         <div class="area-card-title-group">
-          <h3 class="area-card-title" title="${areaName}">${areaName}</h3>
-          <span class="area-type-badge">${escapeHtml(area.area_type || "")}</span>
-          ${completionBanner}
+          <h3 class="area-card-title">${areaName}</h3>
+          ${region ? `<p class="area-card-region">${escapeHtml(region)}</p>` : ""}
         </div>
-        <div class="area-card-status">${renderStatus(area, coverageJob)}</div>
-      </div>
+        ${status ? `<div class="area-card-status">${status}</div>` : ""}
+      </header>
 
       <div class="area-card-progress">
         <div class="area-progress-text">
-          <span class="area-pct-large">${pct.toFixed(1)}%</span>
-          <span class="area-pct-sub">${formatMiles(area.driven_length_miles)} driven</span>
+          <span class="area-pct-large">${escapeHtml(
+            formatPercent(pct, { complete: isComplete })
+          )}</span>
+          <span class="area-pct-sub">${escapeHtml(
+            `${formatMiles(area.driven_length_miles || 0)} of ${formatMiles(driveableMiles)}`
+          )}</span>
+          ${
+            isComplete
+              ? `<span class="area-completion-banner">Every street driven</span>`
+              : ""
+          }
         </div>
         <div class="survey-bar area-survey${hasActiveCoverageJob ? " is-working" : ""}" aria-hidden="true">
-          <span class="survey-fill ${tierClass}" style="width: ${pct.toFixed(1)}%"></span>
+          <span class="survey-fill" style="width: ${pct.toFixed(1)}%"></span>
         </div>
       </div>
 
       ${renderCoverageJobPanel(coverageJob)}
 
-      <div class="area-card-stats">
-        <div class="area-stat">
-          <i class="fas fa-road text-danger" aria-hidden="true"></i>
-          <span>${remainingSegments.toLocaleString()} segment${remainingSegments !== 1 ? "s" : ""} remaining</span>
-        </div>
-        <div class="area-stat">
-          <i class="fas fa-ruler-horizontal text-secondary" aria-hidden="true"></i>
-          <span>${formatMiles(area.total_length_miles)} total</span>
-        </div>
-        <div class="area-stat">
-          <i class="fas fa-clock text-secondary" aria-hidden="true"></i>
-          <span>${area.last_synced ? formatRelativeTime(area.last_synced) : "Never synced"}</span>
-        </div>
-      </div>
+      <dl class="area-card-stats">
+        <div><dt>Left</dt><dd>${escapeHtml(leftText)}</dd></div>
+        <div><dt>Last drive</dt><dd>${escapeHtml(lastDrive)}</dd></div>
+      </dl>
 
       ${routeStatus}
 
-      <div class="area-card-footer">
-        <button class="btn btn-outline-primary btn-sm flex-grow-1"
+      <footer class="area-card-footer">
+        ${primaryAction}
+        <button class="btn btn-secondary btn-sm"
                 data-area-action="journal"
                 data-area-id="${area.id}"
                 data-area-name="${areaName}"
-                ${!isReady ? "disabled" : ""}
-                aria-label="Open the coverage history for ${areaName}"
-                title="Open coverage history">
-          <i class="fas fa-book-open me-1" aria-hidden="true"></i>Open Journal
-        </button>
-        <button class="btn ${isError ? "btn-outline-danger" : "btn-outline"} btn-sm flex-grow-1"
-                data-area-action="${primaryAction}"
-                data-area-id="${area.id}"
-                data-area-name="${areaName}"
-                ${primaryActionDisabled ? "disabled" : ""}
-                aria-label="${isError ? `Retry coverage rebuild for ${areaName}` : `Explore coverage map for ${areaName}`}"
-                title="${isError ? "Retry building this area from OSM" : "Explore coverage map"}">
-          <i class="fas ${primaryActionIcon} me-1" aria-hidden="true"></i>${primaryActionLabel}
+                ${isReady ? "" : "disabled"}
+                aria-label="Open the coverage journal for ${areaName}">
+          <i class="fas fa-book-open" aria-hidden="true"></i>Journal
         </button>
 
         ${
           hasActiveRouteJob
             ? `
-          <button class="btn btn-outline-danger btn-sm"
+          <button class="btn btn-danger btn-sm"
                   type="button"
                   data-area-action="cancel-route"
                   data-area-id="${area.id}"
                   data-area-name="${areaName}"
                   aria-label="Stop optimal route generation for ${areaName}">
-            <i class="fas fa-stop-circle me-1" aria-hidden="true"></i>Stop Route
+            <i class="fas fa-stop-circle" aria-hidden="true"></i>Stop Route
           </button>`
             : ""
         }
 
-        <div class="dropdown">
-          <button class="btn btn-outline-secondary btn-sm dropdown-toggle dropdown-toggle-split"
+        <div class="dropdown area-card-more">
+          <button class="btn btn-ghost btn-sm dropdown-toggle"
                   data-bs-toggle="dropdown"
                   aria-expanded="false"
                   aria-label="More actions for ${areaName}">
-            <i class="fas fa-ellipsis-v" aria-hidden="true"></i>
+            <i class="fas fa-ellipsis" aria-hidden="true"></i>
           </button>
           <ul class="dropdown-menu dropdown-menu-end">
             ${
@@ -487,7 +393,7 @@ function renderAreaCard(area, coverageJob, routeJob) {
                       data-area-id="${area.id}"
                       data-area-name="${areaName}"
                       ${!isReady ? "disabled" : ""}>
-                <i class="fas fa-calculator me-2" aria-hidden="true"></i>Recalculate Street Coverage
+                <i class="fas fa-calculator me-2" aria-hidden="true"></i>Recalculate coverage
               </button>
             </li>
             <li>
@@ -495,8 +401,8 @@ function renderAreaCard(area, coverageJob, routeJob) {
                       data-area-action="rebuild"
                       data-area-id="${area.id}"
                       data-area-name="${areaName}"
-                        ${!canRebuild ? "disabled" : ""}>
-                  <i class="fas fa-sync me-2" aria-hidden="true"></i>${isError ? "Retry Build from OSM" : "Rebuild from OSM"}
+                      ${!canRebuild ? "disabled" : ""}>
+                <i class="fas fa-sync me-2" aria-hidden="true"></i>${isError ? "Retry build from OpenStreetMap" : "Rebuild streets from OpenStreetMap"}
               </button>
             </li>
             <li><hr class="dropdown-divider"></li>
@@ -505,13 +411,13 @@ function renderAreaCard(area, coverageJob, routeJob) {
                       data-area-action="delete"
                       data-area-id="${area.id}"
                       data-area-name="${areaName}">
-                <i class="fas fa-trash me-2" aria-hidden="true"></i>Delete
+                <i class="fas fa-trash me-2" aria-hidden="true"></i>Delete area
               </button>
             </li>
           </ul>
         </div>
-      </div>
-    </div>`;
+      </footer>
+    </article>`;
 }
 
 // -----------------------------------------------------------------------------

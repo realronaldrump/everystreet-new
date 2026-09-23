@@ -7,7 +7,7 @@
 // =============================================================================
 
 export function formatStatus(statusKey) {
-  const labels = { driven: "Driven", undriven: "Undriven", undriveable: "Undriveable" };
+  const labels = { driven: "Driven", undriven: "Not driven", undriveable: "Undriveable" };
   return labels[statusKey] || "Unknown";
 }
 
@@ -20,16 +20,9 @@ export function formatHighwayType(type) {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-export function getStreetDisplayName(streetName, segmentId = "") {
+export function getStreetDisplayName(streetName) {
   const normalizedName = typeof streetName === "string" ? streetName.trim() : "";
-  if (normalizedName) {
-    return normalizedName;
-  }
-  const normalizedSegmentId = typeof segmentId === "string" ? segmentId.trim() : "";
-  if (normalizedSegmentId) {
-    return `Unnamed Street (${normalizedSegmentId})`;
-  }
-  return "Unnamed Street";
+  return normalizedName || "Unnamed road";
 }
 
 export function formatPopupDate(value, statusKey) {
@@ -38,9 +31,9 @@ export function formatPopupDate(value, statusKey) {
       return "Unknown";
     }
     if (statusKey === "undriveable") {
-      return "N/A";
+      return "—";
     }
-    return "Never";
+    return "Not yet";
   }
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {

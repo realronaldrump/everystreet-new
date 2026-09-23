@@ -124,7 +124,7 @@ test("renderAreaCards normalizes missing coverage percentage values", async () =
   }
 });
 
-test("renderAreaCards formats city card titles as City, ST", async () => {
+test("renderAreaCards titles a card with the place and prints its region beneath", async () => {
   const grid = { innerHTML: "", style: { display: "none" } };
   const loading = { style: { display: "block" } };
   const emptyState = { classList: { add: () => {}, remove: () => {} } };
@@ -170,8 +170,10 @@ test("renderAreaCards formats city card titles as City, ST", async () => {
       areaNameById: new Map(),
     });
 
-    assert.match(grid.innerHTML, />Waco, TX<\/h3>/);
-    assert.doesNotMatch(grid.innerHTML, /McLennan County/);
+    assert.match(grid.innerHTML, />Waco<\/h3>/);
+    assert.match(grid.innerHTML, /class="area-card-region">McLennan County, TX</);
+    assert.doesNotMatch(grid.innerHTML, /United States/);
+    assert.doesNotMatch(grid.innerHTML, /Ready/);
   } finally {
     global.document = originalDocument;
     global.window = originalWindow;
@@ -376,8 +378,8 @@ test("renderAreaCards exposes rebuild recovery actions when area is in error", a
       areaNameById: new Map(),
     });
 
-    assert.match(grid.innerHTML, /Retry Build/);
-    assert.match(grid.innerHTML, /Retry Build from OSM/);
+    assert.match(grid.innerHTML, /Retry build/);
+    assert.match(grid.innerHTML, /Retry build from OpenStreetMap/);
     assert.doesNotMatch(grid.innerHTML, /data-area-action="rebuild"[^>]*disabled/);
   } finally {
     global.document = originalDocument;

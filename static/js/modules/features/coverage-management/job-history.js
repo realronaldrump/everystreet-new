@@ -4,6 +4,7 @@
  */
 
 import { escapeHtml } from "../../utils.js";
+import { formatMiles } from "../coverage-journal/format.js";
 import { formatRelativeTime } from "./stats.js";
 import { apiGet, state } from "./context.js";
 import { HIGHLIGHT_LAYER_ID } from "./street-map.js";
@@ -48,7 +49,7 @@ function renderDrivingActivity(activity) {
   if (!activity.length) {
     container.innerHTML = `<div class="activity-empty">
       <i class="fas fa-flag-checkered me-1" aria-hidden="true"></i>
-      No streets driven yet for this area.
+      No drives here yet.
     </div>`;
     return;
   }
@@ -58,22 +59,18 @@ function renderDrivingActivity(activity) {
       const isManual = entry.source === "manual";
       let iconClass = "activity-icon";
       let icon = "fa-route";
-      let label = "Coverage drive";
+      let label = "Trip";
       if (isManual) {
         iconClass += " activity-icon--manual";
         icon = "fa-hand-pointer";
         label =
           entry.action === "mark_undriven"
-            ? "Marked undriven"
+            ? "Marked not driven"
             : entry.action === "mark_undriveable"
               ? "Marked undriveable"
               : "Marked driven";
       }
-      const length = Number.isFinite(entry.length_miles)
-        ? `${entry.length_miles.toFixed(2)} mi`
-        : Number.isFinite(entry.new_miles)
-          ? `${entry.new_miles.toFixed(2)} mi new`
-          : "";
+      const length = Number(entry.new_miles) > 0 ? `+${formatMiles(entry.new_miles, 2)}` : "";
       const segmentCount = Number(entry.new_segments || 0);
       const meta = [
         label,
@@ -212,10 +209,10 @@ function renderJobHistory(jobs) {
   }
 
   const typeLabels = {
-    area_ingestion: "Area Setup",
-    area_rebuild: "OSM Rebuild",
-    area_backfill: "Coverage Recalculate",
-    optimal_route: "Optimal Route",
+    area_ingestion: "Setup",
+    area_rebuild: "Street rebuild",
+    area_backfill: "Recalculation",
+    optimal_route: "Optimal route",
   };
 
   const statusIcons = {
