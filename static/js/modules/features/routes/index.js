@@ -649,7 +649,7 @@ function ensureModalMap() {
         filter: ["==", ["get", "kind"], "route"],
         paint: {
           "line-width": ["interpolate", ["linear"], ["zoom"], 10, 3, 14, 5, 18, 8],
-          "line-color": ["coalesce", ["get", "color"], "#5f82a0"],
+          "line-color": ["coalesce", ["get", "color"], readToken("--cat-cobalt")],
           "line-opacity": 0.9,
         },
         layout: { "line-cap": "round", "line-join": "round" },
@@ -665,7 +665,7 @@ function ensureModalMap() {
           "circle-radius": 7,
           "circle-color": readToken("--basemap-halo"),
           "circle-stroke-width": 3,
-          "circle-stroke-color": ["coalesce", ["get", "color"], "#5f82a0"],
+          "circle-stroke-color": ["coalesce", ["get", "color"], readToken("--cat-cobalt")],
         },
       });
     }
@@ -677,7 +677,7 @@ function ensureModalMap() {
         filter: ["==", ["get", "kind"], "end"],
         paint: {
           "circle-radius": 7,
-          "circle-color": ["coalesce", ["get", "color"], "#c49d4c"],
+          "circle-color": ["coalesce", ["get", "color"], readToken("--cat-ochre")],
           "circle-stroke-width": 3,
           "circle-stroke-color": readToken("--basemap-halo"),
         },
@@ -826,7 +826,7 @@ function syncModalControls(route) {
     nameInput.placeholder = route?.auto_name || "(auto)";
   }
   if (colorInput) {
-    const c = route?.color || "#5f82a0";
+    const c = route?.color || readToken("--cat-cobalt");
     colorInput.value = c.startsWith("#") ? c : `#${c}`;
   }
   if (pinBtn) {

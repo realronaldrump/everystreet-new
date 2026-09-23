@@ -8,6 +8,7 @@ import {
   getCurrentTheme,
   resolveMapStyle,
 } from "../core/map-style-resolver.js";
+import { readToken } from "../core/theme-tokens.js";
 import { getMapboxToken } from "../mapbox-token.js";
 import { escapeHtml } from "../utils.js";
 
@@ -71,24 +72,14 @@ function getBasemapTileUrl() {
   return buildMapboxRasterTileUrl({ styleUrl, token });
 }
 
+/** The movement map tooltip, printed like the chart tooltips: paper on ink. */
 function getTooltipStyle() {
-  const isLight = getCurrentTheme() === "light";
-  if (isLight) {
-    return {
-      backgroundColor: "rgba(255, 255, 255, 0.96)",
-      color: "#102133",
-      border: "1px solid rgba(14, 36, 56, 0.15)",
-      borderRadius: "10px",
-      fontSize: "12px",
-      lineHeight: "1.4",
-      padding: "8px 10px",
-    };
-  }
   return {
-    backgroundColor: "rgba(9, 15, 24, 0.94)",
-    color: "#dbe8f4",
-    border: "1px solid rgba(111, 151, 188, 0.25)",
-    borderRadius: "10px",
+    backgroundColor: readToken("--manual-ink"),
+    color: readToken("--manual-paper"),
+    border: "0",
+    borderRadius: "0",
+    fontFamily: readToken("--font-family-text"),
     fontSize: "12px",
     lineHeight: "1.4",
     padding: "8px 10px",

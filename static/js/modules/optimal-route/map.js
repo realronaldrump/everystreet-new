@@ -1,15 +1,6 @@
 import MapStyles from "../map-styles.js";
 import { BaseFeatureMap } from "../utils/base-map.js";
 
-const pickColor = (...values) => {
-  for (const value of values) {
-    if (typeof value === "string" && value.trim()) {
-      return value.trim();
-    }
-  }
-  return "";
-};
-
 export class OptimalRouteMap extends BaseFeatureMap {
   constructor(containerId, options = {}) {
     super(containerId, options);
@@ -18,30 +9,11 @@ export class OptimalRouteMap extends BaseFeatureMap {
     this.interactivityHandlers = null;
 
     this.colors = {
-      driven: pickColor(
-        MapStyles.MAP_LAYER_COLORS?.optimalRoute?.driven,
-        MapStyles.MAP_LAYER_COLORS?.streets?.driven,
-        "#5f82a0"
-      ),
-      undriven: pickColor(
-        MapStyles.MAP_LAYER_COLORS?.optimalRoute?.undriven,
-        MapStyles.MAP_LAYER_COLORS?.streets?.undriven,
-        "#c26a4a"
-      ),
-      route: pickColor(
-        MapStyles.MAP_LAYER_COLORS?.optimalRoute?.route,
-        MapStyles.MAP_LAYER_COLORS?.routes?.default,
-        "#8b6f8a"
-      ),
-      arrow: pickColor(
-        MapStyles.MAP_LAYER_COLORS?.optimalRoute?.arrow,
-        MapStyles.MAP_LAYER_COLORS?.routes?.default,
-        "#8b6f8a"
-      ),
-      arrowStroke: pickColor(
-        MapStyles.MAP_LAYER_COLORS?.googleDefaults?.circleStroke,
-        "#faf9f7"
-      ),
+      driven: MapStyles.MAP_LAYER_COLORS.optimalRoute.driven,
+      undriven: MapStyles.MAP_LAYER_COLORS.optimalRoute.undriven,
+      route: MapStyles.MAP_LAYER_COLORS.optimalRoute.route,
+      arrow: MapStyles.MAP_LAYER_COLORS.optimalRoute.arrow,
+      arrowStroke: MapStyles.MAP_LAYER_COLORS.googleDefaults.circleStroke,
     };
 
     this.onLayerReady = options.onLayerReady || (() => {});

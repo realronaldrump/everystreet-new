@@ -1,4 +1,5 @@
 import apiClient from "../core/api-client.js";
+import { readMapColor } from "../core/theme-tokens.js";
 import notificationManager from "../ui/notifications.js";
 
 /**
@@ -133,7 +134,7 @@ export class DriveSimulation {
         source: "simulation-selected",
         layout: { "line-join": "round", "line-cap": "round" },
         paint: {
-          "line-color": "#3b82f6",
+          "line-color": readMapColor("--map-trip-path"),
           "line-width": 4,
           "line-opacity": 0.9,
           "line-dasharray": [2, 1],

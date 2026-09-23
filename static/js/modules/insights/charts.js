@@ -38,12 +38,12 @@ function withAlpha(color, alpha) {
 
 function getAtlasChartPalette() {
   return [
-    readColorToken("--cat-cobalt", "#5f82a0"),
-    readColorToken("--cat-ochre", "#c49d4c"),
-    readColorToken("--cat-steel", "#7893a6"),
-    readColorToken("--cat-coral", "#c26a4a"),
-    readColorToken("--cat-slate", "#857d6e"),
-    readColorToken("--cat-purple", "#8b6f8a"),
+    readColorToken("--cat-cobalt"),
+    readColorToken("--cat-ochre"),
+    readColorToken("--cat-steel"),
+    readColorToken("--cat-coral"),
+    readColorToken("--cat-slate"),
+    readColorToken("--cat-purple"),
   ];
 }
 

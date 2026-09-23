@@ -1,6 +1,7 @@
 
 import { createFeatureApi } from "../../core/feature-api.js";
 import store from "../../core/store.js";
+import { readMapColor } from "../../core/theme-tokens.js";
 import { createMap } from "../../map-core.js";
 import confirmationDialog from "../../ui/confirmation-dialog.js";
 import notificationManager from "../../ui/notifications.js";
@@ -414,7 +415,7 @@ function updateMap(lat, lon) {
   }
 
   // Add new marker
-  marker = new mapboxgl.Marker({ color: "#5f82a0" }).setLngLat([lon, lat]).addTo(map);
+  marker = new mapboxgl.Marker({ color: readMapColor("--manual-navy") }).setLngLat([lon, lat]).addTo(map);
 
   // Fly to location
   map.flyTo({

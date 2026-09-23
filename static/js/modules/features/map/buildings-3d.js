@@ -1,4 +1,5 @@
 import { CONFIG } from "../../core/config.js";
+import { readMapColor } from "../../core/theme-tokens.js";
 import mapCore from "../../map-core.js";
 import { isGoogleProvider, normalizeStyleType, readMapStyle } from "./map-style.js";
 import { resolveMapTypeHint } from "./map-type-hint.js";
@@ -115,11 +116,11 @@ function createLayerDefinition(config, filterExpression) {
         ["linear"],
         ["coalesce", ["get", "height"], 0],
         0,
-        "#575f6f",
+        readMapColor("--basemap-building"),
         60,
-        "#7b8597",
+        readMapColor("--basemap-rail"),
         180,
-        "#a2adbf",
+        readMapColor("--basemap-label"),
       ],
       "fill-extrusion-height": ["coalesce", ["get", "height"], 0],
       "fill-extrusion-base": ["coalesce", ["get", "min_height"], 0],

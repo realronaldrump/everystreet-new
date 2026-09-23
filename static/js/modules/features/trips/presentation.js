@@ -124,9 +124,9 @@ function sanitizeSvgPath(value) {
 
 export function getTripUiColors() {
   return {
-    primary: readToken("--primary", "#8fa6b4"),
-    success: readToken("--success", "#8fa6b4"),
-    stroke: readToken("--text-primary", "#ece2cb"),
+    primary: readToken("--primary"),
+    success: readToken("--success"),
+    stroke: readToken("--text-primary"),
   };
 }
 

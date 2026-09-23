@@ -1904,10 +1904,9 @@ export default async function initMemoryCityPage(ctx = {}) {
       img.onload = () => {
         try {
           const styles = getComputedStyle(document.documentElement);
-          const token = (name, fallback) =>
-            styles.getPropertyValue(name).trim() || fallback;
-          const displayFont = token("--font-family-display", "Georgia, serif");
-          const textFont = token("--font-family", "system-ui, sans-serif");
+          const token = (name) => styles.getPropertyValue(name).trim();
+          const displayFont = token("--font-family-display");
+          const textFont = token("--font-family");
 
           const footer = clamp(Math.round(img.width * 0.055), 96, 220);
           const pad = Math.round(footer * 0.34);
@@ -1917,9 +1916,9 @@ export default async function initMemoryCityPage(ctx = {}) {
           const ctx2d = canvas.getContext("2d");
           ctx2d.drawImage(img, 0, 0);
 
-          ctx2d.fillStyle = token("--surface-1", "#101018");
+          ctx2d.fillStyle = token("--surface-1");
           ctx2d.fillRect(0, img.height, canvas.width, footer);
-          ctx2d.fillStyle = token("--border-color", "#333");
+          ctx2d.fillStyle = token("--border-color");
           ctx2d.fillRect(
             0,
             img.height,
@@ -1932,7 +1931,7 @@ export default async function initMemoryCityPage(ctx = {}) {
           const titleSize = Math.round(footer * 0.32);
           const metaSize = Math.round(footer * 0.17);
 
-          ctx2d.fillStyle = token("--text-primary", "#eee");
+          ctx2d.fillStyle = token("--text-primary");
           ctx2d.font = `600 ${titleSize}px ${displayFont}`;
           ctx2d.textBaseline = "alphabetic";
           ctx2d.fillText(
@@ -1953,11 +1952,11 @@ export default async function initMemoryCityPage(ctx = {}) {
           ]
             .filter(Boolean)
             .join(" · ");
-          ctx2d.fillStyle = token("--text-secondary", "#aaa");
+          ctx2d.fillStyle = token("--text-secondary");
           ctx2d.font = `500 ${metaSize}px ${textFont}`;
           ctx2d.fillText(metaLine, pad, img.height + footer - pad, canvas.width * 0.62);
 
-          ctx2d.fillStyle = token("--text-tertiary", "#888");
+          ctx2d.fillStyle = token("--text-tertiary");
           ctx2d.font = `600 ${metaSize}px ${textFont}`;
           ctx2d.textAlign = "right";
           ctx2d.fillText(

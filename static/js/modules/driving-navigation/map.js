@@ -4,69 +4,33 @@
  * Handles map initialization, layers, and map interactions.
  */
 
+import { readMapColor } from "../core/theme-tokens.js";
 import MapStyles from "../map-styles.js";
 import { BaseFeatureMap } from "../utils/base-map.js";
-import {
-  DEFAULT_CLUSTER_COLORS,
-  DEFAULT_ROUTE_COLORS,
-  DEFAULT_STREET_COLORS,
-} from "./constants.js";
 
-const isColorValue = (value) => typeof value === "string" && value.trim().length > 0;
+/** Efficient-street clusters take these inks in order. */
+const CLUSTER_COLOR_TOKENS = [
+  "--warning",
+  "--cat-amber",
+  "--danger",
+  "--cat-cobalt",
+  "--cat-slate",
+  "--cat-steel",
+  "--cat-sky",
+  "--cat-purple",
+  "--cat-coral",
+  "--cat-indigo",
+];
 
-const pickColor = (...values) => {
-  for (const value of values) {
-    if (isColorValue(value)) {
-      return value.trim();
-    }
-  }
-  return "";
-};
-
-const normalizeClusterColors = (clusterColors) => {
-  if (Array.isArray(clusterColors)) {
-    const filtered = clusterColors.filter(isColorValue).map((color) => color.trim());
-    return filtered.length > 0 ? filtered : DEFAULT_CLUSTER_COLORS;
-  }
-  if (clusterColors && typeof clusterColors === "object") {
-    const ordered = [
-      pickColor(clusterColors.small),
-      pickColor(clusterColors.medium),
-      pickColor(clusterColors.large),
-    ].filter(Boolean);
-    if (ordered.length > 0) {
-      return ordered.concat(
-        DEFAULT_CLUSTER_COLORS.filter((color) => !ordered.includes(color))
-      );
-    }
-  }
-  return DEFAULT_CLUSTER_COLORS;
-};
-
-const normalizeStreetColors = (streetColors) => ({
-  undriven: pickColor(streetColors?.undriven, DEFAULT_STREET_COLORS.undriven),
-  driven: pickColor(streetColors?.driven, DEFAULT_STREET_COLORS.driven),
-});
-
-const normalizeRouteColors = (routeColors) => {
-  if (!routeColors || typeof routeColors !== "object") {
-    return { ...DEFAULT_ROUTE_COLORS };
-  }
+/** The planner's inks, read when layers are set up so they follow the theme. */
+function plannerColors() {
+  const { streets, routes } = MapStyles.MAP_LAYER_COLORS;
   return {
-    calculated: pickColor(
-      routeColors.calculated,
-      routeColors.active,
-      routeColors.default,
-      DEFAULT_ROUTE_COLORS.calculated
-    ),
-    target: pickColor(
-      routeColors.target,
-      routeColors.completed,
-      routeColors.default,
-      DEFAULT_ROUTE_COLORS.target
-    ),
+    clusterColors: CLUSTER_COLOR_TOKENS.map((token) => readMapColor(token)),
+    streetColors: { undriven: streets.undriven, driven: streets.driven },
+    routeColors: { calculated: routes.active, target: routes.completed },
   };
-};
+}
 
 export class DrivingNavigationMap extends BaseFeatureMap {
   /**
@@ -79,10 +43,7 @@ export class DrivingNavigationMap extends BaseFeatureMap {
     this.clusterMarkers = [];
     this.interactivityHandlers = null;
 
-    // Get colors with defaults from MapStyles if available
-    this.clusterColors = normalizeClusterColors(MapStyles.MAP_LAYER_COLORS?.clusters);
-    this.streetColors = normalizeStreetColors(MapStyles.MAP_LAYER_COLORS?.streets);
-    this.routeColors = normalizeRouteColors(MapStyles.MAP_LAYER_COLORS?.routes);
+    Object.assign(this, plannerColors());
   }
 
   /**
@@ -137,9 +98,7 @@ export class DrivingNavigationMap extends BaseFeatureMap {
       return;
     }
 
-    this.clusterColors = normalizeClusterColors(this.clusterColors);
-    this.streetColors = normalizeStreetColors(this.streetColors);
-    this.routeColors = normalizeRouteColors(this.routeColors);
+    Object.assign(this, plannerColors());
 
     const emptyGeoJSON = { type: "FeatureCollection", features: [] };
 

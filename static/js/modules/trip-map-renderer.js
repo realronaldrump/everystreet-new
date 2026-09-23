@@ -966,7 +966,7 @@ const tripMapRenderer = {
     const highlightColor =
       (selectedLayer === "matchedTrips"
         ? MapStyles.MAP_LAYER_COLORS?.matchedTrips?.highlight
-        : MapStyles.MAP_LAYER_COLORS?.trips?.selected) || "#dcefff";
+        : MapStyles.MAP_LAYER_COLORS?.trips?.selected);
 
     const paint = {
       "line-color": highlightColor,
@@ -1102,7 +1102,7 @@ const tripMapRenderer = {
     const highlightColor =
       (selectedLayer === "matchedTrips"
         ? MapStyles.MAP_LAYER_COLORS?.matchedTrips?.highlight
-        : MapStyles.MAP_LAYER_COLORS?.trips?.selected) || "#dcefff";
+        : MapStyles.MAP_LAYER_COLORS?.trips?.selected);
 
     return [
       new deck.PathLayer({

@@ -2,6 +2,8 @@
  * Formatting helpers shared by the Routes page, its insights, and its charts.
  */
 
+import { readToken } from "../../core/theme-tokens.js";
+
 export function formatDateShort(v) {
   if (!v) {
     return "--";
@@ -93,5 +95,6 @@ export function formatTripsPerWeekLabel(value) {
 
 export function routeStrokeColor(route) {
   const raw = (route?.color || "").trim();
-  return raw.startsWith("#") && raw.length === 7 ? raw : "#5f82a0";
+  // Routes without a chosen colour print in the first categorical ink.
+  return raw.startsWith("#") && raw.length === 7 ? raw : readToken("--cat-cobalt");
 }

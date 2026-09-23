@@ -15,7 +15,7 @@ import {
   disableBouncieLiveTracking,
   isBouncieLiveTrackingEnabled,
 } from "./availability.js";
-import { readToken } from "../../core/theme-tokens.js";
+import { readTokenChannels } from "../../core/theme-tokens.js";
 
 /**
  * LiveTripTracker - Real-time trip visualization
@@ -313,16 +313,8 @@ class LiveTripTracker {
   }
 
   refreshPrimaryColor() {
-    const defaultRgb = [59, 138, 127];
-    const primaryRgbVar = LiveTripTracker.getCssVar("--primary-rgb", "").trim();
-    const primaryVar = LiveTripTracker.getCssVar("--primary", "#8fa6b4");
-    const resolvedRgb =
-      (primaryRgbVar && LiveTripTracker.resolveRgbChannels(`rgb(${primaryRgbVar})`)) ||
-      LiveTripTracker.resolveRgbChannels(primaryVar) ||
-      defaultRgb;
-
-    this.primaryRgb = resolvedRgb;
-    this.primaryColor = LiveTripTracker.formatRgb(resolvedRgb);
+    this.primaryRgb = readTokenChannels("--primary-rgb");
+    this.primaryColor = LiveTripTracker.formatRgb(this.primaryRgb);
   }
 
   loadFollowPreference() {
@@ -1223,67 +1215,6 @@ class LiveTripTracker {
     }
     const delta = ((next - previous + 540) % 360) - 180;
     return LiveTripTracker.normalizeBearing(previous + delta * weight);
-  }
-
-  static getCssVar(name, defaultValue) {
-    return readToken(name, defaultValue);
-  }
-
-  static resolveRgbChannels(colorValue) {
-    const resolved = LiveTripTracker.resolveCssColor(colorValue);
-    if (!resolved) {
-      return null;
-    }
-
-    const match = resolved.match(/^rgba?\((.+)\)$/i);
-    if (!match) {
-      return null;
-    }
-
-    const channels = (match[1].match(/[\d.]+%?/g) || [])
-      .slice(0, 3)
-      .map((value) => {
-        if (value.endsWith("%")) {
-          return (Number.parseFloat(value) / 100) * 255;
-        }
-        return Number.parseFloat(value);
-      })
-      .map((value) => Math.max(0, Math.min(255, Math.round(value))));
-
-    if (channels.length !== 3 || channels.some((value) => !Number.isFinite(value))) {
-      return null;
-    }
-
-    return channels;
-  }
-
-  static resolveCssColor(colorValue) {
-    if (
-      typeof document === "undefined" ||
-      typeof colorValue !== "string" ||
-      !colorValue.trim()
-    ) {
-      return null;
-    }
-
-    const probe = document.createElement("span");
-    probe.style.color = colorValue.trim();
-    if (!probe.style.color) {
-      return null;
-    }
-
-    const parent = document.body || document.documentElement;
-    if (!parent) {
-      return null;
-    }
-
-    parent.appendChild(probe);
-    try {
-      const resolved = getComputedStyle(probe).color;
-      return typeof resolved === "string" && resolved.trim() ? resolved.trim() : null;
-    } finally {
-      probe.remove();
-    }
   }
 
   static formatRgb(rgb) {

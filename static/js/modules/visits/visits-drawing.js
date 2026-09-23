@@ -1,5 +1,6 @@
 
 import MapStyles from "../map-styles.js";
+import { readMapColor } from "../core/theme-tokens.js";
 import notificationManager from "../ui/notifications.js";
 
 /**
@@ -595,11 +596,8 @@ class VisitsDrawing {
    * Get MapboxDraw style configurations
    */
   _getDrawStyles() {
-    const colors = MapStyles.MAP_LAYER_COLORS?.customPlaces || {
-      fill: "#5f82a0",
-      outline: "#526fae",
-      highlight: "#c49d4c",
-    };
+    const colors = MapStyles.MAP_LAYER_COLORS.customPlaces;
+    const halo = readMapColor("--basemap-halo");
 
     return [
       {
@@ -692,7 +690,7 @@ class VisitsDrawing {
           "circle-radius": 4,
           "circle-color": colors.highlight,
           "circle-stroke-width": 1,
-          "circle-stroke-color": "#faf9f7",
+          "circle-stroke-color": halo,
         },
       },
       {
@@ -703,7 +701,7 @@ class VisitsDrawing {
           "circle-radius": 5,
           "circle-color": colors.outline,
           "circle-stroke-width": 1.5,
-          "circle-stroke-color": "#faf9f7",
+          "circle-stroke-color": halo,
         },
       },
       {
@@ -719,7 +717,7 @@ class VisitsDrawing {
           "circle-radius": 8,
           "circle-color": colors.highlight,
           "circle-stroke-width": 2,
-          "circle-stroke-color": "#faf9f7",
+          "circle-stroke-color": halo,
         },
       },
     ];

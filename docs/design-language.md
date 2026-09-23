@@ -136,9 +136,16 @@ appearance.
 | Halo under lines and pins | `--basemap-halo` |
 
 - JavaScript reads tokens with `readToken()` from
-  `static/js/modules/core/theme-tokens.js`. Feature modules do not hardcode
-  hex colors. Layers that must follow a theme toggle repaint on the
-  `themeChanged` event.
+  `static/js/modules/core/theme-tokens.js` (`readMapColor()` for map paint).
+  Feature modules do not hardcode hex colors or keep hex fallbacks. Map page
+  layers name a `colorToken` in `CONFIG.LAYER_DEFAULTS`, resolved by
+  `layerColor()` in `map-styles.js` when the layer is painted; legends use
+  `var()` directly. Layers that must follow a theme toggle repaint on the
+  `themeChanged` event. Tests that need token values use
+  `tests/helpers/theme-tokens.js`.
+- Deliberate literals: the share film's palette, the trip and matched-trip
+  heat ramps, the Google Maps style JSON, invisible hit-area lines, and the
+  theme-color meta constants.
 - Mapbox GL accepts hex and comma-separated `rgb()` only; convert modern
   color syntax before passing it to a paint property.
 - `static/js/modules/maps/manual-basemap.js` reprints the Mapbox light and
