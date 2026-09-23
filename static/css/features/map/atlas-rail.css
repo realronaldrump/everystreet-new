@@ -11,8 +11,8 @@
   width: var(--atlas-rail-width);
   flex: 0 0 auto;
   min-height: 0;
-  background: var(--surface-0);
-  border-right: 1px solid var(--border-color);
+  background: var(--manual-paper);
+  border-right: 1.5px solid var(--manual-ink);
   z-index: var(--z-dropdown);
   transition:
     margin-left var(--transition-normal),
@@ -43,10 +43,10 @@
 .atlas-eyebrow {
   margin: 0 0 var(--space-1);
   font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
+  font-weight: var(--font-weight-bold);
   text-transform: uppercase;
   letter-spacing: var(--tracking-label);
-  color: var(--primary);
+  color: var(--manual-rust-ink);
   font-family: var(--font-family-label);
 }
 
@@ -103,8 +103,8 @@
   gap: var(--space-3);
   margin: 0 var(--space-5);
   padding: var(--space-3) 0;
-  border-top: 1px solid var(--border-color);
-  border-bottom: 1px solid var(--border-color);
+  border-top: 2px solid var(--manual-ink);
+  border-bottom: 1px solid var(--manual-rule);
 }
 
 .atlas-figure {
@@ -117,7 +117,7 @@
 .atlas-figure-value {
   font-family: var(--font-family-display);
   font-size: var(--font-size-xl);
-  font-weight: var(--font-weight-bold);
+  font-weight: 800;
   line-height: 1.1;
   letter-spacing: var(--tracking-snug);
   color: var(--text-primary);
@@ -127,12 +127,13 @@
 
 .atlas-figure-label {
   font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
+  font-weight: var(--font-weight-bold);
   text-transform: uppercase;
-  letter-spacing: var(--tracking-label);
-  color: var(--text-tertiary);
-  white-space: nowrap;
+  letter-spacing: var(--tracking-caps);
+  color: var(--manual-ink-soft);
+  white-space: normal;
   font-family: var(--font-family-label);
+  line-height: 1.2;
 }
 
 /* ---- Lens tabs ------------------------------------------------ */
@@ -177,13 +178,13 @@
 }
 
 .atlas-lens-tab[aria-selected="true"]::after {
-  background: var(--primary);
+  background: var(--manual-ink);
 }
 
 .atlas-lens-tab:focus-visible {
-  outline: none;
-  box-shadow: var(--focus-ring);
-  border-radius: var(--radius-xs);
+  outline: var(--focus-outline);
+  box-shadow: none;
+  outline-offset: 2px;
 }
 
 /* ---- Rail body / lens panels ---------------------------------- */

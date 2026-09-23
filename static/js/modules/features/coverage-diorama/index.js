@@ -226,8 +226,8 @@ export default async function initCoverageDioramaPage(context = {}) {
     elements.planBtn.setAttribute("aria-pressed", String(state.mode === "plan"));
     elements.planHint.textContent =
       state.mode === "plan"
-        ? "Tap or drag across brass streets to paint this run. Drag over selected streets to erase."
-        : "Enter Plan mode, then tap or drag across the brass streets.";
+        ? "Tap or drag across undriven streets to select them. Drag over selected streets to clear them."
+        : "Switch to Plan, then tap or drag across undriven streets.";
     state.renderer?.setMode(state.mode);
   }
 
@@ -336,7 +336,7 @@ export default async function initCoverageDioramaPage(context = {}) {
   function renderStreetDetail(feature) {
     if (!feature) {
       elements.detail.innerHTML = `
-        <span class="coverage-diorama-detail-kicker">Survey cursor</span>
+        <span class="coverage-diorama-detail-kicker">Street</span>
         <strong>Hover a street to inspect it</strong>
         <span>Switch to Plan to paint undriven streets.</span>
       `;

@@ -145,7 +145,7 @@ export class OptimalRouteUI {
     const fitButton = document.getElementById("fit-area-btn");
     if (mapTitle)
       mapTitle.textContent =
-        area?.display_name?.split(",")[0] || "Your next drive starts here";
+        area?.display_name?.split(",")[0] || "No area selected";
     if (mapEmpty) mapEmpty.hidden = Boolean(area);
     if (fitButton) fitButton.disabled = !area;
     this.areaIsComplete = Boolean(area?.is_complete);

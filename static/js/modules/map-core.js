@@ -20,6 +20,7 @@ import { getExplicitMapViewFromUrl } from "./core/url-state.js";
 import { isMapboxStyleUrl, waitForMapboxToken } from "./mapbox-token.js";
 import { createGoogleMap, ensureMapboxCompatibility } from "./maps/google_map.js";
 import { waitForGoogleMaps } from "./maps/google_maps_loader.js";
+import { attachManualBasemap } from "./maps/manual-basemap.js";
 import loadingManager from "./ui/loading-manager.js";
 import notificationManager from "./ui/notifications.js";
 import { utils } from "./utils.js";
@@ -276,6 +277,10 @@ const mapCore = {
             ...CONFIG.MAP.performanceOptions,
             transformRequest: this._createTransformRequest(),
           });
+
+      if (!usingGoogleProvider) {
+        attachManualBasemap(map);
+      }
 
       // Store references
       state.map = map;
@@ -849,6 +854,7 @@ function createMap(containerId, options = {}) {
   });
   map.addControl(new mapbox.NavigationControl());
   map.on("error", () => {});
+  attachManualBasemap(map);
   return map;
 }
 

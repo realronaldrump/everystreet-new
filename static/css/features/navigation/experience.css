@@ -27,31 +27,27 @@ body.live-navigation-active .main-content {
   padding-top: 0;
 }
 
-/* Navigation container - uses app's design tokens */
+/* Navigation container: panels print on the manual's stock. The accent is
+   ink (primary actions reverse to paper on ink) and the spot inks mark
+   state. */
 .live-navigation {
-  /* Map app CSS variables to nav-specific aliases */
-  --nav-accent: var(--primary);
-  --nav-accent-dark: var(--primary-dark);
+  --nav-accent: var(--manual-ink);
+  --nav-accent-dark: var(--manual-ink-soft);
   --nav-success: var(--success);
   --nav-warning: var(--warning);
   --nav-danger: var(--danger);
 
-  /* Surfaces - dark mode defaults */
-  --nav-surface: var(--surface-1);
-  --nav-surface-strong: var(--surface-1);
-  --nav-surface-elevated: var(--surface-2);
-  --nav-text: var(--text-primary);
-  --nav-muted: var(--text-secondary);
-  --nav-border: var(--border-color);
-
-  /* Effects from app system */
-  --nav-shadow: var(--shadow-lg);
-  --nav-shadow-xl: var(--shadow-xl);
-
-  /* Spacing and radius from app system */
-  --nav-radius-lg: var(--radius-xl);
-  --nav-radius-md: var(--radius-lg);
-  --nav-radius-sm: var(--radius-md);
+  --nav-surface: var(--manual-paper);
+  --nav-surface-strong: var(--manual-paper);
+  --nav-surface-elevated: var(--manual-paper-shade);
+  --nav-text: var(--manual-ink);
+  --nav-muted: var(--manual-ink-soft);
+  --nav-border: var(--manual-ink);
+  --nav-shadow: 3px 3px 0 var(--manual-rule-faint);
+  --nav-shadow-xl: 4px 4px 0 var(--manual-rule-faint);
+  --nav-radius-lg: 0;
+  --nav-radius-md: 0;
+  --nav-radius-sm: 0;
   --nav-space-xs: var(--space-2);
   --nav-space-sm: var(--space-3);
   --nav-space-md: var(--space-4);
@@ -66,16 +62,6 @@ body.live-navigation-active .main-content {
   height: 100vh;
   overflow: hidden;
   color: var(--nav-text);
-}
-
-/* Light mode overrides */
-html.light-mode body .live-navigation {
-  --nav-surface: var(--surface-1);
-  --nav-surface-strong: var(--surface-1);
-  --nav-surface-elevated: var(--surface-2);
-  --nav-text: var(--text-primary);
-  --nav-muted: var(--text-secondary);
-  --nav-border: var(--border-color);
 }
 
 /* Ambient glow background removed for a cleaner, flat look */

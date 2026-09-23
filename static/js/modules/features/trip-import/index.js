@@ -477,7 +477,7 @@ function renderDetail(record) {
       <span>${
         record.end_time
           ? `Ended ${escapeHtml(formatDate(record.end_time))}`
-          : "End time unavailable — incomplete historical trip"
+          : "End time unavailable (incomplete historical trip)"
       }</span>
       <span>Distance ${escapeHtml(formatDistance(record.distance))}</span>
       <span>Duration ${escapeHtml(formatDuration(record.duration_seconds))}</span>

@@ -91,6 +91,25 @@
   --map-place: var(--map-driven);
   --map-place-outline: #6e93ad;
 
+  /* Basemap inks (maps/manual-basemap.js recolours the Mapbox light and
+     dark styles with these): dark stock, dim roads, and a dull mustard
+     for highways, like a road atlas printed for night reading. */
+  --basemap-paper: #1c1a16;
+  --basemap-land: #201e19;
+  --basemap-green: #23221b;
+  --basemap-water: #161b1e;
+  --basemap-water-line: #26323a;
+  --basemap-building: #2a2721;
+  --basemap-road: #39352d;
+  --basemap-road-major: #5a4c2f;
+  --basemap-casing: #11100d;
+  --basemap-rail: #4a453b;
+  --basemap-boundary: rgb(213 128 95 / 40%);
+  --basemap-label: #b3a88f;
+  --basemap-label-strong: #e1d6bd;
+  --basemap-label-water: #7893a6;
+  --basemap-halo: #1c1a16;
+
   /* Night edition: warm dark stock and cream ink */
   --surface-deep: #141210;
   --surface-0: #1c1a16;
@@ -388,6 +407,21 @@ html.light-mode body {
   --map-undriveable: #8f8676;
   --map-route: #a88430;
   --map-place-outline: #2f5068;
+  --basemap-paper: #efe6d1;
+  --basemap-land: #ebe1ca;
+  --basemap-green: #e2dbbf;
+  --basemap-water: #c3cfd2;
+  --basemap-water-line: #9fb3bb;
+  --basemap-building: #e0d4ba;
+  --basemap-road: #faf5e8;
+  --basemap-road-major: #eed9a0;
+  --basemap-casing: rgb(48 45 37 / 30%);
+  --basemap-rail: #8c8373;
+  --basemap-boundary: rgb(166 83 61 / 45%);
+  --basemap-label: #564f41;
+  --basemap-label-strong: #302d25;
+  --basemap-label-water: #4f6b80;
+  --basemap-halo: #f1e8d5;
 
 
 }

@@ -8,19 +8,50 @@
   display: none !important;
 }
 
+/* Map controls on every map: a printed box of paper buttons with an ink
+   rule, square corners, and the icons inked to match the theme. */
+.mapboxgl-ctrl-group,
+.maplibregl-ctrl-group {
+  border: 1px solid var(--manual-ink);
+  border-radius: 0;
+  background: var(--manual-paper);
+  box-shadow: 2px 2px 0 var(--manual-rule-faint);
+}
+
+/* Mapbox sets its own shadow on non-empty groups. */
+.mapboxgl-ctrl-group:not(:empty),
+.maplibregl-ctrl-group:not(:empty) {
+  box-shadow: 2px 2px 0 var(--manual-rule-faint);
+}
+
+.mapboxgl-ctrl-group button + button,
+.maplibregl-ctrl-group button + button {
+  border-top: 1px solid var(--manual-rule);
+}
+
+.mapboxgl-ctrl-group button:hover,
+.maplibregl-ctrl-group button:hover {
+  background-color: var(--manual-paper-shade);
+}
+
+.mapboxgl-ctrl-group button:focus-visible,
+.maplibregl-ctrl-group button:focus-visible {
+  outline: var(--focus-outline);
+  outline-offset: -3px;
+  box-shadow: none;
+}
+
+/* The control icons are dark SVGs; the night edition reverses them. */
+html:not(.light-mode) .mapboxgl-ctrl-icon,
+html:not(.light-mode) .maplibregl-ctrl-icon {
+  filter: invert(92%) sepia(12%) saturate(300%) hue-rotate(5deg);
+}
+
 /* Map page navigation lives above the mobile sheet and matches the atlas UI. */
 body[data-route="/map"] .mapboxgl-ctrl-bottom-right,
 body[data-route="/map"] .maplibregl-ctrl-bottom-right {
   right: var(--space-3);
   bottom: var(--space-3);
-}
-
-body[data-route="/map"] .mapboxgl-ctrl-group,
-body[data-route="/map"] .maplibregl-ctrl-group {
-  background: var(--surface-1);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-sm);
 }
 
 body[data-route="/map"] .mapboxgl-ctrl-group button,
@@ -40,23 +71,10 @@ body[data-route="/map"] .maplibregl-ctrl-group button {
     );
   }
 
-  body[data-route="/map"] .mapboxgl-ctrl-group,
-  body[data-route="/map"] .maplibregl-ctrl-group {
-    background: var(--surface-1);
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-sm);
-  }
-
   body[data-route="/map"] .mapboxgl-ctrl-group button,
   body[data-route="/map"] .maplibregl-ctrl-group button {
     width: var(--touch-target);
     height: var(--touch-target);
-  }
-
-  body[data-route="/map"] .mapboxgl-ctrl-group button + button,
-  body[data-route="/map"] .maplibregl-ctrl-group button + button {
-    border-top: 1px solid var(--divider-color);
   }
 
   /* Scale up the SVG icons inside buttons */

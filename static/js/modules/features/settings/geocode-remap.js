@@ -520,7 +520,7 @@ export function setupDedupeMobilityProfiles(signal) {
     const removed = (result.profiles_removed ?? 0) + (result.orphans_removed ?? 0);
     const relinked = result.profiles_relinked ?? 0;
     if (!removed && !relinked) {
-      return "Nothing to clean up — every trip summary is already correct.";
+      return "Nothing to clean up. Every trip summary is already correct.";
     }
     const parts = [];
     if (removed) {

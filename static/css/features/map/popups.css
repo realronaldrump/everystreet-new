@@ -12,13 +12,13 @@
 .mapboxgl-popup-content,
 .maplibregl-popup-content {
   font-family: var(--font-family);
-  background-color: var(--surface-1);
+  background-color: var(--manual-paper);
   color: var(--text-primary);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-lg);
+  border-radius: 0;
+  box-shadow: 3px 3px 0 var(--manual-rule-faint);
   padding: 0; /* Remove default padding, handle in custom content */
   max-width: 350px;
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--manual-ink);
 }
 
 .mapboxgl-popup-close-button,
@@ -30,7 +30,7 @@
   right: var(--space-2);
   top: var(--space-2);
   transition: all var(--transition-fast);
-  border-radius: var(--radius-full);
+  border-radius: 0;
   width: 30px;
   height: 30px;
   display: flex;
@@ -41,7 +41,7 @@
 .mapboxgl-popup-close-button:hover,
 .maplibregl-popup-close-button:hover {
   color: var(--text-primary);
-  background: var(--surface-3);
+  background: var(--manual-paper-shade);
 }
 
 /* === Trip Popup Styling === */
@@ -54,12 +54,13 @@
 }
 
 .trip-popup-header {
-  font-weight: var(--font-weight-semibold);
-  font-size: var(--font-size-base);
+  font-weight: 800;
+  font-size: var(--font-size-lg);
   margin-bottom: var(--space-3);
-  color: var(--primary);
+  color: var(--text-primary);
   padding-bottom: var(--space-2);
-  border-bottom: 1px solid var(--divider-color);
+  border-bottom: 3px double var(--manual-ink);
+  font-family: var(--font-family-display);
 }
 
 .trip-popup-grid {
@@ -71,8 +72,12 @@
 
 .trip-popup-label {
   color: var(--text-secondary);
-  font-weight: var(--font-weight-medium);
+  font-weight: var(--font-weight-bold);
   white-space: nowrap;
+  font-family: var(--font-family-label);
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-caps);
 }
 
 .trip-popup-value {
