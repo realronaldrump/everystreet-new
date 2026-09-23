@@ -2,6 +2,7 @@
  * Integrates with real API endpoints and uses imperial units
  */
 
+import { readToken } from "../../core/theme-tokens.js";
 import confirmationDialog from "../../ui/confirmation-dialog.js";
 import { M_TO_FT } from "../../utils/geo-math.js";
 import { escapeHtml, parseDurationToSeconds } from "../../utils.js";
@@ -31,17 +32,13 @@ const IMPERIAL_CONFIG = {
 // Place icon - generic pin for all places
 const PLACE_ICON = '<i class="fas fa-location-dot" aria-hidden="true"></i>';
 
-const DISCOVERY_PREVIEW_COLORS = {
-  fill: "#7893a6",
-  line: "#7893a6",
-};
-
-const PLACE_PREVIEW_COLORS = {
-  cobalt: { fill: "#5f82a0", line: "#8aa7df" },
-  purple: { fill: "#8b6f8a", line: "#8b6f8a" },
-  sky: { fill: "#93acbf", line: "#93acbf" },
-  slate: { fill: "#857d6e", line: "#8c949e" },
-};
+/** Boundary previews print in the same inks as places on the Visits map. */
+function previewInks() {
+  return {
+    fill: readToken("--map-place"),
+    line: readToken("--map-place-outline"),
+  };
+}
 
 // Day names for pattern detection
 const _DAY_NAMES = [
@@ -718,7 +715,6 @@ class VisitsPageController {
           placePreviewConfigs.push({
             mapId,
             geometry,
-            accent,
             previewImageUrl: this.getPlacePreviewImageUrl(place),
             previewBounds: place.previewBounds,
           });
@@ -1419,10 +1415,6 @@ class VisitsPageController {
     }
   }
 
-  getPlacePreviewColors(accent = "slate") {
-    return PLACE_PREVIEW_COLORS[accent] || PLACE_PREVIEW_COLORS.slate;
-  }
-
   getCurrentPreviewTheme() {
     return document.documentElement?.getAttribute("data-bs-theme") === "light"
       ? "light"
@@ -1452,8 +1444,9 @@ class VisitsPageController {
   }
 
   renderPlacePreviewMaps(placePreviewConfigs) {
+    const inks = previewInks();
     placePreviewConfigs.forEach(
-      ({ mapId, geometry, accent, previewImageUrl, previewBounds }) => {
+      ({ mapId, geometry, previewImageUrl, previewBounds }) => {
         const container = document.getElementById(mapId);
         if (!container || !geometry) {
           return;
@@ -1462,7 +1455,7 @@ class VisitsPageController {
         const rendered = renderGeometryPreview(
           container,
           geometry,
-          this.getPlacePreviewColors(accent),
+          inks,
           {
             backgroundImageUrl: previewImageUrl,
             previewBounds,
@@ -1476,6 +1469,7 @@ class VisitsPageController {
   }
 
   renderSuggestionPreviewMaps(pageSuggestions, startIndex) {
+    const inks = previewInks();
     pageSuggestions.forEach((suggestion, pageIndex) => {
       const boundary = this.getRenderableGeometry(suggestion?.boundary);
       const mapId = `discovery-map-${startIndex + pageIndex}`;
@@ -1487,7 +1481,7 @@ class VisitsPageController {
       const rendered = renderGeometryPreview(
         container,
         boundary,
-        DISCOVERY_PREVIEW_COLORS
+        inks
       );
       if (!rendered) {
         this.updatePreviewFallback(container, "Map preview unavailable");

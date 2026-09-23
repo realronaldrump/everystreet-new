@@ -55,7 +55,6 @@ export class OptimalRoutesManager {
 
     this.map = new OptimalRouteMap(this.config.mapContainerId, {
       sharedMap: this.config.sharedMap,
-      addNavigationControl: this.config.addNavigationControl,
       onLayerReady: () => this.onMapLayersReady(),
     });
 

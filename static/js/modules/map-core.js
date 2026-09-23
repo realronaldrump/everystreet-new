@@ -797,11 +797,20 @@ const mapCore = {
  * using Mapbox GL JS. Mirrors the former map-base.js createMap() signature.
  *
  * @param {string} containerId - DOM element id for the map container
- * @param {Object} options - Map options (center, zoom, style, accessToken, etc.)
+ * @param {Object} options - Map options (center, zoom, style, accessToken, etc.).
+ *   `navigationControl` takes NavigationControl options plus a `position`,
+ *   or false to leave the zoom buttons off.
  * @returns {mapboxgl.Map}
  */
 function createMap(containerId, options = {}) {
-  const { center = [0, 0], zoom = 2, accessToken, style, ...rest } = options;
+  const {
+    center = [0, 0],
+    zoom = 2,
+    accessToken,
+    style,
+    navigationControl = {},
+    ...rest
+  } = options;
   const container = document.getElementById(containerId);
   if (!container) {
     throw new Error(`Map container '${containerId}' not found`);
@@ -852,7 +861,10 @@ function createMap(containerId, options = {}) {
     attributionControl: false,
     performanceMetricsCollection: false,
   });
-  map.addControl(new mapbox.NavigationControl());
+  if (navigationControl) {
+    const { position, ...controlOptions } = navigationControl;
+    map.addControl(new mapbox.NavigationControl(controlOptions), position);
+  }
   map.on("error", () => {});
   attachManualBasemap(map);
   return map;

@@ -62,7 +62,6 @@ export default function initCoverageRoutePlannerPage(context = {}) {
   optimalRoutes = new OptimalRoutesManager({
     mapContainerId: MAP_CONTAINER_ID,
     sharedMap,
-    addNavigationControl: false,
     populateAreaSelect: true,
     emitCoverageAreasLoaded: false,
     onCoverageAreasLoaded: (areas) => {

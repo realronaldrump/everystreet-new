@@ -2,7 +2,6 @@ export const OPTIMAL_ROUTES_DEFAULTS = {
   areaSelectId: "area-select",
   mapContainerId: "route-map",
   sharedMap: null,
-  addNavigationControl: true,
   populateAreaSelect: true,
   emitCoverageAreasLoaded: true,
 };

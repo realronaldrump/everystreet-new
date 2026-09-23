@@ -38,12 +38,8 @@ class VisitsMapController {
           pitchWithRotate: false,
           dragRotate: false,
           touchZoomRotate: false,
+          navigationControl: { showCompass: false, position: "bottom-right" },
         });
-
-        this.map.addControl(
-          new mapboxgl.NavigationControl({ showCompass: false }),
-          "bottom-right"
-        );
 
         this.map.on("load", () => {
           this.resolveInitialization = null;
