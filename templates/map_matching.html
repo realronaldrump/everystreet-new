@@ -200,16 +200,16 @@ Trip ID
               <span id="map-match-engine-label">Auto: Valhalla first, Mapbox fallback</span>
             </div>
             <div class="mm-actions">
-              <button type="button" class="btn mm-btn-secondary" id="map-match-preview-btn">
+              <button type="button" class="btn btn-secondary" id="map-match-preview-btn">
                 <i class="fas fa-eye"></i>
               Preview
               </button>
-              <button type="button" class="btn mm-btn-mapbox" id="map-match-mapbox-only-btn">
+              <button type="button" class="btn btn-info" id="map-match-mapbox-only-btn">
                 <i class="fas fa-location-arrow"></i>
               Mapbox Match
               </button>
-              <button type="submit" class="btn mm-btn-primary">
-                <i class="fas fa-sparkles"></i>
+              <button type="submit" class="btn btn-primary mm-action-main">
+                <i class="fas fa-route" aria-hidden="true"></i>
               Start Matching
               </button>
             </div>
@@ -296,7 +296,7 @@ Processing routes
             </div>
 
             <div class="mm-progress-actions">
-              <button class="btn mm-btn-cancel d-none" id="map-match-cancel-btn" type="button">
+              <button class="btn btn-outline-danger d-none" id="map-match-cancel-btn" type="button">
                 <i class="fas fa-stop"></i>
               Cancel
               </button>
@@ -323,7 +323,7 @@ Routes Matched!
               </p>
             </div>
             <div class="mm-results-actions">
-              <button class="btn mm-btn-secondary btn-sm" id="map-match-preview-map-btn">
+              <button class="btn btn-secondary btn-sm" id="map-match-preview-map-btn">
                 <i class="fas fa-sync"></i>
               Refresh
               </button>
@@ -346,11 +346,11 @@ Matched Trips
               </p>
             </div>
             <div class="mm-results-actions">
-              <button class="btn mm-btn-secondary btn-sm" id="mm-browse-refresh-btn">
+              <button class="btn btn-secondary btn-sm" id="mm-browse-refresh-btn">
                 <i class="fas fa-sync"></i>
               Refresh
               </button>
-              <button class="btn mm-btn-secondary btn-sm" id="mm-browse-back-btn">
+              <button class="btn btn-secondary btn-sm" id="mm-browse-back-btn">
                 <i class="fas fa-arrow-left"></i>
               Back
               </button>
@@ -370,11 +370,11 @@ Failed Trips
               </p>
             </div>
             <div class="mm-results-actions">
-              <button class="btn mm-btn-secondary btn-sm" id="mm-failed-refresh-btn">
+              <button class="btn btn-secondary btn-sm" id="mm-failed-refresh-btn">
                 <i class="fas fa-sync"></i>
               Refresh
               </button>
-              <button class="btn mm-btn-secondary btn-sm" id="mm-failed-back-btn">
+              <button class="btn btn-secondary btn-sm" id="mm-failed-back-btn">
                 <i class="fas fa-arrow-left"></i>
               Back
               </button>
@@ -453,7 +453,7 @@ Failed Trips
               <span class="mm-results-count" id="mm-failed-list-count">No issues</span>
               <div class="mm-bulk-actions d-none" id="mm-failed-bulk-actions">
                 <span class="mm-bulk-count" id="mm-failed-selection-count">0 selected</span>
-                <button class="btn btn-ghost btn-sm mm-btn-retry"
+                <button class="btn btn-ghost btn-sm"
                         id="mm-retry-selected-btn"
                         disabled
                         title="Retry matching">
@@ -478,14 +478,14 @@ Failed Trips
                 <input type="checkbox" id="mm-failed-select-all" class="form-check-input" />
                 <span>Select all</span>
               </label>
-              <button class="btn mm-btn-secondary btn-sm" id="mm-retry-all-btn">
+              <button class="btn btn-secondary btn-sm" id="mm-retry-all-btn">
                 <i class="fas fa-redo"></i>
               Retry All
               </button>
             </div>
           </div>
           <div class="mm-match-more" id="mm-match-more-container">
-            <button type="button" class="btn mm-btn-primary" id="mm-match-more-btn">
+            <button type="button" class="btn btn-primary" id="mm-match-more-btn">
               <i class="fas fa-plus"></i>
             Match More Trips
             </button>

@@ -449,107 +449,9 @@
   margin-bottom: var(--space-3);
 }
 
-.mm-btn-primary {
+/* Start Matching takes the rest of the row. */
+.mm-action-main {
   flex: 1;
-  padding: var(--space-4);
-  border-radius: var(--radius-xl);
-  background: var(--action);
-  border: 1px solid rgb(255 255 255 / 8%);
-  color: var(--text-on-action);
-  font-weight: var(--font-weight-semibold);
-  font-size: var(--font-size-base);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
-  cursor: pointer;
-  transition: all var(--transition-normal);
-  box-shadow:
-    0 4px 14px rgb(var(--primary-rgb) / 25%),
-    inset 0 1px 0 rgb(255 255 255 / 10%);
-}
-
-.mm-btn-primary:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow:
-    0 8px 24px rgb(var(--primary-rgb) / 35%),
-    inset 0 1px 0 rgb(255 255 255 / 12%);
-  filter: brightness(1.05);
-}
-
-.mm-btn-primary:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  transform: none;
-}
-
-.mm-btn-secondary {
-  padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-lg);
-  background: var(--surface-2);
-  border: 1px solid var(--manual-rule-faint);
-  color: var(--text-secondary);
-  font-weight: var(--font-weight-medium);
-  font-size: var(--font-size-sm);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-}
-
-.mm-btn-secondary:hover {
-  background: var(--surface-3);
-  border-color: var(--manual-rule);
-  color: var(--text-primary);
-}
-
-.mm-btn-mapbox {
-  padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-lg);
-  background: var(--manual-paper-shade);
-  border: 1px solid var(--manual-rule);
-  color: var(--primary);
-  font-weight: var(--font-weight-semibold);
-  font-size: var(--font-size-sm);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-}
-
-.mm-btn-mapbox:hover:not(:disabled) {
-  background: var(--manual-paper-shade);
-  border-color: var(--manual-rule);
-  color: var(--primary);
-}
-
-.mm-btn-mapbox:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
-.mm-btn-cancel {
-  padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-lg);
-  background: transparent;
-  border: 1px solid var(--danger);
-  color: var(--danger);
-  font-weight: var(--font-weight-medium);
-  font-size: var(--font-size-sm);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-}
-
-.mm-btn-cancel:hover {
-  background: rgb(var(--danger-rgb) / 10%);
 }
 
 .mm-status {
@@ -1314,14 +1216,6 @@
     flex-direction: column;
   }
 
-  .mm-btn-secondary {
-    width: 100%;
-  }
-
-  .mm-btn-mapbox {
-    width: 100%;
-  }
-
   .mm-date-inputs {
     flex-direction: column;
     align-items: stretch;
@@ -1746,15 +1640,6 @@
 
 .failed-trip:hover .failed-trip-actions {
   opacity: 1;
-}
-
-.mm-btn-retry {
-  color: var(--primary);
-}
-
-.mm-btn-retry:hover {
-  background: var(--manual-paper-shade);
-  color: var(--primary);
 }
 
 /* === Empty State for Failed === */

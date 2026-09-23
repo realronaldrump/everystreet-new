@@ -1557,7 +1557,7 @@ function renderFailedTrips(trips, total = trips.length) {
             }
           </div>
           <div class="failed-trip-actions">
-            <button class="btn btn-ghost btn-sm mm-btn-retry" data-action="retry" data-trip-id="${escapeHtml(tripId)}" title="Retry matching" aria-label="Retry trip matching">
+            <button class="btn btn-ghost btn-sm" data-action="retry" data-trip-id="${escapeHtml(tripId)}" title="Retry matching" aria-label="Retry trip matching">
               <i class="fas fa-redo"></i>
             </button>
             <button class="btn btn-ghost btn-sm text-danger" data-action="delete" data-trip-id="${escapeHtml(tripId)}" title="Delete trip" aria-label="Delete trip">
