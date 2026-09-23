@@ -16,7 +16,7 @@ const pages = {
   "coverage-journal": "/coverage-management/a/journal",
 };
 const markup = (path) => {
-  const detail = /^\/trips\/[^/]+$/.test(path) || path.endsWith("/journal");
+  const detail = /^\/trips\/[^/]+$/.test(path);
   return `<!doctype html><html lang="en"><head><title>${path}</title><meta name="es-build" content="fixture"><link rel="stylesheet" href="/static/css/layout/navigation-experience.css"></head>
   <body data-route="${path}" data-auth-role="owner"><nav><a href="/" id="home">Home</a><a href="/trips" id="trips">Trips</a><a href="/coverage-management" id="coverage">Coverage</a><a href="/coverage-route-planner" id="planner">Planner</a><a href="/vehicles" id="vehicles">Vehicles</a><a href="/login" id="login">Login</a></nav>
   <div id="persistent-shell"></div><main id="route-content"><h1>${path}</h1><input id="query" aria-label="Search"><button id="counter">Count</button><a href="/trips/1" id="detail" data-trip-id="1">Trip one</a><a href="/coverage-management/a/journal" id="journal">Journal</a><a href="/trips" data-no-swup id="native">Native link</a><div id="coverage-map" style="height:200px"></div></main>

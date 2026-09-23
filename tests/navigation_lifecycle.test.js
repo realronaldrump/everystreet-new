@@ -162,10 +162,8 @@ test("app-ready and page-view events win over the pending initial timer", async 
 
 test("history and motion distinguish detail, driving, and same-page filter visits", () => {
   assert.equal(detailParent("/trips/123"), "/trips");
-  assert.equal(
-    detailParent("/coverage-management/abc/journal"),
-    "/coverage-management"
-  );
+  // The journal is a full page with its own map, not a drawer.
+  assert.equal(detailParent("/coverage-management/abc/journal"), null);
   assert.equal(detailParent("/trips"), null);
   assert.equal(
     shouldSkipPopState({ state: { source: "es-store" } }, "/trips", "/trips"),

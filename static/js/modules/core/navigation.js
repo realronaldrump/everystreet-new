@@ -122,7 +122,7 @@ const BREADCRUMB_DETAIL_ROUTES = [
   {
     pattern: /^\/coverage-management\/[^/]+\/journal$/,
     parent: "/coverage-management",
-    label: "Coverage history",
+    label: "Journal",
   },
   {
     pattern: /^\/trips\/[^/]+$/,
@@ -492,7 +492,7 @@ async function initializeNavigation() {
         rules: [
           {
             from: /.*/,
-            to: [/^\/trips\/[^/]+$/, /^\/coverage-management\/[^/]+\/journal$/],
+            to: /^\/trips\/[^/]+$/,
             containers: ["#detail-content"],
             name: "detail",
             focus: false,

@@ -40,6 +40,7 @@ JOURNAL_VIEWPORT_LIMIT = 2000
 JOURNAL_MAP_LIMIT = 30000
 JOURNAL_MAP_PROPERTIES = (
     "segment_id",
+    "street_name",
     "status",
     "first_driven_at",
     "period_trip_count",

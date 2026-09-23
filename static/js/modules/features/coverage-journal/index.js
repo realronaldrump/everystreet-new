@@ -1,64 +1,97 @@
+/**
+ * Coverage journal page: one area's history on a single page. The report
+ * runs down the left; a map beside it follows whatever is selected or in
+ * view (the date on the chart, a milestone, a drive, a street, what's left).
+ */
+
 import { updateUrlHistory } from "../../core/url-history.js";
 import { getCurrentTheme, resolveMapStyle } from "../../core/map-style-resolver.js";
 import { navigate } from "../../core/navigation.js";
-import { updateRegion } from "../../core/partial-update.js";
 import { createMap, isMapboxStyleUrl, waitForMapboxToken } from "../../map-core.js";
 import { escapeHtml } from "../../utils.js";
+import { shortAreaName, splitAreaName } from "../coverage-management/area-name.js";
+import { buildChartModel, nearestIndex, placeCursor, renderChart } from "./chart.js";
+import { journalDateKey } from "./date-boundaries.js";
+import {
+  describeOutlook,
+  describeRequirement,
+  formatDate,
+  formatMiles,
+  formatNumber,
+  formatPercent,
+  paceRows,
+  plural,
+  roadClassLabel,
+} from "./format.js";
+import { boundsOf, createJournalMap, prepareFeatures } from "./map.js";
 import { mergeStreetFeatures } from "./map-features.js";
 import { completeJournalRequests } from "./requests.js";
-import {
-  createTimelineScale,
-  isAtOrBeforeJournalBoundary,
-  journalDateKey as getJournalDateKey,
-} from "./date-boundaries.js";
 
 const VALID_RANGES = new Set(["all", "365d", "90d"]);
 const VALID_SOURCES = new Set(["all", "trip", "manual"]);
 const VALID_LEVELS = new Set(["street", "segment"]);
-const RANGE_LABELS = { all: "All time", "365d": "12 months", "90d": "90 days" };
-const MAP_SOURCE = "journal-streets";
-const MAP_LAYER = "journal-streets-line";
+const RANGE_NAMES = { all: "All time", "365d": "Last 12 months", "90d": "Last 90 days" };
+const UNIT_NAMES = { day: "day", week: "week", month: "month" };
+// Areas up to this size load every street at once (see the streets API).
+const WHOLE_AREA_LIMIT = 30000;
+const PENDING_RETRY_MS = 4000;
+const PENDING_RETRY_LIMIT = 45;
+
+const $ = (id) => document.getElementById(id);
+
+function timezone() {
+  return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+}
+
+function todayKey() {
+  return journalDateKey(new Date().toISOString(), timezone());
+}
+
+/** The last millisecond of a local calendar day. */
+function endOfDay(dateKey) {
+  const [year, month, day] = dateKey.split("-").map(Number);
+  return new Date(year, month - 1, day + 1).getTime() - 1;
+}
 
 function initialState() {
   const params = new URLSearchParams(window.location.search);
   const hash = decodeURIComponent(window.location.hash.replace(/^#/, ""));
   return {
-    areaId: document.getElementById("coverage-journal")?.dataset.areaId || "",
+    areaId: $("coverage-journal")?.dataset.areaId || "",
     range: VALID_RANGES.has(params.get("range")) ? params.get("range") : "all",
     source: VALID_SOURCES.has(params.get("source")) ? params.get("source") : "all",
     level: VALID_LEVELS.has(params.get("level")) ? params.get("level") : "street",
     asOf: params.get("as_of") || "",
-    activeMilestone: hash.startsWith("milestone-") ? hash.slice(10) : "",
+    milestone: hash.startsWith("milestone-") ? hash.slice(10) : "",
     metadata: null,
-    geojson: null,
-    areas: [],
-    contributions: [],
     intelligence: null,
     missions: [],
+    contributions: [],
     nextCursor: null,
     map: null,
-    mapReady: false,
-    mapMode: "progress",
-    selectedIds: new Set(),
-    mapSelectionPinned: false,
-    chartScrubbing: false,
-    chartStartIndex: 0,
+    journalMap: null,
+    geojson: null,
+    wholeArea: true,
+    chart: null,
+    cursorIndex: -1,
+    selection: null,
+    rankIds: [],
+    rankNames: [],
+    frontierIds: [],
+    activeSection: "progress",
     listeners: [],
+    timers: [],
     metadataRequest: 0,
-    mapRequest: 0,
     notesRequest: 0,
+    segmentsRequest: 0,
     rangeAbort: null,
-    mapAbort: null,
     notesAbort: null,
-    selectionLabel: "Selected streets",
-    progressSelection: [],
+    segmentsAbort: null,
   };
 }
 
 let state = initialState();
 let featureApi = null;
-
-const $ = (id) => document.getElementById(id);
 
 function listen(target, type, handler, options) {
   if (!target) {
@@ -68,180 +101,46 @@ function listen(target, type, handler, options) {
   state.listeners.push(() => target.removeEventListener(type, handler, options));
 }
 
-function formatNumber(value, digits = 0) {
-  if (value === null || value === undefined || value === "") return "—";
-  const number = Number(value);
-  return Number.isFinite(number)
-    ? new Intl.NumberFormat(undefined, {
-        minimumFractionDigits: digits,
-        maximumFractionDigits: digits,
-      }).format(number)
-    : "—";
+function areaPath(suffix = "") {
+  return `/api/coverage/areas/${encodeURIComponent(state.areaId)}${suffix}`;
 }
 
-function formatMiles(value, digits = 1) {
-  if (value === null || value === undefined || value === "") return "—";
-  if (Number(value) > 0 && Number(value) < 0.1)
-    return `${Math.max(1, Math.round(Number(value) * 5280))} ft`;
-  const number = Number(value);
-  return Number.isFinite(number) ? `${formatNumber(number, digits)} mi` : "—";
-}
-
-function parseDate(value) {
-  const calendarDate = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value || "").trim());
-  if (calendarDate) {
-    return new Date(
-      Number(calendarDate[1]),
-      Number(calendarDate[2]) - 1,
-      Number(calendarDate[3]),
-      12
-    );
-  }
-  const timestamp = Date.parse(value || "");
-  return Number.isFinite(timestamp) ? new Date(timestamp) : null;
-}
-
-function formatDate(value, options = {}) {
-  const date = parseDate(value);
-  if (!date) {
-    return "—";
-  }
-  return new Intl.DateTimeFormat(undefined, {
-    year: "numeric",
-    month: options.short ? "short" : "long",
-    day: "numeric",
-  }).format(date);
-}
-
-function formatShortDate(value) {
-  const date = parseDate(value);
-  if (!date) {
-    return "—";
-  }
-  return new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" }).format(
-    date
-  );
-}
-
-function dateOnly(value) {
-  const date = parseDate(value);
-  return date ? date.toISOString().slice(0, 10) : "";
-}
-
-function journalDateKey(value) {
-  return getJournalDateKey(value, state.metadata?.timezone);
-}
-
-function streetButton(streetName) {
-  const name = String(streetName || "").trim();
-  if (!name) {
-    return "";
-  }
-  return `<button type="button" class="journal-street-link" data-journal-street="${escapeHtml(
-    name
-  )}" aria-label="Show ${escapeHtml(name)} on the map">${escapeHtml(
-    name
-  )}<i class="fas fa-location-dot" aria-hidden="true"></i></button>`;
-}
-
-function renderStreetLinks(streetNames, fallback = "Unnamed roads") {
-  const names = [...new Set((streetNames || []).filter(Boolean))];
-  if (!names.length) {
-    return `<span class="journal-street-fallback">${escapeHtml(fallback)}</span>`;
-  }
-  return names
-    .map(
-      (name, index) =>
-        `${index ? '<span class="journal-street-separator" aria-hidden="true">,</span>' : ""}${streetButton(
-          name
-        )}`
-    )
-    .join("");
-}
-
-function tokenColor(variable, fallback) {
-  const probe = document.createElement("span");
-  probe.style.color = `var(${variable})`;
-  probe.style.display = "none";
-  document.body.appendChild(probe);
-  const color = getComputedStyle(probe).color || fallback;
-  probe.remove();
-  return color;
-}
-
-function palette() {
-  return {
-    cobalt: tokenColor("--primary", "rgb(55, 111, 214)"),
-    steel: tokenColor("--text-tertiary", "rgb(118, 130, 143)"),
-    coral: tokenColor("--danger", "rgb(205, 88, 82)"),
-    ochre: tokenColor("--warning", "rgb(187, 132, 45)"),
-    surface: tokenColor("--surface-1", "rgb(20, 25, 31)"),
-  };
-}
+// ---------------------------------------------------------------------------
+// Loading
+// ---------------------------------------------------------------------------
 
 function setStateMessage(message, type = "loading") {
   const element = $("journal-state");
-  const text = $("journal-state-text");
-  if (!element || !text) {
+  if (!element) {
     return;
   }
-  text.textContent = message;
+  $("journal-state-text").textContent = message;
   element.classList.toggle("is-error", type === "error");
+  element.classList.toggle("is-waiting", type === "waiting");
   element.hidden = type === "ready";
+  $("journal-retry").hidden = type !== "error";
   $("journal-content").hidden = type !== "ready";
-  $("coverage-journal").setAttribute(
-    "aria-busy",
-    type === "loading" ? "true" : "false"
-  );
-}
-
-function syncUrl({ replace = true } = {}) {
-  const url = new URL(window.location.href);
-  url.searchParams.set("range", state.range);
-  url.searchParams.set("source", state.source);
-  url.searchParams.set("level", state.level);
-  if (state.asOf) {
-    url.searchParams.set("as_of", state.asOf);
-  } else {
-    url.searchParams.delete("as_of");
-  }
-  url.hash = state.activeMilestone ? `milestone-${state.activeMilestone}` : "";
-  updateUrlHistory(url, { push: !replace });
-}
-
-function setActiveControls() {
-  document.querySelectorAll("[data-journal-range]").forEach((button) => {
-    const active = button.dataset.journalRange === state.range;
-    button.classList.toggle("is-active", active);
-    button.setAttribute("aria-pressed", String(active));
-  });
-  document.querySelectorAll("[data-journal-source]").forEach((button) => {
-    const active = button.dataset.journalSource === state.source;
-    button.classList.toggle("is-active", active);
-    button.setAttribute("aria-pressed", String(active));
-  });
-  document.querySelectorAll("[data-journal-level]").forEach((button) => {
-    const active = button.dataset.journalLevel === state.level;
-    button.classList.toggle("is-active", active);
-    button.setAttribute("aria-pressed", String(active));
-  });
+  $("coverage-journal").setAttribute("aria-busy", type === "loading" ? "true" : "false");
 }
 
 async function loadAreas() {
   const response = await featureApi.get("/api/coverage/areas", { cache: false });
-  state.areas = (Array.isArray(response?.areas) ? response.areas : []).filter(
+  const areas = (Array.isArray(response?.areas) ? response.areas : []).filter(
     (area) => String(area.status || "").toLowerCase() === "ready"
   );
   const select = $("journal-area-select");
   if (!select) {
     return;
   }
-  select.innerHTML = state.areas
+  select.innerHTML = areas
+    .sort((a, b) => shortAreaName(a.display_name).localeCompare(shortAreaName(b.display_name)))
     .map(
       (area) =>
         `<option value="${escapeHtml(String(area.id))}">${escapeHtml(
-          area.display_name || "Unnamed area"
-        )} · ${formatNumber(area.coverage_percentage, 1)}%</option>`
+          shortAreaName(area.display_name)
+        )} · ${formatPercent(area.coverage_percentage, {
+          complete: area.is_complete,
+        })}</option>`
     )
     .join("");
   select.value = state.areaId;
@@ -250,1015 +149,24 @@ async function loadAreas() {
 async function loadMetadata(signal = null) {
   const request = ++state.metadataRequest;
   const range = state.range;
-  const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
-  const params = new URLSearchParams({ range, timezone });
-  const data = await featureApi.get(
-    `/api/coverage/areas/${encodeURIComponent(state.areaId)}/journal?${params}`,
-    { cache: false, signal }
-  );
-  if (request === state.metadataRequest && range === state.range) state.metadata = data;
+  const params = new URLSearchParams({ range, timezone: timezone() });
+  const data = await featureApi.get(areaPath(`/journal?${params}`), {
+    cache: false,
+    signal,
+  });
+  if (request === state.metadataRequest && range === state.range) {
+    state.metadata = data;
+  }
 }
 
 async function loadIntelligence() {
-  const [intelligence, missionResponse] = await Promise.all([
-    featureApi.get(
-      `/api/coverage/areas/${encodeURIComponent(state.areaId)}/intelligence`,
-      {
-        cache: false,
-      }
-    ),
-    featureApi.get(
-      `/api/coverage/areas/${encodeURIComponent(state.areaId)}/missions?limit=12`,
-      {
-        cache: false,
-      }
-    ),
+  const params = new URLSearchParams({ timezone: timezone() });
+  const [intelligence, missions] = await Promise.all([
+    featureApi.get(areaPath(`/intelligence?${params}`), { cache: false }),
+    featureApi.get(areaPath("/missions?limit=12"), { cache: false }),
   ]);
   state.intelligence = intelligence || null;
-  state.missions = Array.isArray(missionResponse?.missions)
-    ? missionResponse.missions
-    : [];
-}
-
-async function loadSegments({ signal = null, retry = true } = {}) {
-  if (!state.mapReady) {
-    state.geojson = { type: "FeatureCollection", features: [] };
-    return;
-  }
-  const request = ++state.mapRequest;
-  state.mapAbort?.abort();
-  state.mapAbort = new AbortController();
-  const bounds = state.map.getBounds();
-  const params = new URLSearchParams({
-    range: state.range,
-    timezone: state.metadata?.timezone || "UTC",
-    min_lon: bounds.getWest().toFixed(6),
-    min_lat: bounds.getSouth().toFixed(6),
-    max_lon: bounds.getEast().toFixed(6),
-    max_lat: bounds.getNorth().toFixed(6),
-  });
-  const combined = signal
-    ? AbortSignal.any([signal, state.mapAbort.signal])
-    : state.mapAbort.signal;
-  let data;
-  try {
-    data = await featureApi.get(
-      `/api/coverage/areas/${encodeURIComponent(state.areaId)}/journal/segments?${params}`,
-      { cache: false, signal: combined }
-    );
-  } catch (error) {
-    if (error.status !== 409 || !retry || combined.aborted) throw error;
-    await loadMetadata(signal);
-    return loadSegments({ signal, retry: false });
-  }
-  if (request !== state.mapRequest) return;
-  const selected =
-    state.geojson?.revision === data.revision
-      ? (state.geojson?.features || []).filter((feature) =>
-          state.selectedIds.has(feature.properties.segment_id)
-        )
-      : [];
-  state.geojson = { ...data, features: mergeStreetFeatures(selected, data.features) };
-  repaintJournalMap();
-  if (data.truncated)
-    $("journal-map-equivalent").textContent =
-      "Showing streets in this viewport. Zoom in for the complete local detail.";
-}
-
-function repaintJournalMap() {
-  if (state.mapMode === "frequency") setFrequencyMap();
-  else if (state.mapMode === "frontier") setFrontierMap([...state.selectedIds]);
-  else if (state.mapMode === "selection") {
-    const colors = palette();
-    for (const feature of state.geojson?.features || []) {
-      const selected = state.selectedIds.has(feature.properties.segment_id);
-      setMapFeatureStyle(
-        feature,
-        selected ? colors.cobalt : colors.steel,
-        selected ? 5.2 : 1,
-        selected ? 1 : 0.16
-      );
-    }
-    refreshMapSource();
-  } else setProgressMap(...state.progressSelection);
-}
-
-async function ensureSelectedSegments(ids) {
-  const present = new Set(
-    (state.geojson?.features || []).map((feature) => feature.properties.segment_id)
-  );
-  const missing = ids.filter((id) => !present.has(id));
-  for (let start = 0; start < missing.length; start += 300) {
-    const params = new URLSearchParams({
-      range: state.range,
-      timezone: state.metadata?.timezone || "UTC",
-    });
-    missing.slice(start, start + 300).forEach((id) => params.append("ids", id));
-    const data = await featureApi.get(
-      `/api/coverage/areas/${encodeURIComponent(state.areaId)}/journal/segments?${params}`,
-      { cache: false }
-    );
-    const previous =
-      state.geojson?.revision === data.revision ? state.geojson.features : [];
-    state.geojson = { ...data, features: mergeStreetFeatures(previous, data.features) };
-  }
-}
-
-function renderSummary() {
-  const { summary, area } = state.metadata;
-  $("journal-title").textContent = area.display_name || "Coverage history";
-  $("journal-subtitle").textContent = `${formatNumber(
-    area.coverage_percentage,
-    1
-  )}% of the current street inventory is known.`;
-  $("journal-stat-coverage").textContent =
-    `${formatNumber(area.coverage_percentage, 1)}%`;
-  $("journal-stat-miles").textContent =
-    `${formatMiles(area.driven_length_miles)} / ${formatMiles(
-      area.driveable_length_miles
-    )}`;
-  $("journal-stat-trips").textContent = formatNumber(summary.historical_trip_count);
-  $("journal-stat-days").textContent = formatNumber(summary.active_coverage_days);
-  $("journal-stat-first").textContent = formatDate(summary.first_covered_at, {
-    short: true,
-  });
-  const latestStreet = summary.last_new_street_names?.[0];
-  $("journal-stat-latest").innerHTML = latestStreet
-    ? streetButton(latestStreet)
-    : escapeHtml(formatDate(summary.last_new_street_at, { short: true }));
-  $("journal-sculpture-link").href =
-    `/memory-city?area=${encodeURIComponent(state.areaId)}`;
-  $("journal-route-link").href = `/coverage-route-planner?area=${encodeURIComponent(
-    state.areaId
-  )}`;
-}
-
-function milestoneChapters() {
-  const chapters = [...(state.metadata?.milestones || [])];
-  const coverage = Number(state.metadata?.area?.coverage_percentage || 0);
-  const reachedAt = state.metadata?.records?.last_new_street_at;
-  const isDuplicate = chapters.some(
-    (chapter) =>
-      chapter.reached_at === reachedAt &&
-      Math.abs(Number(chapter.coverage) - coverage) < 0.01
-  );
-  if (!isDuplicate && reachedAt) {
-    chapters.push({
-      key: "current",
-      label: state.metadata?.area?.is_complete
-        ? "Every street known"
-        : "Current frontier",
-      threshold: coverage,
-      reached_at: reachedAt,
-      coverage,
-      street_names: state.metadata?.records?.last_new_street_names || [],
-    });
-  }
-  return chapters;
-}
-
-function renderMilestones() {
-  const chapters = milestoneChapters();
-  if (
-    !state.activeMilestone ||
-    !chapters.some((item) => item.key === state.activeMilestone)
-  ) {
-    state.activeMilestone = chapters.at(-1)?.key || "";
-  }
-  const list = $("journal-milestones");
-  if (!chapters.length) {
-    list.innerHTML = `<li class="journal-milestone-copy"><h3>No milestones yet</h3><p>The first coverage-changing trip will create this area’s first milestone.</p></li>`;
-    return;
-  }
-  list.innerHTML = chapters
-    .map((chapter, index) => {
-      const marker =
-        chapter.key === "first" ? "01" : `${Math.round(chapter.threshold)}%`;
-      return `<li class="journal-milestone ${
-        chapter.key === state.activeMilestone ? "is-active" : ""
-      }" data-milestone-key="${escapeHtml(chapter.key)}">
-        <button type="button" class="journal-milestone-trigger" data-milestone-index="${index}" aria-label="Show ${escapeHtml(
-          chapter.label
-        )} on map">
-          <span class="journal-milestone-mark">${escapeHtml(marker)}</span>
-          <span class="journal-milestone-copy">
-            <time datetime="${escapeHtml(journalDateKey(chapter.reached_at))}">${escapeHtml(
-              formatDate(chapter.reached_at)
-            )}</time>
-            <h3>${escapeHtml(chapter.label)}</h3>
-          </span>
-        </button>
-        <p class="journal-milestone-streets">${renderStreetLinks(
-          chapter.street_names,
-          "Coverage moved forward"
-        )}</p>
-      </li>`;
-    })
-    .join("");
-
-  list.querySelectorAll("[data-milestone-index]").forEach((button) => {
-    listen(button, "click", () =>
-      selectMilestone(chapters[Number(button.dataset.milestoneIndex)])
-    );
-  });
-  const selected = chapters.find((chapter) => chapter.key === state.activeMilestone);
-  if (selected) {
-    selectMilestone(selected, { updateUrl: false });
-  }
-}
-
-function selectMilestone(chapter, { updateUrl = true } = {}) {
-  state.activeMilestone = chapter.key;
-  state.mapSelectionPinned = false;
-  document.querySelectorAll(".journal-milestone").forEach((item) => {
-    item.classList.toggle("is-active", item.dataset.milestoneKey === chapter.key);
-  });
-  const chapters = milestoneChapters();
-  const index = chapters.findIndex((item) => item.key === chapter.key);
-  const previous = index > 0 ? chapters[index - 1] : null;
-  setProgressMap(
-    chapter.reached_at,
-    previous?.reached_at || null,
-    chapter.label,
-    previous?.label || ""
-  );
-  const names = chapter.street_names?.length
-    ? chapter.street_names.join(", ")
-    : "no named roads";
-  $("journal-map-equivalent").textContent =
-    `${formatDate(chapter.reached_at)} · ${formatNumber(
-      chapter.coverage,
-      1
-    )}% covered · ${names}.`;
-  if (updateUrl) {
-    syncUrl();
-  }
-}
-
-function setMapFeatureStyle(feature, color, width = 1.8, opacity = 0.78) {
-  feature.properties.journal_color = color;
-  feature.properties.journal_width = width;
-  feature.properties.journal_opacity = opacity;
-}
-
-function refreshMapSource() {
-  if (!state.mapReady || !state.geojson) {
-    return;
-  }
-  state.map.getSource(MAP_SOURCE)?.setData(state.geojson);
-}
-
-function renderMapLegend(items, note) {
-  const legend = $("journal-map-legend");
-  legend.innerHTML = items
-    .map(
-      (item) => `<span class="journal-map-legend-item">
-        <i class="journal-swatch ${escapeHtml(item.swatch)}" aria-hidden="true"></i>
-        ${item.value ? `<strong>${escapeHtml(item.value)}</strong>` : ""}
-        <span>${escapeHtml(item.label)}</span>
-      </span>`
-    )
-    .join("");
-  legend.setAttribute("aria-label", `Map key. ${note}`);
-  $("journal-map-legend-note").textContent = note;
-}
-
-function setProgressMap(
-  cutoffValue,
-  previousValue,
-  label = "Coverage as of",
-  previousLabel = ""
-) {
-  if (!state.geojson) {
-    return;
-  }
-  state.progressSelection = [cutoffValue, previousValue, label, previousLabel];
-  state.mapMode = "progress";
-  state.selectedIds.clear();
-  const colors = palette();
-  const timeZone = state.metadata?.timezone;
-  const hasCutoff = Boolean(cutoffValue);
-  const hasPrevious = Boolean(previousValue);
-  let earlier = 0;
-  let chapter = 0;
-  let remaining = 0;
-  for (const feature of state.geojson.features || []) {
-    const props = feature.properties || {};
-    if (props.status === "undriveable") {
-      setMapFeatureStyle(feature, colors.steel, 1, 0.18);
-    } else if (
-      hasPrevious &&
-      isAtOrBeforeJournalBoundary(props.first_driven_at, previousValue, timeZone)
-    ) {
-      setMapFeatureStyle(feature, colors.steel, 1.7, 0.72);
-      earlier += 1;
-    } else if (
-      (!hasCutoff && Boolean(journalDateKey(props.first_driven_at))) ||
-      isAtOrBeforeJournalBoundary(props.first_driven_at, cutoffValue, timeZone)
-    ) {
-      setMapFeatureStyle(feature, colors.cobalt, 3.2, 0.96);
-      chapter += 1;
-    } else {
-      setMapFeatureStyle(feature, colors.coral, 1.3, 0.55);
-      remaining += 1;
-    }
-  }
-  $("journal-map-caption").textContent = label;
-  const cutoffDate = formatDate(cutoffValue);
-  const hasPreviousMilestone = Boolean(previousValue);
-  if (hasPreviousMilestone) {
-    const startingMilestone = previousLabel || "the previous milestone";
-    renderMapLegend(
-      [
-        {
-          swatch: "journal-swatch--earlier",
-          value: formatNumber(earlier),
-          label: `Covered by ${startingMilestone}`,
-        },
-        {
-          swatch: "journal-swatch--chapter",
-          value: formatNumber(chapter),
-          label: `Added since ${startingMilestone}`,
-        },
-        {
-          swatch: "journal-swatch--remaining",
-          value: formatNumber(remaining),
-          label:
-            label === "Current frontier"
-              ? "Not covered yet"
-              : `Still uncovered at ${label}`,
-        },
-      ],
-      `Counts visible street portions with drive evidence. Mileage includes only their covered portions. The selected period starts after ${startingMilestone} (${formatDate(
-        previousValue
-      )}) and ends at ${label} (${cutoffDate}).`
-    );
-  } else {
-    const isTimelineDate = label.startsWith("Coverage as of");
-    const momentLabel = isTimelineDate ? "the selected date" : label;
-    renderMapLegend(
-      [
-        {
-          swatch: "journal-swatch--chapter",
-          value: formatNumber(chapter),
-          label: `Covered by ${momentLabel}`,
-        },
-        {
-          swatch: "journal-swatch--remaining",
-          value: formatNumber(remaining),
-          label: `Not covered by ${momentLabel}`,
-        },
-      ],
-      `Counts visible street portions with drive evidence as of ${cutoffDate}.`
-    );
-  }
-  refreshMapSource();
-}
-
-function setFrequencyMap() {
-  if (!state.geojson) {
-    return;
-  }
-  state.mapMode = "frequency";
-  state.mapSelectionPinned = false;
-  state.selectedIds.clear();
-  const colors = palette();
-  for (const feature of state.geojson.features || []) {
-    const count = Number(feature.properties?.period_trip_count || 0);
-    if (count <= 0) {
-      setMapFeatureStyle(feature, colors.steel, 1, 0.18);
-    } else if (count >= 20) {
-      setMapFeatureStyle(feature, colors.cobalt, 5.5, 1);
-    } else if (count >= 8) {
-      setMapFeatureStyle(feature, colors.cobalt, 4, 0.86);
-    } else if (count >= 3) {
-      setMapFeatureStyle(feature, colors.cobalt, 2.8, 0.66);
-    } else {
-      setMapFeatureStyle(feature, colors.cobalt, 1.7, 0.42);
-    }
-  }
-  $("journal-map-caption").textContent =
-    `Drive frequency · ${RANGE_LABELS[state.range]}`;
-  renderMapLegend(
-    [
-      { swatch: "journal-swatch--frequency-low", label: "1–2 distinct trips" },
-      { swatch: "journal-swatch--frequency-medium", label: "3–19 distinct trips" },
-      { swatch: "journal-swatch--frequency-high", label: "20+ distinct trips" },
-    ],
-    `Line thickness shows how many distinct completed trips touched each road during ${
-      RANGE_LABELS[state.range]
-    }.`
-  );
-  $("journal-map-equivalent").textContent =
-    "The ranking below is the non-map equivalent of this distinct-trip frequency lens.";
-  refreshMapSource();
-}
-
-function setFrontierMap(selectedIds = []) {
-  if (!state.geojson) {
-    return;
-  }
-  state.mapMode = "frontier";
-  state.mapSelectionPinned = selectedIds.length > 0;
-  state.selectedIds = new Set(selectedIds);
-  const colors = palette();
-  for (const feature of state.geojson.features || []) {
-    const props = feature.properties || {};
-    if (state.selectedIds.has(props.segment_id)) {
-      setMapFeatureStyle(feature, colors.ochre, 5.2, 1);
-    } else if (props.status === "undriven") {
-      setMapFeatureStyle(feature, colors.coral, 2.3, 0.82);
-    } else {
-      setMapFeatureStyle(feature, colors.steel, 1, 0.16);
-    }
-  }
-  $("journal-map-caption").textContent = selectedIds.length
-    ? "Selected frontier road"
-    : "Current frontier";
-  renderMapLegend(
-    [
-      { swatch: "journal-swatch--remaining", label: "Uncovered road segment" },
-      { swatch: "journal-swatch--selected", label: "Selected road opportunity" },
-    ],
-    "Coral marks road segments that remain uncovered. Ochre marks the road selected below."
-  );
-  refreshMapSource();
-  if (selectedIds.length) {
-    fitSelectedSegments(selectedIds);
-  }
-}
-
-function revealMapFolio() {
-  const folio = $("journal-map-folio");
-  if (!folio) {
-    return;
-  }
-  const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-  folio.scrollIntoView({
-    behavior: reducedMotion ? "auto" : "smooth",
-    block: "center",
-  });
-  window.setTimeout(
-    () => folio.focus({ preventScroll: true }),
-    reducedMotion ? 0 : 350
-  );
-}
-
-async function showStreetOnMap(streetName) {
-  try {
-    const params = new URLSearchParams({
-      range: state.range,
-      street_name: streetName,
-      timezone: state.metadata?.timezone || "UTC",
-    });
-    const data = await featureApi.get(
-      `/api/coverage/areas/${encodeURIComponent(state.areaId)}/journal/segments?${params}`,
-      { cache: false }
-    );
-    const previous =
-      state.geojson?.revision === data.revision ? state.geojson.features : [];
-    state.geojson = { ...data, features: mergeStreetFeatures(previous, data.features) };
-    await highlightSegments(
-      data.features.map((feature) => feature.properties.segment_id),
-      streetName,
-      { reveal: true }
-    );
-  } catch (error) {
-    $("journal-map-equivalent").textContent = error.message;
-  }
-}
-
-async function highlightSegments(segmentIds, label, { reveal = false } = {}) {
-  try {
-    await ensureSelectedSegments(segmentIds || []);
-  } catch (error) {
-    $("journal-map-equivalent").textContent = error.message;
-    return;
-  }
-  state.selectionLabel = label;
-  if (!state.geojson) {
-    return;
-  }
-  const ids = new Set(segmentIds || []);
-  state.selectedIds = ids;
-  state.mapMode = "selection";
-  state.mapSelectionPinned = true;
-  const colors = palette();
-  for (const feature of state.geojson.features || []) {
-    const selected = ids.has(feature.properties?.segment_id);
-    setMapFeatureStyle(
-      feature,
-      selected ? colors.cobalt : colors.steel,
-      selected ? 5.2 : 1,
-      selected ? 1 : 0.16
-    );
-  }
-  $("journal-map-caption").textContent = label;
-  renderMapLegend(
-    [
-      { swatch: "journal-swatch--chapter", label: "Selected street segments" },
-      { swatch: "journal-swatch--earlier", label: "Other streets for context" },
-    ],
-    "Cobalt marks every current segment belonging to the selected street. Steel shows the surrounding street network."
-  );
-  $("journal-map-equivalent").textContent = `${formatNumber(ids.size)} current segment${
-    ids.size === 1 ? "" : "s"
-  } highlighted for ${label}.`;
-  refreshMapSource();
-  fitSelectedSegments([...ids]);
-  if (reveal) {
-    revealMapFolio();
-  }
-}
-
-function coordinatesFromGeometry(geometry) {
-  if (!geometry) {
-    return [];
-  }
-  if (geometry.type === "LineString") {
-    return geometry.coordinates || [];
-  }
-  if (geometry.type === "MultiLineString") {
-    return (geometry.coordinates || []).flat();
-  }
-  return [];
-}
-
-function fitSelectedSegments(segmentIds) {
-  if (!state.mapReady || !segmentIds.length || typeof mapboxgl === "undefined") {
-    return;
-  }
-  const ids = new Set(segmentIds);
-  const points = (state.geojson?.features || [])
-    .filter((feature) => ids.has(feature.properties?.segment_id))
-    .flatMap((feature) => coordinatesFromGeometry(feature.geometry));
-  if (!points.length) {
-    return;
-  }
-  const bounds = points.reduce(
-    (accumulator, point) => accumulator.extend(point),
-    new mapboxgl.LngLatBounds(points[0], points[0])
-  );
-  state.map.fitBounds(bounds, { padding: 80, maxZoom: 16, duration: 450 });
-}
-
-function fitArea() {
-  const bbox = state.metadata?.area?.bounding_box;
-  if (!state.mapReady || !Array.isArray(bbox) || bbox.length < 4) {
-    return;
-  }
-  state.map.fitBounds(
-    [
-      [bbox[0], bbox[1]],
-      [bbox[2], bbox[3]],
-    ],
-    { padding: 50, duration: 450 }
-  );
-}
-
-async function initMap() {
-  const { styleUrl } = resolveMapStyle({ theme: getCurrentTheme() });
-  let accessToken;
-  if (isMapboxStyleUrl(styleUrl)) {
-    accessToken = await waitForMapboxToken({ timeoutMs: 5000 });
-  }
-  const bbox = state.metadata?.area?.bounding_box;
-  state.map = createMap("journal-map", {
-    style: styleUrl,
-    accessToken,
-    bounds: Array.isArray(bbox)
-      ? [
-          [bbox[0], bbox[1]],
-          [bbox[2], bbox[3]],
-        ]
-      : undefined,
-    fitBoundsOptions: { padding: 50 },
-    attributionControl: false,
-  });
-  await new Promise((resolve) => state.map.once("load", resolve));
-  state.map.addSource(MAP_SOURCE, { type: "geojson", data: state.geojson });
-  state.map.addLayer({
-    id: MAP_LAYER,
-    type: "line",
-    source: MAP_SOURCE,
-    layout: { "line-cap": "round", "line-join": "round" },
-    paint: {
-      "line-color": ["coalesce", ["get", "journal_color"], palette().steel],
-      "line-width": ["coalesce", ["get", "journal_width"], 1.4],
-      "line-opacity": ["coalesce", ["get", "journal_opacity"], 0.6],
-    },
-  });
-  state.mapReady = true;
-  let viewportTimer;
-  const reloadViewport = () => {
-    clearTimeout(viewportTimer);
-    viewportTimer = setTimeout(() => {
-      loadSegments().catch((error) => {
-        if (error.name !== "AbortError")
-          $("journal-map-equivalent").textContent = error.message;
-      });
-    }, 150);
-  };
-  state.map.on("moveend", reloadViewport);
-  state.listeners.push(() => clearTimeout(viewportTimer));
-  await loadSegments();
-  state.map.resize();
-  const selected = milestoneChapters().find(
-    (item) => item.key === state.activeMilestone
-  );
-  if (selected) {
-    selectMilestone(selected, { updateUrl: false });
-  }
-}
-
-function chartPath(points, close = false) {
-  if (!points.length) {
-    return "";
-  }
-  const path = points
-    .map(([x, y], index) =>
-      index ? `H${x.toFixed(1)} V${y.toFixed(1)}` : `M${x.toFixed(1)},${y.toFixed(1)}`
-    )
-    .join(" ");
-  return close
-    ? `${path} L${points.at(-1)[0].toFixed(1)},310 L${points[0][0].toFixed(1)},310 Z`
-    : path;
-}
-
-function timelineIndexFromPointer(event) {
-  const svg = $("journal-pace-chart");
-  const series = state.metadata?.series || [];
-  if (!svg || !series.length) {
-    return 0;
-  }
-  const bounds = svg.getBoundingClientRect();
-  const viewBoxX = ((event.clientX - bounds.left) / Math.max(1, bounds.width)) * 960;
-  const ratio = Math.max(0, Math.min(1, (viewBoxX - 62) / (930 - 62)));
-  return createTimelineScale(series).nearest(ratio);
-}
-
-function nearestSeriesIndex(value, series = state.metadata?.series || []) {
-  const target = Date.parse(`${journalDateKey(value)}T00:00:00Z`);
-  if (!series.length || !Number.isFinite(target)) {
-    return 0;
-  }
-  let nearest = 0;
-  let distance = Number.POSITIVE_INFINITY;
-  series.forEach((point, index) => {
-    const difference = Math.abs(Date.parse(point.date) - target);
-    if (difference < distance) {
-      nearest = index;
-      distance = difference;
-    }
-  });
-  return nearest;
-}
-
-function chartScrollBehavior() {
-  return window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
-    ? "auto"
-    : "smooth";
-}
-
-function updateChartPanControls() {
-  const scroller = $("journal-chart-scroll");
-  const earlier = $("journal-chart-earlier");
-  const later = $("journal-chart-later");
-  if (!scroller || !earlier || !later) {
-    return;
-  }
-  const maxScroll = Math.max(0, scroller.scrollWidth - scroller.clientWidth);
-  earlier.disabled = scroller.scrollLeft <= 2;
-  later.disabled = scroller.scrollLeft >= maxScroll - 2;
-}
-
-function panChart(direction) {
-  const scroller = $("journal-chart-scroll");
-  if (!scroller) {
-    return;
-  }
-  scroller.scrollBy({
-    left: direction * Math.max(240, scroller.clientWidth * 0.72),
-    behavior: chartScrollBehavior(),
-  });
-}
-
-function scrollChartToIndex(index) {
-  const scroller = $("journal-chart-scroll");
-  const svg = $("journal-pace-chart");
-  const series = state.metadata?.series || [];
-  if (!scroller || !svg || !series.length) {
-    return;
-  }
-  const ratio = createTimelineScale(series).ratio(index);
-  const x = ratio * svg.scrollWidth;
-  scroller.scrollTo({
-    left: Math.max(0, x - scroller.clientWidth / 2),
-    behavior: chartScrollBehavior(),
-  });
-}
-
-function biggestProgressDay(series = state.metadata?.series || []) {
-  return series.reduce(
-    (best, point, index) =>
-      Number(point.new_miles || 0) > Number(best?.point?.new_miles ?? -1)
-        ? { point, index }
-        : best,
-    null
-  );
-}
-
-function renderPaceEvents(series) {
-  const container = $("journal-chart-events");
-  if (!container) {
-    return;
-  }
-  if (!series.length) {
-    container.innerHTML = "";
-    return;
-  }
-  const inRange = (value) => {
-    const key = journalDateKey(value);
-    return Boolean(key && key >= series[0].date && key <= series.at(-1).date);
-  };
-  const biggest = biggestProgressDay(series);
-  const events = [];
-  if (biggest?.point?.date && inRange(biggest.point.date)) {
-    events.push({
-      kind: "record",
-      eyebrow: "Record day",
-      title: "Best progress day",
-      occurredAt: biggest.point.date,
-      detail: `+${formatMiles(biggest.point.new_miles, 2)} · ${formatNumber(
-        biggest.point.new_segments
-      )} new segments · ${formatNumber(biggest.point.coverage_percentage, 1)}% reached`,
-    });
-  }
-  for (const milestone of state.metadata?.milestones || []) {
-    if (!inRange(milestone.reached_at)) {
-      continue;
-    }
-    events.push({
-      kind: "milestone",
-      eyebrow: "Milestone",
-      title: milestone.label,
-      occurredAt: milestone.reached_at,
-      detail: `${formatNumber(milestone.coverage, 1)}% coverage reached`,
-    });
-  }
-  if (!events.length) {
-    container.innerHTML = `<div class="journal-chart-events-empty">No record or milestone date falls inside ${escapeHtml(
-      RANGE_LABELS[state.range].toLowerCase()
-    )}.</div>`;
-    return;
-  }
-  container.innerHTML = `<div class="journal-chart-events-heading"><strong>Key dates</strong><span>Select one to move the timeline and map.</span></div>
-    <ol>${events
-      .map((event) => {
-        const index = nearestSeriesIndex(event.occurredAt, series);
-        return `<li><button type="button" class="journal-chart-event journal-chart-event--${escapeHtml(
-          event.kind
-        )}" data-pace-event-index="${index}">
-          <span>${escapeHtml(event.eyebrow)}</span>
-          <strong>${escapeHtml(event.title)}</strong>
-          <time datetime="${escapeHtml(journalDateKey(event.occurredAt))}">${escapeHtml(
-            formatDate(event.occurredAt, { short: true })
-          )}</time>
-          <small>${escapeHtml(event.detail)}</small>
-        </button></li>`;
-      })
-      .join("")}</ol>`;
-}
-
-function updateTimelineVisuals(index) {
-  const series = state.metadata?.series || [];
-  const point = series[index];
-  if (!point) {
-    return;
-  }
-  const x = 62 + createTimelineScale(series).ratio(index) * (930 - 62);
-  const y = 270 - (Number(point.coverage_percentage || 0) / 100) * (270 - 28);
-  const line = $("journal-chart-cursor-line");
-  const dot = $("journal-chart-cursor-dot");
-  const readout = $("journal-chart-readout");
-  if (line) {
-    line.setAttribute("x1", String(x));
-    line.setAttribute("x2", String(x));
-  }
-  if (dot) {
-    dot.setAttribute("cx", String(x));
-    dot.setAttribute("cy", String(y));
-  }
-  if (readout) {
-    const tooltipX = Math.max(62, Math.min(740, x - 95));
-    readout.setAttribute("transform", `translate(${tooltipX} 38)`);
-  }
-  $("journal-chart-readout-date").textContent = formatDate(point.date, {
-    short: true,
-  });
-  $("journal-chart-readout-value").textContent = `${formatNumber(
-    point.coverage_percentage,
-    1
-  )}% covered · +${formatMiles(point.new_miles, 2)}`;
-  $("journal-cursor-date").textContent = formatDate(point.date);
-  $("journal-cursor-summary").textContent = `${formatNumber(
-    point.coverage_percentage,
-    1
-  )}% covered · ${formatMiles(point.new_miles, 2)} added that day · ${formatNumber(
-    point.new_segments
-  )} new segments.`;
-  document.querySelectorAll("[data-pace-event-index]").forEach((button) => {
-    const active = Number(button.dataset.paceEventIndex) === index;
-    button.classList.toggle("is-active", active);
-    button.setAttribute("aria-current", active ? "date" : "false");
-  });
-}
-
-function renderPaceChart() {
-  const series = state.metadata?.series || [];
-  const svg = $("journal-pace-chart");
-  const description = $("journal-chart-desc");
-  const table = $("journal-series-table");
-  if (!series.length) {
-    svg.innerHTML = `<title id="journal-chart-title">Cumulative street coverage over time</title><desc id="journal-chart-desc">No coverage-changing activity in this range.</desc><text x="480" y="180" text-anchor="middle" class="journal-chart-axis">No new coverage in ${escapeHtml(
-      RANGE_LABELS[state.range]
-    )}</text>`;
-    table.innerHTML = `<tr><td colspan="4">No coverage-changing activity in this range.</td></tr>`;
-    $("journal-timeline-cursor").disabled = true;
-    svg.style.minWidth = "720px";
-    renderPaceEvents([]);
-    updateChartPanControls();
-    return;
-  }
-  const left = 62;
-  const right = 930;
-  const top = 28;
-  const bottom = 270;
-  const barBottom = 326;
-  const maxMiles = Math.max(
-    ...series.map((point) => Number(point.new_miles || 0)),
-    0.1
-  );
-  svg.style.minWidth = `${Math.min(2200, Math.max(960, series.length * 13))}px`;
-  const scale = createTimelineScale(series);
-  const x = (index) => left + scale.ratio(index) * (right - left);
-  const y = (percentage) => bottom - (Number(percentage || 0) / 100) * (bottom - top);
-  const points = series.map((point, index) => [x(index), y(point.coverage_percentage)]);
-  const grid = [0, 25, 50, 75, 100]
-    .map(
-      (percent) =>
-        `<line x1="${left}" y1="${y(percent)}" x2="${right}" y2="${y(
-          percent
-        )}" class="journal-chart-grid"/><text x="8" y="${y(percent) + 4}" class="journal-chart-axis">${percent}%</text>`
-    )
-    .join("");
-  const biggestDay = biggestProgressDay(series);
-  const biggestIndex = biggestDay?.index ?? -1;
-  const bars = series
-    .map((point, index) => {
-      const height = (Number(point.new_miles || 0) / maxMiles) * 42;
-      const width = Math.max(2, Math.min(12, (right - left) / series.length - 1));
-      return `<rect x="${x(index) - width / 2}" y="${
-        barBottom - height
-      }" width="${width}" height="${height}" class="journal-chart-bar${
-        index === biggestIndex ? " is-record" : ""
-      }"><title>${escapeHtml(formatDate(point.date))} · ${formatMiles(
-        point.new_miles,
-        2
-      )} added</title></rect>`;
-    })
-    .join("");
-  const visibleMilestones = (state.metadata?.milestones || []).filter((milestone) => {
-    const key = journalDateKey(milestone.reached_at);
-    return Boolean(key && key >= series[0].date && key <= series.at(-1).date);
-  });
-  const milestoneMarks = visibleMilestones
-    .map((milestone, milestoneIndex) => {
-      const nearest = nearestSeriesIndex(milestone.reached_at, series);
-      const pointY = y(milestone.coverage);
-      const labelY = Math.max(top + 12, pointY - 10 - (milestoneIndex % 2) * 16);
-      const markerLabel =
-        milestone.key === "first"
-          ? "START"
-          : `${Math.round(milestone.threshold || milestone.coverage)}%`;
-      return `<g class="journal-chart-milestone-mark">
-        <line x1="${x(nearest)}" y1="${top}" x2="${x(
-          nearest
-        )}" y2="${barBottom}" class="journal-chart-milestone-guide"/>
-        <circle cx="${x(nearest)}" cy="${pointY}" r="5" class="journal-chart-milestone"><title>${escapeHtml(
-          milestone.label
-        )} · ${escapeHtml(formatDate(milestone.reached_at))}</title></circle>
-        <text x="${x(nearest)}" y="${labelY}" text-anchor="middle" class="journal-chart-milestone-label">${escapeHtml(
-          markerLabel
-        )}</text>
-      </g>`;
-    })
-    .join("");
-  let recordMark = "";
-  if (biggestIndex >= 0 && biggestDay) {
-    const recordX = x(biggestIndex);
-    const recordHeight = (Number(series[biggestIndex]?.new_miles || 0) / maxMiles) * 42;
-    const anchor = recordX < 180 ? "start" : recordX > 820 ? "end" : "middle";
-    recordMark = `<g class="journal-chart-record-mark">
-      <line x1="${recordX}" y1="${barBottom - recordHeight - 5}" x2="${recordX}" y2="${
-        barBottom - 54
-      }"/>
-      <text x="${recordX}" y="${barBottom - 59}" text-anchor="${anchor}">BEST DAY · +${escapeHtml(
-        formatMiles(biggestDay.point.new_miles, 2)
-      )}</text>
-    </g>`;
-  }
-  const cursor = $("journal-timeline-cursor");
-  cursor.disabled = false;
-  cursor.max = String(series.length - 1);
-  const requestedIndex = state.asOf
-    ? series.findLastIndex((point) => point.date <= state.asOf)
-    : series.length - 1;
-  cursor.value = String(Math.max(0, requestedIndex));
-  const cursorX = x(Number(cursor.value));
-  const cursorPoint = series[Number(cursor.value)];
-  const cursorY = y(cursorPoint.coverage_percentage);
-  const readoutX = Math.max(62, Math.min(740, cursorX - 95));
-  svg.innerHTML = `<title id="journal-chart-title">Cumulative street coverage over time</title>
-    <desc id="journal-chart-desc">${series.length} active coverage days in ${escapeHtml(
-      RANGE_LABELS[state.range]
-    )}; ending at ${formatNumber(series.at(-1).coverage_percentage, 1)} percent.</desc>
-    ${grid}<path d="${chartPath(points, true)}" class="journal-chart-area"/>
-    ${bars}<path d="${chartPath(points)}" class="journal-chart-line"/>
-    ${milestoneMarks}${recordMark}<line x1="${cursorX}" y1="${top}" x2="${cursorX}" y2="${barBottom}" class="journal-chart-cursor" id="journal-chart-cursor-line"/>
-    <circle cx="${cursorX}" cy="${cursorY}" r="5" class="journal-chart-cursor-dot" id="journal-chart-cursor-dot"/>
-    <g id="journal-chart-readout" class="journal-chart-readout" transform="translate(${readoutX} 38)">
-      <rect width="190" height="54" class="journal-chart-readout-panel"/>
-      <text x="12" y="21" id="journal-chart-readout-date" class="journal-chart-axis">${escapeHtml(
-        formatDate(cursorPoint.date, { short: true })
-      )}</text>
-      <text x="12" y="42" id="journal-chart-readout-value" class="journal-chart-readout-value">${formatNumber(
-        cursorPoint.coverage_percentage,
-        1
-      )}% covered · +${formatMiles(cursorPoint.new_miles, 2)}</text>
-    </g>
-    <rect x="${left}" y="${top}" width="${right - left}" height="${
-      barBottom - top
-    }" class="journal-chart-hit" id="journal-chart-hit"/>
-    <text x="${left}" y="350" class="journal-chart-axis">${escapeHtml(
-      formatShortDate(series[0].date)
-    )}</text><text x="${right}" y="350" text-anchor="end" class="journal-chart-axis">${escapeHtml(
-      formatShortDate(series.at(-1).date)
-    )}</text>`;
-  description.textContent = `${series.length} active coverage days in ${RANGE_LABELS[state.range]}.`;
-  table.innerHTML = series
-    .map(
-      (point) =>
-        `<tr><td>${escapeHtml(formatDate(point.date, { short: true }))}</td><td>${formatNumber(
-          point.coverage_percentage,
-          1
-        )}%</td><td>${formatMiles(point.new_miles, 2)}</td><td>${formatNumber(
-          point.contributions
-        )}</td></tr>`
-    )
-    .join("");
-  renderPaceEvents(series);
-  updateTimelineCursor(Number(cursor.value), { updateUrl: false, updateMap: false });
-  window.requestAnimationFrame(updateChartPanControls);
-}
-
-function updateTimelineCursor(index, { updateUrl = true, updateMap = true } = {}) {
-  const series = state.metadata?.series || [];
-  const safeIndex = Math.max(0, Math.min(series.length - 1, Number(index) || 0));
-  const point = series[safeIndex];
-  if (!point) {
-    return;
-  }
-  state.asOf = point.date;
-  $("journal-timeline-cursor").value = String(safeIndex);
-  updateTimelineVisuals(safeIndex);
-  if (updateMap) {
-    state.mapSelectionPinned = false;
-    setProgressMap(point.date, null, `Coverage as of ${formatDate(point.date)}`);
-  }
-  if (updateUrl) {
-    syncUrl();
-  }
-}
-
-function renderRecords() {
-  const records = state.metadata?.records || {};
-  const biggest = records.biggest_push;
-  const latest = records.last_period_addition;
-  $("journal-records").innerHTML = `
-    <div class="journal-record"><span>Largest single session</span><strong>${formatMiles(
-      biggest?.new_miles,
-      2
-    )}</strong><small>${escapeHtml(formatDate(biggest?.occurred_at))}</small></div>
-    <div class="journal-record"><span>Longest pause</span><strong>${formatNumber(
-      records.longest_pause_days,
-      1
-    )} days</strong><small>Between coverage-changing sessions</small></div>
-    <div class="journal-record"><span>Latest addition</span><strong>${
-      latest?.street_names?.[0]
-        ? streetButton(latest.street_names[0])
-        : "No addition in this range"
-    }</strong><small>${escapeHtml(formatDate(latest?.occurred_at))}</small></div>`;
+  state.missions = Array.isArray(missions?.missions) ? missions.missions : [];
 }
 
 async function loadContributions({ append = false, signal = null } = {}) {
@@ -1271,323 +179,928 @@ async function loadContributions({ append = false, signal = null } = {}) {
   const params = new URLSearchParams({
     range: state.range,
     source: state.source,
-    timezone: state.metadata?.timezone || "UTC",
-    limit: "20",
+    timezone: timezone(),
+    limit: "15",
   });
   if (append && state.nextCursor) {
     params.set("cursor", state.nextCursor);
   }
-  const response = await featureApi.get(
-    `/api/coverage/areas/${encodeURIComponent(state.areaId)}/journal/contributions?${params}`,
-    { cache: false, signal: combined }
-  );
-  if (request !== state.notesRequest) return;
+  const response = await featureApi.get(areaPath(`/journal/contributions?${params}`), {
+    cache: false,
+    signal: combined,
+  });
+  if (request !== state.notesRequest) {
+    return;
+  }
   state.contributions = append
     ? [...state.contributions, ...(response.contributions || [])]
     : response.contributions || [];
   state.nextCursor = response.next_cursor || null;
-  renderContributions();
+  renderDrives();
 }
 
-function contributionTitle(item) {
-  if (item.action === "mark_undriven") {
-    return "Returned streets to the frontier";
-  }
-  if (item.action === "mark_undriveable") {
-    return "Marked streets undriveable";
-  }
-  if (item.source === "manual") {
-    return "Manual map adjustment";
-  }
-  if (item.source === "unattributed") {
-    return "Earlier coverage record";
-  }
-  return "Coverage drive";
-}
-
-function renderContributions() {
-  const list = $("journal-contributions");
-  if (!state.contributions.length) {
-    list.innerHTML = `<li class="journal-contribution"><div class="journal-contribution-copy"><h3>No field notes in this view</h3><p>Try another date range or source.</p></div></li>`;
-  } else {
-    list.innerHTML = state.contributions
-      .map((item) => {
-        const tripLink = item.trip_id
-          ? `<a class="journal-contribution-link" href="/trips/${encodeURIComponent(
-              item.trip_id
-            )}">Open trip <i class="fas fa-arrow-right" aria-hidden="true"></i></a>`
-          : `<span class="journal-contribution-link">${escapeHtml(item.source || "manual")}</span>`;
-        return `<li class="journal-contribution">
-          <div class="journal-contribution-date"><time datetime="${escapeHtml(
-            dateOnly(item.occurred_at)
-          )}">${escapeHtml(formatDate(item.occurred_at, { short: true }))}</time><span>${escapeHtml(
-            item.source || "unknown"
-          )}</span></div>
-          <div class="journal-contribution-copy"><h3>${escapeHtml(
-            contributionTitle(item)
-          )}</h3><p>${renderStreetLinks(item.street_names)}</p>${tripLink}</div>
-          <div class="journal-contribution-metric"><strong>${formatMiles(
-            item.new_miles,
-            2
-          )}</strong><span>${formatNumber(item.new_segments)} new segments</span></div>
-          <div class="journal-contribution-metric"><strong>${formatNumber(
-            item.coverage_before,
-            1
-          )}% → ${formatNumber(item.coverage_after, 1)}%</strong><span>coverage</span></div>
-        </li>`;
-      })
-      .join("");
-  }
-  $("journal-load-more").hidden = !state.nextCursor;
-}
-
-function currentRankings() {
-  return state.level === "segment"
-    ? state.metadata?.segment_rankings || []
-    : state.metadata?.street_rankings || [];
-}
-
-function renderRankings() {
-  const rankings = currentRankings();
-  const list = $("journal-rankings");
-  if (!rankings.length) {
-    list.innerHTML = `<li class="journal-ranking-row"><div class="journal-ranking-name"><strong>No completed trip activity in this range</strong><small>Manual coverage never enters this ranking.</small></div></li>`;
+async function loadSegments({ signal = null, retry = true } = {}) {
+  if (!state.journalMap) {
     return;
   }
-  list.innerHTML = rankings
-    .map((row, index) => {
-      const ids = state.level === "street" ? row.segment_ids || [] : [row.segment_id];
-      return `<li class="journal-ranking-row" data-ranking-index="${index}">
-        <button type="button" data-segment-ids="${escapeHtml(ids.join(","))}" data-ranking-label="${escapeHtml(
-          row.street_name || "Unnamed road"
-        )}">
-          <span class="journal-ranking-position">${String(index + 1).padStart(2, "0")}</span>
-          <span class="journal-ranking-name"><strong>${escapeHtml(
-            row.street_name || "Unnamed road"
-          )}</strong><small>${formatMiles(row.length_miles, 2)}</small></span>
-          <span class="journal-ranking-metric"><strong>${formatNumber(
-            row.trip_count
-          )}</strong><span>in ${RANGE_LABELS[state.range].toLowerCase()}</span></span>
-          <span class="journal-ranking-metric"><strong>${escapeHtml(
-            formatDate(row.first_driven_at, { short: true })
-          )}</strong><span>first drive</span></span>
-          <span class="journal-ranking-metric"><strong>${escapeHtml(
-            formatDate(row.last_driven_at, { short: true })
-          )}</strong><span>last drive</span></span>
+  const request = ++state.segmentsRequest;
+  state.segmentsAbort?.abort();
+  state.segmentsAbort = new AbortController();
+  const combined = signal
+    ? AbortSignal.any([signal, state.segmentsAbort.signal])
+    : state.segmentsAbort.signal;
+  const params = new URLSearchParams({ range: state.range, timezone: timezone() });
+  if (!state.wholeArea) {
+    const bounds = state.map.getBounds();
+    params.set("min_lon", bounds.getWest().toFixed(6));
+    params.set("min_lat", bounds.getSouth().toFixed(6));
+    params.set("max_lon", bounds.getEast().toFixed(6));
+    params.set("max_lat", bounds.getNorth().toFixed(6));
+  }
+  let data;
+  try {
+    data = await featureApi.get(areaPath(`/journal/segments?${params}`), {
+      cache: false,
+      signal: combined,
+    });
+  } catch (error) {
+    if (error.status === 409 && retry && !combined.aborted) {
+      await loadMetadata(signal);
+      return loadSegments({ signal, retry: false });
+    }
+    throw error;
+  }
+  if (request !== state.segmentsRequest) {
+    return;
+  }
+  prepareFeatures(data);
+  const keep =
+    !state.wholeArea && state.geojson?.revision === data.revision
+      ? (state.geojson.features || []).filter((feature) =>
+          state.selection?.ids?.includes(feature.properties.segment_id)
+        )
+      : [];
+  state.geojson = { ...data, features: mergeStreetFeatures(keep, data.features) };
+  state.journalMap.install(state.geojson);
+  $("journal-map-status").textContent = data.truncated
+    ? "Zoom in to see every street here."
+    : "";
+}
+
+async function loadSelectionSegments(ids) {
+  if (state.wholeArea || !ids.length) {
+    return;
+  }
+  const present = new Set(
+    (state.geojson?.features || []).map((feature) => feature.properties.segment_id)
+  );
+  const missing = ids.filter((id) => !present.has(id));
+  for (let start = 0; start < missing.length; start += 300) {
+    const params = new URLSearchParams({ range: state.range, timezone: timezone() });
+    missing.slice(start, start + 300).forEach((id) => params.append("ids", id));
+    const data = prepareFeatures(
+      await featureApi.get(areaPath(`/journal/segments?${params}`), { cache: false })
+    );
+    state.geojson = {
+      ...data,
+      features: mergeStreetFeatures(state.geojson?.features || [], data.features),
+    };
+  }
+  state.journalMap.install(state.geojson);
+}
+
+// ---------------------------------------------------------------------------
+// Header and figures
+// ---------------------------------------------------------------------------
+
+function renderHeader() {
+  const { area, summary } = state.metadata;
+  const { name, region } = splitAreaName(area.display_name);
+  $("journal-title").textContent = name;
+  $("journal-subtitle").textContent = region;
+  document.title = `${name} · Coverage journal`;
+  const id = encodeURIComponent(state.areaId);
+  $("journal-map-link").href = `/coverage-management?area=${id}`;
+  $("journal-route-link").href = `/coverage-route-planner?area=${id}`;
+  $("journal-plan-link").href = `/coverage-route-planner?area=${id}`;
+  $("journal-sculpture-link").href = `/memory-city?area=${id}`;
+
+  const complete = area.is_complete === true;
+  $("journal-stat-coverage").textContent = formatPercent(area.coverage_percentage, {
+    complete,
+  });
+  $("journal-stat-survey").style.width = `${Math.max(
+    0,
+    Math.min(100, Number(area.coverage_percentage) || 0)
+  )}%`;
+  $("journal-stat-miles").textContent = formatNumber(area.driven_length_miles, 1);
+  $("journal-stat-miles-total").textContent = `of ${formatMiles(
+    area.driveable_length_miles,
+    1
+  )}`;
+  $("journal-stat-left").textContent = formatNumber(area.remaining_length_miles, 1);
+  $("journal-stat-left-segments").textContent = complete
+    ? "Every street driven"
+    : `${plural(area.remaining_segments, "segment")} left`;
+  $("journal-stat-trips").textContent = formatNumber(summary.historical_trip_count);
+  $("journal-stat-days").textContent = summary.first_covered_at
+    ? `Since ${formatDate(summary.first_covered_at, "monthShort")}`
+    : "No drives yet";
+  $("journal-stat-latest").textContent = summary.last_new_street_at
+    ? formatDate(summary.last_new_street_at, "short")
+    : "—";
+  $("journal-stat-latest-name").textContent =
+    summary.last_new_street_names?.[0] || (summary.last_new_street_at ? "Unnamed road" : "");
+}
+
+// ---------------------------------------------------------------------------
+// Progress: chart, date cursor, milestones, records
+// ---------------------------------------------------------------------------
+
+function milestoneMarks() {
+  const tz = state.metadata?.timezone;
+  return (state.metadata?.milestones || []).map((item) => ({
+    key: item.key,
+    label: item.label,
+    date: journalDateKey(item.reached_at, tz),
+    level: Number(item.coverage || 0),
+    short: item.key === "first" ? "" : `${Math.round(item.threshold)}%`,
+  }));
+}
+
+function renderChartSection() {
+  const svg = $("journal-chart-svg");
+  const series = state.metadata?.series || [];
+  const area = state.metadata.area;
+  const model = buildChartModel({
+    series,
+    range: state.range,
+    today: todayKey(),
+    driveableMiles: Number(area.driveable_length_miles || 0),
+    currentLevel: Number(area.coverage_percentage || 0),
+  });
+  const scales = renderChart(svg, model, { milestones: milestoneMarks() });
+  state.chart = { model, scales };
+  const cursor = $("journal-timeline-cursor");
+  cursor.disabled = !series.length;
+  cursor.max = String(Math.max(0, series.length - 1));
+  const requested = state.asOf
+    ? series.findLastIndex((point) => point.date <= state.asOf)
+    : series.length - 1;
+  state.cursorIndex = series.length ? Math.max(0, requested) : -1;
+  cursor.value = String(Math.max(0, state.cursorIndex));
+  placeCursor(svg, model, scales, state.cursorIndex);
+  $("journal-chart-caption").textContent = series.length
+    ? `Line: share of streets driven. Bars: new miles each ${UNIT_NAMES[model.unit]}.`
+    : `No new streets in ${RANGE_NAMES[state.range].toLowerCase()}.`;
+  showReadout(state.cursorIndex);
+  renderSeriesTable(series);
+}
+
+function showReadout(index) {
+  const series = state.metadata?.series || [];
+  const point = series[index];
+  const area = state.metadata.area;
+  if (!point) {
+    $("journal-readout-date").textContent = "Today";
+    $("journal-readout-value").textContent = `${formatPercent(area.coverage_percentage, {
+      complete: area.is_complete,
+    })} driven`;
+    return;
+  }
+  const isLast = index === series.length - 1;
+  $("journal-readout-date").textContent = formatDate(point.date, "long");
+  const complete = isLast && area.is_complete;
+  $("journal-readout-value").textContent = `${formatPercent(point.coverage_percentage, {
+    complete,
+  })} driven · ${formatMiles(point.new_miles, 2)} new that day`;
+}
+
+function selectDate(index, { updateUrl = true, updateMap = true } = {}) {
+  const series = state.metadata?.series || [];
+  const point = series[index];
+  if (!point) {
+    return;
+  }
+  state.cursorIndex = index;
+  state.asOf = index === series.length - 1 ? "" : point.date;
+  state.milestone = "";
+  state.selection = null;
+  $("journal-timeline-cursor").value = String(index);
+  placeCursor($("journal-chart-svg"), state.chart.model, state.chart.scales, index);
+  showReadout(index);
+  markActiveMilestone();
+  if (updateMap) {
+    showDateOnMap();
+  }
+  if (updateUrl) {
+    syncUrl();
+  }
+}
+
+function showDateOnMap() {
+  const series = state.metadata?.series || [];
+  const point = series[state.cursorIndex];
+  const latest = !point || state.cursorIndex === series.length - 1;
+  state.journalMap?.showProgress(latest ? null : endOfDay(point.date));
+  setMapCaption("Streets driven by", latest ? "today" : formatDate(point.date, "long"), [
+    ["driven", "Driven"],
+    ["undriven", "Not driven yet"],
+  ]);
+}
+
+function milestoneChapters() {
+  return state.metadata?.milestones || [];
+}
+
+function renderMilestones() {
+  const list = $("journal-milestones");
+  const chapters = milestoneChapters();
+  if (!chapters.length) {
+    list.innerHTML = `<li class="journal-empty">Milestones start with the first street you drive here.</li>`;
+    return;
+  }
+  list.innerHTML = chapters
+    .map((chapter) => {
+      const names = (chapter.street_names || []).slice(0, 3);
+      const mark = chapter.key === "first" ? "1st" : `${Math.round(chapter.threshold)}%`;
+      return `<li>
+        <button type="button" class="journal-milestone" data-milestone="${escapeHtml(chapter.key)}">
+          <span class="journal-milestone-mark">${escapeHtml(mark)}</span>
+          <span class="journal-milestone-body">
+            <strong>${escapeHtml(chapter.label)}</strong>
+            <span>${escapeHtml(names.length ? names.join(", ") : "Unnamed roads")}</span>
+          </span>
+          <time datetime="${escapeHtml(journalDateKey(chapter.reached_at, state.metadata.timezone))}">${escapeHtml(
+            formatDate(chapter.reached_at, "short")
+          )}</time>
         </button>
       </li>`;
     })
     .join("");
-  list.querySelectorAll("button[data-segment-ids]").forEach((button) => {
-    listen(button, "click", () => {
-      list
-        .querySelectorAll(".journal-ranking-row")
-        .forEach((row) => row.classList.remove("is-active"));
-      button.closest(".journal-ranking-row")?.classList.add("is-active");
-      highlightSegments(
-        button.dataset.segmentIds.split(",").filter(Boolean),
-        button.dataset.rankingLabel,
-        { reveal: true }
-      );
-    });
+  markActiveMilestone();
+}
+
+function markActiveMilestone() {
+  document.querySelectorAll("[data-milestone]").forEach((element) => {
+    const active = element.dataset.milestone === state.milestone;
+    element.classList.toggle("is-active", active);
+    if (element.tagName === "BUTTON") {
+      element.setAttribute("aria-pressed", String(active));
+    }
   });
 }
 
-function titleCase(value) {
-  return String(value || "unclassified")
-    .replaceAll("_", " ")
-    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+function selectMilestone(key, { updateUrl = true } = {}) {
+  const chapters = milestoneChapters();
+  const index = chapters.findIndex((item) => item.key === key);
+  const chapter = chapters[index];
+  if (!chapter) {
+    return;
+  }
+  const previous = index > 0 ? chapters[index - 1] : null;
+  state.milestone = key;
+  state.selection = null;
+  const series = state.metadata?.series || [];
+  const dateKey = journalDateKey(chapter.reached_at, state.metadata.timezone);
+  const seriesIndex = series.findIndex((point) => point.date === dateKey);
+  if (seriesIndex >= 0) {
+    state.cursorIndex = seriesIndex;
+    $("journal-timeline-cursor").value = String(seriesIndex);
+    placeCursor($("journal-chart-svg"), state.chart.model, state.chart.scales, seriesIndex);
+    showReadout(seriesIndex);
+  }
+  markActiveMilestone();
+  state.journalMap?.showProgress(
+    Date.parse(chapter.reached_at),
+    previous ? Date.parse(previous.reached_at) : null
+  );
+  setMapCaption(
+    previous ? `Added between ${formatDate(previous.reached_at, "short")} and` : "Driven by",
+    `${formatDate(chapter.reached_at, "long")} (${chapter.label.toLowerCase()})`,
+    previous
+      ? [
+          ["driven", `Driven by ${previous.label.toLowerCase()}`],
+          ["highlight", "Added in this stretch"],
+          ["undriven", "Not driven yet"],
+        ]
+      : [
+          ["driven", "Driven"],
+          ["undriven", "Not driven yet"],
+        ]
+  );
+  if (updateUrl) {
+    syncUrl();
+  }
 }
 
-function renderFrontier() {
-  const classes = state.metadata?.road_classes || [];
-  $("journal-road-classes").innerHTML = classes
+function renderRecords() {
+  const series = state.metadata?.series || [];
+  const records = state.metadata?.records || {};
+  const best = series.reduce(
+    (top, point) => (Number(point.new_miles) > Number(top?.new_miles ?? -1) ? point : top),
+    null
+  );
+  const biggest = records.biggest_push;
+  const items = [
+    [
+      "Best day",
+      best ? formatMiles(best.new_miles, 1) : "—",
+      best ? formatDate(best.date, "short") : "",
+    ],
+    [
+      "Biggest drive",
+      biggest ? formatMiles(biggest.new_miles, 1) : "—",
+      biggest ? formatDate(biggest.occurred_at, "short") : "",
+    ],
+    ["Days with new streets", formatNumber(series.length), RANGE_NAMES[state.range]],
+    [
+      "Longest gap",
+      series.length > 1 ? plural(Math.round(records.longest_pause_days || 0), "day") : "—",
+      "between new streets",
+    ],
+  ];
+  $("journal-records").innerHTML = items
     .map(
-      (row) => `<div class="journal-road-class">
-        <div class="journal-road-class-head"><strong>${escapeHtml(
-          titleCase(row.road_class)
-        )}</strong><span>${formatNumber(row.coverage_percentage, 1)}% · ${formatMiles(
-          row.remaining_miles,
-          1
-        )} left</span></div>
-        <div class="journal-road-class-track"><div class="journal-road-class-fill" style="width:${Math.max(
-          0,
-          Math.min(100, Number(row.coverage_percentage || 0))
-        )}%"></div></div>
+      ([label, value, note]) => `<div>
+        <dt>${escapeHtml(label)}</dt>
+        <dd><strong>${escapeHtml(value)}</strong><span>${escapeHtml(note)}</span></dd>
       </div>`
     )
     .join("");
-  const frontier = state.metadata?.frontier || [];
-  $("journal-frontier-list").innerHTML = frontier.length
-    ? frontier
+}
+
+function renderSeriesTable(series) {
+  $("journal-series-table").innerHTML = series.length
+    ? [...series]
+        .reverse()
         .map(
-          (row) =>
-            `<li class="journal-frontier-row"><button type="button" data-frontier-ids="${escapeHtml(
-              (row.segment_ids || []).join(",")
-            )}"><span><strong>${escapeHtml(row.street_name)}</strong><small>${formatNumber(
-              row.segments
-            )} remaining segments</small></span><span class="journal-frontier-miles">${formatMiles(
-              row.length_miles,
-              2
-            )}</span></button></li>`
+          (point) =>
+            `<tr><td>${escapeHtml(formatDate(point.date, "short"))}</td><td>${escapeHtml(
+              formatMiles(point.new_miles, 2)
+            )}</td><td>${escapeHtml(formatPercent(point.coverage_percentage))}</td><td>${formatNumber(
+              point.contributions
+            )}</td></tr>`
         )
         .join("")
-    : `<li class="journal-frontier-row"><span><strong>Frontier complete</strong><small>Every driveable street in the current inventory is covered.</small></span></li>`;
-  document.querySelectorAll("[data-frontier-ids]").forEach((button) => {
-    listen(button, "click", () => {
-      setFrontierMap(button.dataset.frontierIds.split(",").filter(Boolean));
-      revealMapFolio();
-    });
+    : `<tr><td colspan="4">No new streets in this range.</td></tr>`;
+}
+
+// ---------------------------------------------------------------------------
+// Drives
+// ---------------------------------------------------------------------------
+
+const ACTION_LABELS = {
+  mark_driven: "Marked driven",
+  mark_undriven: "Marked not driven",
+  mark_undriveable: "Marked undriveable",
+  mark_automatic: "Returned to drive history",
+};
+
+function renderDrives() {
+  const list = $("journal-contributions");
+  if (!state.contributions.length) {
+    list.innerHTML = `<li class="journal-empty">${
+      state.source === "manual"
+        ? "No corrections in this range."
+        : `No new streets in ${RANGE_NAMES[state.range].toLowerCase()}.`
+    }</li>`;
+    $("journal-load-more").hidden = true;
+    return;
+  }
+  list.innerHTML = state.contributions
+    .map((item, index) => {
+      const names = [...new Set((item.street_names || []).filter(Boolean))];
+      const shown = names.slice(0, 3).join(", ") || "Unnamed roads";
+      const more = names.length > 3 ? ` and ${names.length - 3} more` : "";
+      const manual = item.source === "manual";
+      const label = manual ? ACTION_LABELS[item.action] || "Correction" : "";
+      const ids = item.new_segment_ids || item.segment_ids || [];
+      const gain = Number(item.new_miles || 0);
+      const trip = item.trip_id
+        ? `<a class="journal-drive-trip" href="/trips/${encodeURIComponent(item.trip_id)}" aria-label="Open this trip">Trip<i class="fas fa-arrow-right" aria-hidden="true"></i></a>`
+        : `<span class="journal-drive-trip" aria-hidden="true"></span>`;
+      return `<li class="journal-drive${manual ? " is-manual" : ""}" data-drive="${index}">
+        <button type="button" class="journal-drive-main" data-drive-index="${index}" ${
+          ids.length ? "" : "disabled"
+        } aria-label="Show the streets from ${escapeHtml(formatDate(item.occurred_at, "long"))} on the map">
+          <time datetime="${escapeHtml(journalDateKey(item.occurred_at, state.metadata?.timezone))}">${escapeHtml(
+            formatDate(item.occurred_at, "short")
+          )}</time>
+          <span class="journal-drive-streets">${
+            label ? `<em>${escapeHtml(label)}</em> ` : ""
+          }${escapeHtml(shown)}${escapeHtml(more)}</span>
+          <span class="journal-drive-gain">${gain > 0 ? `+${escapeHtml(formatMiles(gain, 2))}` : ""}</span>
+          <span class="journal-drive-level">${escapeHtml(
+            formatPercent(item.coverage_after, {
+              complete: Number(item.coverage_after) >= 100,
+            })
+          )}</span>
+        </button>
+        ${trip}
+      </li>`;
+    })
+    .join("");
+  $("journal-load-more").hidden = !state.nextCursor;
+  markActiveSelection();
+}
+
+async function selectDrive(index) {
+  const item = state.contributions[index];
+  const ids = item?.new_segment_ids || item?.segment_ids || [];
+  if (!ids.length) {
+    return;
+  }
+  await showSelection(ids, {
+    key: `drive-${index}`,
+    mode: "Streets from the drive on",
+    caption: formatDate(item.occurred_at, "long"),
   });
 }
 
-function renderMethodology() {
-  $("journal-methodology").textContent = state.metadata?.methodology || "";
-  $("journal-as-of").textContent = `Journal revision ${formatNumber(
-    state.metadata?.revision
-  )} · built ${formatDate(state.metadata?.built_at)} · viewed ${formatDate(
-    state.metadata?.as_of
-  )}.`;
-}
+// ---------------------------------------------------------------------------
+// Most-driven streets
+// ---------------------------------------------------------------------------
 
-function renderIntelligence() {
-  const intelligence = state.intelligence;
-  if (!intelligence) {
+function renderRankings() {
+  const rows =
+    state.level === "segment"
+      ? state.metadata?.segment_rankings || []
+      : state.metadata?.street_rankings || [];
+  const list = $("journal-rankings");
+  $("journal-streets-note").textContent =
+    state.range === "all"
+      ? "Ranked by number of trips."
+      : `Ranked by number of trips in ${RANGE_NAMES[state.range].toLowerCase()}.`;
+  if (!rows.length) {
+    list.innerHTML = `<li class="journal-empty">No trips in this range.</li>`;
     return;
   }
-  const goal = intelligence.goal || {};
-  const forecast = intelligence.forecast || {};
-  const area = intelligence.area || {};
-  $("journal-goal-percentage").value = String(goal.target_percentage ?? 100);
-  $("journal-goal-date").value = dateOnly(goal.target_date);
-  $("journal-goal-minutes").value = String(goal.preferred_mission_minutes ?? 90);
+  const top = Math.max(1, ...rows.map((row) => Number(row.trip_count || 0)));
+  list.innerHTML = rows
+    .map((row, index) => {
+      const name = row.street_name || "Unnamed road";
+      const length =
+        state.level === "street"
+          ? `${formatMiles(row.length_miles, 1)} driven`
+          : formatMiles(row.length_miles, 2);
+      const since = formatDate(row.first_driven_at, "monthShort");
+      const last = formatDate(row.last_driven_at, "monthShort");
+      return `<li>
+        <button type="button" class="journal-rank" data-rank-index="${index}" data-selection-key="rank-${index}">
+          <span class="journal-rank-position">${index + 1}</span>
+          <span class="journal-rank-name"><strong>${escapeHtml(name)}</strong><small>${escapeHtml(
+            length
+          )}</small></span>
+          <span class="journal-rank-trips">
+            <span class="journal-rank-bar" style="--share: ${(
+              (Number(row.trip_count || 0) / top) *
+              100
+            ).toFixed(1)}%"></span>
+            <strong>${formatNumber(row.trip_count)}</strong>
+            <small>${Number(row.trip_count) === 1 ? "trip" : "trips"}</small>
+          </span>
+          <span class="journal-rank-dates">${escapeHtml(since === last ? since : `${since} – ${last}`)}</span>
+        </button>
+      </li>`;
+    })
+    .join("");
+  state.rankIds = rows.map((row) =>
+    state.level === "street" ? row.segment_ids || [] : [row.segment_id]
+  );
+  state.rankNames = rows.map((row) => row.street_name || "Unnamed road");
+  markActiveSelection();
+}
 
-  let outlook = "Not enough trip-derived coverage days for a reliable date yet.";
-  if (forecast.confidence === "complete") {
-    outlook = "This coverage goal is complete.";
-  } else if (forecast.expected_completion_date) {
-    const range = forecast.completion_date_range || {};
-    outlook = `Expected ${formatDate(forecast.expected_completion_date)}${
-      range.earliest && range.latest
-        ? `, with an evidence range of ${formatShortDate(range.earliest)}–${formatShortDate(
-            range.latest
-          )}`
-        : ""
-    }.`;
-  }
-  const required = forecast.required_miles_per_week
-    ? `<p><strong>${formatMiles(
-        forecast.required_miles_per_week,
-        2
-      )} per week</strong> is required to reach the saved date.</p>`
-    : "";
-  $("journal-forecast").innerHTML = `<h3>Completion outlook</h3>
-    <p class="journal-forecast-lead">${escapeHtml(outlook)}</p>
-    <dl>
-      <div><dt>Remaining</dt><dd>${formatMiles(area.remaining_miles, 2)}</dd></div>
-      <div><dt>Median active day</dt><dd>${formatMiles(
-        forecast.median_new_miles_per_active_day,
-        2
-      )}</dd></div>
-      <div><dt>Active days / week</dt><dd>${formatNumber(
-        forecast.active_days_per_week,
-        2
-      )}</dd></div>
-      <div><dt>Confidence</dt><dd>${escapeHtml(titleCase(forecast.confidence))}</dd></div>
-    </dl>${required}`;
+// ---------------------------------------------------------------------------
+// Left to drive
+// ---------------------------------------------------------------------------
 
-  $("journal-missions").innerHTML = state.missions.length
-    ? state.missions
+function renderLeft() {
+  const classes = (state.metadata?.road_classes || [])
+    .filter((row) => Number(row.total_miles) - Number(row.undriveable_miles || 0) > 0)
+    .sort((a, b) => Number(b.remaining_miles) - Number(a.remaining_miles));
+  $("journal-road-classes").innerHTML = classes
+    .map((row) => {
+      const done = Number(row.remaining_miles) <= 0;
+      const percent = Math.max(0, Math.min(100, Number(row.coverage_percentage) || 0));
+      return `<li class="journal-road-class">
+        <span class="journal-road-class-name">${escapeHtml(roadClassLabel(row.road_class))}</span>
+        <span class="journal-road-class-figures">${escapeHtml(
+          formatPercent(row.coverage_percentage, { complete: done })
+        )}<small>${done ? "done" : `${escapeHtml(formatMiles(row.remaining_miles, 1))} left`}</small></span>
+        <span class="survey-bar journal-road-class-bar" aria-hidden="true"><span class="survey-fill" style="width: ${percent.toFixed(
+          1
+        )}%"></span></span>
+      </li>`;
+    })
+    .join("");
+  const frontier = state.metadata?.frontier || [];
+  state.frontierIds = frontier.map((row) => row.segment_ids || []);
+  $("journal-frontier-list").innerHTML = frontier.length
+    ? frontier
         .map(
-          (mission) => `<li>
-            <div><strong>${escapeHtml(titleCase(mission.status))}</strong>
-              <span>${formatDate(mission.created_at, { short: true })}</span></div>
-            <p>${formatMiles(mission.target_miles, 2)} target · ${formatNumber(
-              Number(mission.completion_ratio || 0) * 100,
-              0
-            )}% completed · ${formatNumber(
-              mission.estimated_duration_minutes,
-              0
-            )} min estimate</p>
-            <small>${escapeHtml(mission.estimate_basis || "Awaiting route estimate")}</small>
+          (row, index) => `<li>
+            <button type="button" class="journal-frontier-row" data-frontier-index="${index}" data-selection-key="left-${index}">
+              <span><strong>${escapeHtml(row.street_name)}</strong><small>${escapeHtml(
+                plural(row.segments, "segment")
+              )}</small></span>
+              <span class="journal-frontier-miles">${escapeHtml(formatMiles(row.length_miles, 2))}</span>
+            </button>
           </li>`
         )
         .join("")
-    : '<li class="journal-mission-empty">No missions have been created for this area yet.</li>';
+    : `<li class="journal-empty">Every named street here is driven.</li>`;
+  markActiveSelection();
+}
+
+// ---------------------------------------------------------------------------
+// Goal
+// ---------------------------------------------------------------------------
+
+function renderGoal() {
+  const intelligence = state.intelligence;
+  if (!intelligence) {
+    $("journal-forecast").innerHTML = "<p>The outlook is unavailable.</p>";
+    return;
+  }
+  const goal = intelligence.goal || null;
+  const forecast = intelligence.forecast || {};
+  const target = Number(goal?.target_percentage ?? 100);
+  $("journal-goal-percentage").value = String(target);
+  $("journal-goal-date").value = goal?.target_date ? goal.target_date.slice(0, 10) : "";
+  $("journal-goal-minutes").value = String(goal?.preferred_mission_minutes ?? 90);
+  const outlook = describeOutlook(forecast, { targetPercentage: target });
+  const rows = paceRows(forecast, Number(intelligence.area?.remaining_miles || 0), todayKey());
+  const requirement = describeRequirement(forecast, goal);
+  $("journal-forecast").innerHTML = `
+    <p class="journal-outlook-lead">${escapeHtml(outlook.lead)}</p>
+    ${outlook.detail ? `<p class="journal-outlook-detail">${escapeHtml(outlook.detail)}</p>` : ""}
+    ${
+      rows.length
+        ? `<table class="table table-sm journal-pace">
+            <thead><tr><th scope="col">Pace over</th><th scope="col">Per week</th><th scope="col">Finish</th></tr></thead>
+            <tbody>${rows
+              .map(
+                (row) =>
+                  `<tr class="${row.window === forecast.window ? "is-primary" : ""}"><th scope="row">${escapeHtml(
+                    row.label
+                  )}</th><td>${escapeHtml(row.milesPerWeek)}</td><td>${escapeHtml(row.finish)}</td></tr>`
+              )
+              .join("")}</tbody>
+          </table>`
+        : ""
+    }
+    ${requirement ? `<p class="journal-outlook-detail">${escapeHtml(requirement)}</p>` : ""}`;
+
+  $("journal-missions").innerHTML = state.missions.length
+    ? state.missions
+        .map((mission) => {
+          const done = Math.round(Number(mission.completion_ratio || 0) * 100);
+          return `<li>
+            <strong>${escapeHtml(formatDate(mission.created_at, "short"))}</strong>
+            <span>${escapeHtml(formatMiles(mission.target_miles, 1))} planned · ${done}% driven</span>
+            <small>${escapeHtml(String(mission.status || "").replaceAll("_", " "))}</small>
+          </li>`;
+        })
+        .join("")
+    : `<li class="journal-empty">No missions yet. <a href="/coverage-route-planner?area=${encodeURIComponent(
+        state.areaId
+      )}">Plan one</a> to drive a batch of streets in one outing.</li>`;
+}
+
+function renderNote() {
+  $("journal-methodology").textContent = state.metadata?.methodology || "";
+  $("journal-as-of").textContent = `Updated ${formatDate(state.metadata?.built_at, "long")}.`;
+  $("journal-as-of").title = `Coverage revision ${state.metadata?.revision ?? "—"}`;
+}
+
+// ---------------------------------------------------------------------------
+// Map views
+// ---------------------------------------------------------------------------
+
+function setMapCaption(mode, caption, keys = []) {
+  $("journal-map-mode").textContent = mode;
+  $("journal-map-caption").textContent = caption;
+  $("journal-map-legend").innerHTML = keys
+    .map(
+      ([ink, label]) =>
+        `<span class="journal-key"><i class="journal-swatch journal-swatch--${escapeHtml(
+          ink
+        )}" aria-hidden="true"></i>${escapeHtml(label)}</span>`
+    )
+    .join("");
+}
+
+function showFrequencyOnMap() {
+  state.journalMap?.showFrequency();
+  setMapCaption("Trips on each street", RANGE_NAMES[state.range].toLowerCase(), [
+    ["thin", "Few trips"],
+    ["thick", "Many trips"],
+  ]);
+}
+
+function showLeftOnMap(ids = []) {
+  state.journalMap?.showLeft(ids);
+  const area = state.metadata.area;
+  setMapCaption("Streets left to drive", formatMiles(area.remaining_length_miles, 1), [
+    ["undriven", "Not driven yet"],
+    ...(ids.length ? [["highlight", "Selected street"]] : []),
+    ["faint", "Driven"],
+  ]);
+}
+
+async function showSelection(ids, { key, mode, caption, left = false }) {
+  state.selection = { key, ids };
+  markActiveSelection();
+  await loadSelectionSegments(ids);
+  if (left) {
+    showLeftOnMap(ids);
+  } else {
+    state.journalMap?.showSelection(ids);
+    setMapCaption(mode, caption, [["highlight", "Selected"]]);
+  }
+  fitSegments(ids);
+  revealMap();
+}
+
+function markActiveSelection() {
+  document.querySelectorAll("[data-selection-key], [data-drive-index]").forEach((element) => {
+    const key = element.dataset.selectionKey || `drive-${element.dataset.driveIndex}`;
+    element.classList.toggle("is-active", state.selection?.key === key);
+  });
+}
+
+function showSectionOnMap(section) {
+  if (!state.journalMap || !state.metadata) {
+    return;
+  }
+  if (section === "streets") {
+    showFrequencyOnMap();
+  } else if (section === "left" || section === "goal") {
+    showLeftOnMap();
+  } else if (state.milestone) {
+    selectMilestone(state.milestone, { updateUrl: false });
+  } else {
+    showDateOnMap();
+  }
+}
+
+function fitSegments(ids) {
+  const bounds = boundsOf(state.geojson, ids);
+  if (!bounds || !state.map) {
+    return;
+  }
+  state.map.fitBounds(
+    [
+      [bounds[0], bounds[1]],
+      [bounds[2], bounds[3]],
+    ],
+    { padding: 70, maxZoom: 16, duration: 450 }
+  );
+}
+
+function fitArea() {
+  const bbox = state.metadata?.area?.bounding_box;
+  if (!state.map || !Array.isArray(bbox) || bbox.length < 4) {
+    return;
+  }
+  state.map.fitBounds(
+    [
+      [bbox[0], bbox[1]],
+      [bbox[2], bbox[3]],
+    ],
+    { padding: 40, duration: 450 }
+  );
+}
+
+/** On one-column layouts the map sits above the report; bring it into view. */
+function revealMap() {
+  const panel = $("journal-map-panel");
+  if (!panel || getComputedStyle(panel).position === "sticky") {
+    return;
+  }
+  const rect = panel.getBoundingClientRect();
+  if (rect.top >= 0 && rect.bottom <= window.innerHeight) {
+    return;
+  }
+  const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+  panel.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" });
+}
+
+async function initMap() {
+  const { styleUrl } = resolveMapStyle({ theme: getCurrentTheme() });
+  const accessToken = isMapboxStyleUrl(styleUrl)
+    ? await waitForMapboxToken({ timeoutMs: 5000 })
+    : undefined;
+  const bbox = state.metadata?.area?.bounding_box;
+  state.map = createMap("journal-map", {
+    style: styleUrl,
+    accessToken,
+    bounds: Array.isArray(bbox)
+      ? [
+          [bbox[0], bbox[1]],
+          [bbox[2], bbox[3]],
+        ]
+      : undefined,
+    fitBoundsOptions: { padding: 40 },
+    attributionControl: false,
+  });
+  await new Promise((resolve) => state.map.once("load", resolve));
+  state.journalMap = createJournalMap(state.map);
+  state.wholeArea = Number(state.metadata?.area?.total_segments || 0) <= WHOLE_AREA_LIMIT;
+  if (!state.wholeArea) {
+    let timer;
+    const reload = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        loadSegments().catch((error) => {
+          if (error.name !== "AbortError") {
+            $("journal-map-status").textContent = error.message;
+          }
+        });
+      }, 200);
+    };
+    state.map.on("moveend", reload);
+    state.listeners.push(() => clearTimeout(timer));
+  }
+  await loadSegments();
+  showSectionOnMap(state.activeSection);
+}
+
+// ---------------------------------------------------------------------------
+// Rendering and range changes
+// ---------------------------------------------------------------------------
+
+function setActiveControls() {
+  for (const [attribute, value] of [
+    ["journalRange", state.range],
+    ["journalSource", state.source],
+    ["journalLevel", state.level],
+  ]) {
+    const selector = `[data-${attribute.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`)}]`;
+    document.querySelectorAll(selector).forEach((button) => {
+      const active = button.dataset[attribute] === value;
+      button.classList.toggle("is-active", active);
+      button.setAttribute("aria-pressed", String(active));
+    });
+  }
 }
 
 function renderAll() {
-  return updateRegion($("journal-content"), renderJournalResults);
-}
-
-function renderJournalResults() {
   setActiveControls();
-  renderSummary();
-  renderMilestones();
-  renderPaceChart();
+  renderHeader();
+  renderChartSection();
   renderRecords();
+  renderMilestones();
   renderRankings();
-  renderFrontier();
-  renderIntelligence();
-  renderMethodology();
+  renderLeft();
+  renderGoal();
+  renderNote();
+  if (state.milestone) {
+    selectMilestone(state.milestone, { updateUrl: false });
+  }
 }
 
-async function reloadRange({ syncHistory = true } = {}) {
+function syncUrl() {
+  const url = new URL(window.location.href);
+  const params = { range: state.range, source: state.source, level: state.level };
+  for (const [key, value] of Object.entries(params)) {
+    url.searchParams.set(key, value);
+  }
+  if (state.asOf) {
+    url.searchParams.set("as_of", state.asOf);
+  } else {
+    url.searchParams.delete("as_of");
+  }
+  url.hash = state.milestone ? `milestone-${state.milestone}` : "";
+  updateUrlHistory(url, { push: false });
+}
+
+async function reloadRange() {
   state.rangeAbort?.abort();
   state.rangeAbort = new AbortController();
   const { signal } = state.rangeAbort;
   $("coverage-journal").setAttribute("aria-busy", "true");
   try {
     await loadMetadata(signal);
+    state.contributions = [];
+    state.nextCursor = null;
     const complete = await completeJournalRequests(
-      [loadSegments({ signal }), loadContributions({ signal })],
+      [loadContributions({ signal }), loadSegments({ signal })],
       signal
     );
-    if (!complete) return;
+    if (!complete) {
+      return;
+    }
     renderAll();
-    repaintJournalMap();
-    if (syncHistory) syncUrl();
+    showSectionOnMap(state.activeSection);
+    syncUrl();
   } finally {
-    if (!signal.aborted) $("coverage-journal").setAttribute("aria-busy", "false");
+    if (!signal.aborted) {
+      $("coverage-journal").setAttribute("aria-busy", "false");
+    }
   }
+}
+
+// ---------------------------------------------------------------------------
+// Events
+// ---------------------------------------------------------------------------
+
+function setupChartPointer() {
+  const svg = $("journal-chart-svg");
+  let dragging = false;
+  const indexAt = (event) =>
+    state.chart ? nearestIndex(state.chart.model, state.chart.scales, event.clientX, svg) : -1;
+  listen(svg, "pointerdown", (event) => {
+    if (event.button !== 0) {
+      return;
+    }
+    dragging = true;
+    svg.setPointerCapture?.(event.pointerId);
+    const index = indexAt(event);
+    if (index >= 0) {
+      selectDate(index, { updateUrl: false });
+    }
+  });
+  listen(svg, "pointermove", (event) => {
+    const index = indexAt(event);
+    if (index < 0) {
+      return;
+    }
+    if (dragging) {
+      selectDate(index, { updateUrl: false });
+    } else if (event.pointerType === "mouse") {
+      placeCursor(svg, state.chart.model, state.chart.scales, index, "journal-chart-hover");
+      showReadout(index);
+    }
+  });
+  const finish = (event) => {
+    if (dragging) {
+      dragging = false;
+      svg.releasePointerCapture?.(event.pointerId);
+      syncUrl();
+    }
+  };
+  listen(svg, "pointerup", finish);
+  listen(svg, "pointercancel", finish);
+  listen(svg, "pointerleave", () => {
+    svg.querySelector("#journal-chart-hover")?.setAttribute("visibility", "hidden");
+    showReadout(state.cursorIndex);
+  });
 }
 
 function setupListeners() {
   listen($("coverage-journal"), "click", (event) => {
-    const street = event.target.closest("[data-journal-street]");
-    if (street) {
-      showStreetOnMap(street.dataset.journalStreet);
+    const milestone = event.target.closest("button[data-milestone]");
+    if (milestone) {
+      selectMilestone(milestone.dataset.milestone);
+      revealMap();
       return;
     }
-    const paceEvent = event.target.closest("[data-pace-event-index]");
-    if (paceEvent) {
-      const index = Number(paceEvent.dataset.paceEventIndex);
-      updateTimelineCursor(index);
-      scrollChartToIndex(index);
+    const drive = event.target.closest("[data-drive-index]");
+    if (drive) {
+      void selectDrive(Number(drive.dataset.driveIndex));
+      return;
+    }
+    const rank = event.target.closest("[data-rank-index]");
+    if (rank) {
+      const index = Number(rank.dataset.rankIndex);
+      void showSelection(state.rankIds?.[index] || [], {
+        key: `rank-${index}`,
+        mode: "Most-driven",
+        caption: state.rankNames?.[index] || "Street",
+      });
+      return;
+    }
+    const frontier = event.target.closest("[data-frontier-index]");
+    if (frontier) {
+      const index = Number(frontier.dataset.frontierIndex);
+      void showSelection(state.frontierIds?.[index] || [], {
+        key: `left-${index}`,
+        left: true,
+      });
     }
   });
   listen($("journal-area-select"), "change", (event) => {
-    if (!event.target.value || event.target.value === state.areaId) {
-      return;
+    if (event.target.value && event.target.value !== state.areaId) {
+      void navigate(`/coverage-management/${encodeURIComponent(event.target.value)}/journal`);
     }
-    void navigate(
-      `/coverage-management/${encodeURIComponent(event.target.value)}/journal`
-    );
   });
   document.querySelectorAll("[data-journal-range]").forEach((button) => {
     listen(button, "click", async () => {
-      const next = button.dataset.journalRange;
-      if (next === state.range) {
+      if (button.dataset.journalRange === state.range) {
         return;
       }
-      state.range = next;
+      state.range = button.dataset.journalRange;
+      state.asOf = "";
       setActiveControls();
       try {
         await reloadRange();
       } catch (error) {
-        if (error.name === "AbortError") return;
-        console.error("Coverage Journal range failed", error);
-        setStateMessage(error.message || "Could not load this range.", "error");
+        if (error.name !== "AbortError") {
+          setStateMessage(error.message || "This range could not be loaded.", "error");
+        }
       }
     });
   });
@@ -1599,164 +1112,129 @@ function setupListeners() {
         await loadContributions();
         syncUrl();
       } catch (error) {
-        if (error.name !== "AbortError")
-          $("journal-map-equivalent").textContent = error.message;
+        if (error.name !== "AbortError") {
+          $("journal-contributions").innerHTML = `<li class="journal-empty">${escapeHtml(
+            error.message
+          )}</li>`;
+        }
       }
     });
   });
   document.querySelectorAll("[data-journal-level]").forEach((button) => {
     listen(button, "click", () => {
       state.level = button.dataset.journalLevel;
+      state.selection = null;
       setActiveControls();
       renderRankings();
-      setFrequencyMap();
+      showFrequencyOnMap();
       syncUrl();
     });
   });
   listen($("journal-timeline-cursor"), "input", (event) => {
-    updateTimelineCursor(Number(event.target.value));
+    selectDate(Number(event.target.value));
   });
-  listen($("journal-chart-earlier"), "click", () => panChart(-1));
-  listen($("journal-chart-later"), "click", () => panChart(1));
-  listen($("journal-chart-scroll"), "scroll", updateChartPanControls, {
-    passive: true,
-  });
-  listen(window, "resize", updateChartPanControls, { passive: true });
-  listen($("journal-pace-chart"), "pointerdown", (event) => {
-    if (event.button !== 0 || event.pointerType === "touch") {
-      return;
-    }
-    state.chartScrubbing = true;
-    state.chartStartIndex = Number($("journal-timeline-cursor")?.value || 0);
-    event.currentTarget.setPointerCapture?.(event.pointerId);
-    const index = timelineIndexFromPointer(event);
-    $("journal-timeline-cursor").value = String(index);
-    updateTimelineCursor(index, { updateUrl: false, updateMap: false });
-  });
-  listen($("journal-pace-chart"), "pointermove", (event) => {
-    const index = timelineIndexFromPointer(event);
-    if (state.chartScrubbing) {
-      event.preventDefault();
-      $("journal-timeline-cursor").value = String(index);
-      updateTimelineCursor(index, { updateUrl: false, updateMap: false });
-    } else if (event.pointerType === "mouse") {
-      updateTimelineVisuals(index);
-    }
-  });
-  listen($("journal-pace-chart"), "pointerup", (event) => {
-    if (!state.chartScrubbing) {
-      return;
-    }
-    state.chartScrubbing = false;
-    event.currentTarget.releasePointerCapture?.(event.pointerId);
-    updateTimelineCursor(timelineIndexFromPointer(event));
-  });
-  listen($("journal-pace-chart"), "pointercancel", () => {
-    state.chartScrubbing = false;
-    updateTimelineCursor(state.chartStartIndex, {
-      updateUrl: false,
-      updateMap: false,
-    });
-  });
-  listen($("journal-pace-chart"), "pointerleave", () => {
-    if (!state.chartScrubbing) {
-      updateTimelineVisuals(Number($("journal-timeline-cursor")?.value || 0));
-    }
-  });
+  setupChartPointer();
   listen($("journal-load-more"), "click", () =>
     loadContributions({ append: true }).catch((error) => {
-      if (error.name !== "AbortError")
-        $("journal-map-equivalent").textContent = error.message;
+      if (error.name !== "AbortError") {
+        $("journal-load-more").textContent = error.message;
+      }
     })
   );
   listen($("journal-map-reset"), "click", fitArea);
+  listen($("journal-retry"), "click", () => {
+    void start();
+  });
   listen($("journal-goal-form"), "submit", async (event) => {
     event.preventDefault();
     const status = $("journal-goal-status");
-    status.textContent = "Saving goal…";
+    status.textContent = "Saving…";
     try {
-      await featureApi.rawJson(
-        `/api/coverage/areas/${encodeURIComponent(state.areaId)}/goal`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            target_percentage: Number($("journal-goal-percentage").value),
-            target_date: $("journal-goal-date").value || null,
-            preferred_mission_minutes: Number($("journal-goal-minutes").value),
-          }),
-          retry: false,
-        }
-      );
+      await featureApi.rawJson(areaPath("/goal"), {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          target_percentage: Number($("journal-goal-percentage").value),
+          target_date: $("journal-goal-date").value || null,
+          preferred_mission_minutes: Number($("journal-goal-minutes").value),
+        }),
+        retry: false,
+      });
       await loadIntelligence();
-      renderIntelligence();
-      status.textContent = "Goal saved.";
+      renderGoal();
+      status.textContent = "Saved.";
     } catch (error) {
-      status.textContent = error.message || "Goal could not be saved.";
+      status.textContent = error.message || "The goal could not be saved.";
     }
   });
-  listen(
-    $("known-by-heart"),
-    "mouseenter",
-    () => {
-      if (!state.mapSelectionPinned) {
-        setFrequencyMap();
+  listen(document, "themeChanged", () => state.journalMap?.paint());
+
+  const chart = $("journal-chart");
+  if (chart && "ResizeObserver" in window) {
+    let width = chart.clientWidth;
+    const observer = new ResizeObserver(() => {
+      if (state.metadata && Math.abs(chart.clientWidth - width) > 1) {
+        width = chart.clientWidth;
+        renderChartSection();
       }
-    },
-    { once: true }
-  );
-  listen(
-    $("frontier"),
-    "mouseenter",
-    () => {
-      if (!state.mapSelectionPinned) {
-        setFrontierMap();
-      }
-    },
-    { once: true }
-  );
-  listen(window, "popstate", () => {
-    if (
-      window.location.pathname !==
-      `/coverage-management/${encodeURIComponent(state.areaId)}/journal`
-    )
-      return;
-    const restored = initialState();
-    for (const key of ["range", "source", "level", "asOf", "activeMilestone"])
-      state[key] = restored[key];
-    void reloadRange({ syncHistory: false }).catch((error) => {
-      if (error.name !== "AbortError") setStateMessage(error.message, "error");
     });
-  });
-  if ("IntersectionObserver" in window) {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const visible = entries
-          .filter((entry) => entry.isIntersecting)
-          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
-        if (!visible) {
-          return;
-        }
-        if (state.mapSelectionPinned) {
-          return;
-        }
-        if (visible.target.id === "known-by-heart") {
-          setFrequencyMap();
-        } else if (visible.target.id === "frontier") {
-          setFrontierMap();
-        } else if (visible.target.id === "pace") {
-          updateTimelineCursor(Number($("journal-timeline-cursor")?.value || 0), {
-            updateUrl: false,
-          });
-        }
-      },
-      { threshold: [0.35, 0.55] }
-    );
-    [$("pace"), $("known-by-heart"), $("frontier")]
-      .filter(Boolean)
-      .forEach((section) => observer.observe(section));
+    observer.observe(chart);
     state.listeners.push(() => observer.disconnect());
   }
+
+  if ("IntersectionObserver" in window) {
+    const sections = ["progress", "drives", "streets", "left", "goal"]
+      .map((id) => $(id))
+      .filter(Boolean);
+    const visible = new Map();
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          visible.set(entry.target.id, entry.isIntersecting ? entry.intersectionRatio : 0);
+        }
+        const [top] = [...visible.entries()].sort((a, b) => b[1] - a[1]);
+        if (!top || top[1] <= 0 || top[0] === state.activeSection) {
+          return;
+        }
+        state.activeSection = top[0];
+        state.selection = null;
+        markActiveSelection();
+        showSectionOnMap(top[0]);
+      },
+      { rootMargin: "-20% 0px -45% 0px", threshold: [0, 0.25, 0.5, 0.75, 1] }
+    );
+    sections.forEach((section) => observer.observe(section));
+    state.listeners.push(() => observer.disconnect());
+  }
+}
+
+async function start() {
+  setStateMessage("Loading the journal…");
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      const areas = loadAreas();
+      await Promise.all([loadMetadata(), loadIntelligence()]);
+      await areas;
+      break;
+    } catch (error) {
+      if (error.status === 409 && attempt < PENDING_RETRY_LIMIT) {
+        setStateMessage(
+          "This area's coverage is being recalculated. The journal opens when it finishes.",
+          "waiting"
+        );
+        await new Promise((resolve) => {
+          state.timers.push(setTimeout(resolve, PENDING_RETRY_MS));
+        });
+        continue;
+      }
+      throw error;
+    }
+  }
+  await loadContributions();
+  setStateMessage("", "ready");
+  renderAll();
+  await initMap();
+  syncUrl();
 }
 
 export default async function initCoverageJournalPage({ signal, cleanup, api } = {}) {
@@ -1764,9 +1242,13 @@ export default async function initCoverageJournalPage({ signal, cleanup, api } =
   const ownedState = state;
   cleanup?.(() => {
     ownedState.rangeAbort?.abort();
-    ownedState.mapAbort?.abort();
     ownedState.notesAbort?.abort();
-    for (const remove of ownedState.listeners.splice(0)) remove();
+    ownedState.segmentsAbort?.abort();
+    ownedState.timers.forEach(clearTimeout);
+    for (const remove of ownedState.listeners.splice(0)) {
+      remove();
+    }
+    ownedState.journalMap?.remove();
     ownedState.map?.remove();
     ownedState.map = null;
   });
@@ -1776,51 +1258,31 @@ export default async function initCoverageJournalPage({ signal, cleanup, api } =
   }
   setupListeners();
   setActiveControls();
-  let refreshing = false;
-  const refreshProgress = async () => {
-    if (refreshing || signal?.aborted) return;
-    refreshing = true;
+  const refresh = async () => {
+    if (signal?.aborted || !state.metadata) {
+      return;
+    }
     try {
-      await loadAreas();
-      await loadIntelligence();
-      const selectedDate = state.asOf;
-      await loadMetadata();
-      await loadSegments();
+      await Promise.all([loadMetadata(), loadIntelligence(), loadAreas()]);
       state.contributions = [];
       state.nextCursor = null;
-      await loadContributions();
-      state.asOf = selectedDate;
+      await Promise.all([loadContributions(), loadSegments()]);
       renderAll();
-      repaintJournalMap();
+      showSectionOnMap(state.activeSection);
     } catch (error) {
-      if (!signal?.aborted) setStateMessage(error.message, "error");
-    } finally {
-      refreshing = false;
+      if (!signal?.aborted && error.name !== "AbortError") {
+        console.error("Coverage journal refresh failed", error);
+      }
     }
   };
-  document.addEventListener(
-    "historicalTripsUpdated",
-    refreshProgress,
-    signal ? { signal } : false
-  );
-  cleanup?.(() =>
-    document.removeEventListener("historicalTripsUpdated", refreshProgress)
-  );
+  listen(document, "historicalTripsUpdated", refresh);
   try {
-    const areasPromise = loadAreas();
-    await Promise.all([loadMetadata(), loadIntelligence()]);
-    await areasPromise;
-    await loadSegments();
-    await loadContributions();
-    renderAll();
-    setStateMessage("", "ready");
-    await initMap();
-    syncUrl();
+    await start();
   } catch (error) {
     if (signal?.aborted) {
       return;
     }
-    console.error("Coverage Journal failed", error);
-    setStateMessage(error.message || "The Journal could not be opened.", "error");
+    console.error("Coverage journal failed", error);
+    setStateMessage(error.message || "The journal could not be opened.", "error");
   }
 }

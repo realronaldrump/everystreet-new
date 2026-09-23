@@ -4,7 +4,7 @@ import { acquireExplorationMap } from "/static/js/modules/core/exploration-map.j
 export function mount(path) {
   bootstrapPage(({ signal, cleanup }) => {
     window.mounts[path] = (window.mounts[path] || 0) + 1;
-    const detail = path === "/trips/1" || path.endsWith("/journal");
+    const detail = path === "/trips/1";
     const button = document.getElementById(detail ? "detail-counter" : "counter");
     button?.addEventListener(
       "click",

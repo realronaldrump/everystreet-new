@@ -66,7 +66,7 @@ test("drawer query history leaves the background date filter untouched", async (
   await page.evaluate(() =>
     window.store.updateFilters({ startDate: "2026-08-01" }, { syncUrl: false })
   );
-  await page.locator("#journal").click();
+  await page.locator("#detail").click();
   await expect(page.locator("#detail-dialog")).toBeVisible();
   await page.evaluate(() => {
     history.replaceState({ ...history.state, source: "es-store" }, "", "?range=90d");

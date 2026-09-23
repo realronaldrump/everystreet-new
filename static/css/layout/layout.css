@@ -9,7 +9,9 @@
   display: flex;
   flex-direction: column;
   position: relative;
-  overflow: hidden; /* Changed from auto to hidden to prevent double scrollbars if body handles scrolling */
+  /* Clip without becoming a scroll container: the body scrolls, and
+     sticky panels inside pages stay pinned to the viewport. */
+  overflow: clip;
 }
 
 /* === Map Containers === */

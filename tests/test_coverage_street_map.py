@@ -69,6 +69,12 @@ async def test_whole_area_journal_map_is_not_truncated_and_keeps_dates(map_db):
     }
     assert all(
         set(row["properties"])
-        <= {"segment_id", "status", "first_driven_at", "period_trip_count"}
+        <= {
+            "segment_id",
+            "street_name",
+            "status",
+            "first_driven_at",
+            "period_trip_count",
+        }
         for row in rows
     )

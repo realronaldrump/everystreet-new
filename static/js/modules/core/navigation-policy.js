@@ -1,7 +1,5 @@
 export function detailParent(path) {
   if (/^\/trips\/[^/]+$/.test(path)) return "/trips";
-  if (/^\/coverage-management\/[^/]+\/journal$/.test(path))
-    return "/coverage-management";
   return null;
 }
 
