@@ -1,4 +1,5 @@
 import { createMap } from "../../map-core.js";
+import { readToken } from "../../core/theme-tokens.js";
 import store from "../../core/store.js";
 import {
   formatDateTime,
@@ -110,14 +111,36 @@ export default async function initTripDetail({ api, signal, cleanup } = {}) {
           data: { type: "Feature", properties: {}, geometry },
         });
         const isPoint = geometry.type === "Point";
-        map.addLayer({
-          id: "detail-trip",
-          type: isPoint ? "circle" : "line",
-          source: "detail-trip",
-          paint: isPoint
-            ? { "circle-radius": 7, "circle-color": "#c26a4a" }
-            : { "line-width": 4, "line-color": "#c26a4a" },
-        });
+        const ink = readToken("--map-trip-path");
+        const halo = readToken("--basemap-halo");
+        if (isPoint) {
+          map.addLayer({
+            id: "detail-trip",
+            type: "circle",
+            source: "detail-trip",
+            paint: {
+              "circle-radius": 7,
+              "circle-color": ink,
+              "circle-stroke-width": 2,
+              "circle-stroke-color": halo,
+            },
+          });
+        } else {
+          map.addLayer({
+            id: "detail-trip-halo",
+            type: "line",
+            source: "detail-trip",
+            layout: { "line-cap": "round", "line-join": "round" },
+            paint: { "line-width": 8, "line-color": halo },
+          });
+          map.addLayer({
+            id: "detail-trip",
+            type: "line",
+            source: "detail-trip",
+            layout: { "line-cap": "round", "line-join": "round" },
+            paint: { "line-width": 4, "line-color": ink },
+          });
+        }
         const coordinates = isPoint
           ? [geometry.coordinates]
           : geometry.type === "MultiLineString"

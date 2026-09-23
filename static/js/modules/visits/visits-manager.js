@@ -40,10 +40,7 @@ class VisitsManager {
     });
 
     // Trip viewer
-    this.tripViewer = new TripViewer({
-      geometryUtils: VisitsGeometry,
-      mapStyles: MapStyles,
-    });
+    this.tripViewer = new TripViewer({ geometryUtils: VisitsGeometry });
 
     // Initialize new modular components
     this.dataLoader = new VisitsDataLoader({

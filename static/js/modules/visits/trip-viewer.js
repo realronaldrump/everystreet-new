@@ -1,14 +1,13 @@
 
 import { resolveMapStyle } from "../core/map-style-resolver.js";
+import { readToken } from "../core/theme-tokens.js";
 import { createMap } from "../map-core.js";
-import MapStyles from "../map-styles.js";
 import { DateUtils } from "../utils.js";
 import { VisitsGeometry } from "./geometry.js";
 
 class TripViewer {
-  constructor({ geometryUtils = VisitsGeometry, mapStyles = MapStyles } = {}) {
+  constructor({ geometryUtils = VisitsGeometry } = {}) {
     this.geometryUtils = geometryUtils;
-    this.mapStyles = mapStyles;
     this.tripViewMap = null;
     this.startMarker = null;
     this.endMarker = null;
@@ -196,10 +195,10 @@ class TripViewer {
           id: "trip-path-outline",
           type: "line",
           source: "trip",
+          layout: { "line-cap": "round", "line-join": "round" },
           paint: {
-            "line-color": "#c49d4c",
-            "line-width": 6,
-            "line-opacity": 0.6,
+            "line-color": readToken("--basemap-halo"),
+            "line-width": 8,
           },
         });
 
@@ -207,10 +206,10 @@ class TripViewer {
           id: "trip-path",
           type: "line",
           source: "trip",
+          layout: { "line-cap": "round", "line-join": "round" },
           paint: {
-            "line-color": this.mapStyles.MAP_LAYER_COLORS.customPlaces.fill,
+            "line-color": readToken("--map-trip-path"),
             "line-width": 4,
-            "line-dasharray": [2, 1],
           },
         });
 
@@ -220,7 +219,7 @@ class TripViewer {
 
         if (Array.isArray(startCoord) && startCoord.length >= 2) {
           this.startMarker = new mapboxgl.Marker({
-            color: "#5f82a0",
+            color: readToken("--manual-navy"),
             scale: 1.2,
           })
             .setLngLat(startCoord)
@@ -230,7 +229,7 @@ class TripViewer {
 
         if (Array.isArray(endCoord) && endCoord.length >= 2) {
           this.endMarker = new mapboxgl.Marker({
-            color: "#b5523f",
+            color: readToken("--manual-rust"),
             scale: 1.2,
           })
             .setLngLat(endCoord)

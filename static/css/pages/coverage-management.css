@@ -1356,8 +1356,7 @@
 }
 
 /* Mapbox popup used for street hover labels */
-.coverage-hover-popup .mapboxgl-popup-content,
-.coverage-hover-popup .maplibregl-popup-content {
+.coverage-hover-popup .mapboxgl-popup-content {
   padding: 4px 10px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border-color-light);
@@ -1367,8 +1366,7 @@
   line-height: 1.2;
 }
 
-.coverage-hover-popup .mapboxgl-popup-tip,
-.coverage-hover-popup .maplibregl-popup-tip {
+.coverage-hover-popup .mapboxgl-popup-tip {
   display: none;
 }
 

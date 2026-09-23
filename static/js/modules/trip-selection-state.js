@@ -17,6 +17,5 @@ export function clearTripInteractionState(map = store.map) {
 
   document.querySelectorAll(".trip-popup-content").forEach((content) => {
     content.closest?.(".mapboxgl-popup")?.remove?.();
-    content.closest?.(".maplibregl-popup")?.remove?.();
   });
 }

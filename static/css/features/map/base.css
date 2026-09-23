@@ -132,41 +132,32 @@ body.map-page {
 
 /* === Map Canvas & Markers === */
 .mapboxgl-canvas-container.mapboxgl-interactive,
-.maplibregl-canvas-container.maplibregl-interactive,
-.mapboxgl-canvas-container,
-.maplibregl-canvas-container {
+.mapboxgl-canvas-container {
   cursor: default;
 }
 
 .mapboxgl-canvas-container.mapboxgl-interactive:active,
-.maplibregl-canvas-container.maplibregl-interactive:active,
-.mapboxgl-canvas-container:active,
-.maplibregl-canvas-container:active {
+.mapboxgl-canvas-container:active {
   cursor: grabbing;
 }
 
-.mapboxgl-canvas,
-.maplibregl-canvas {
+.mapboxgl-canvas {
   transition: opacity var(--transition-normal);
 }
 
-.mapboxgl-canvas.loading,
-.maplibregl-canvas.loading {
+.mapboxgl-canvas.loading {
   opacity: 0.6;
 }
 
-.mapboxgl-marker,
-.maplibregl-marker {
+.mapboxgl-marker {
   transition: filter 0.2s ease-out;
 }
 
-.mapboxgl-marker > *,
-.maplibregl-marker > * {
+.mapboxgl-marker > * {
   transition: transform 0.2s ease-out;
   transform-origin: center;
 }
 
-.mapboxgl-marker:hover > *,
-.maplibregl-marker:hover > * {
+.mapboxgl-marker:hover > * {
   transform: scale(1.1);
 }

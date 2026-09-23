@@ -1,16 +1,14 @@
 /* Map Popups */
 
 /* === Mapbox GL JS Popup Styling === */
-.mapboxgl-popup,
-.maplibregl-popup {
+.mapboxgl-popup {
   z-index: var(--z-popover);
   animation: fadeInScale 0.2s ease-out; /* From map-enhancements */
 }
 
 /* Note: @keyframes fadeInScale moved to animations.css */
 
-.mapboxgl-popup-content,
-.maplibregl-popup-content {
+.mapboxgl-popup-content {
   font-family: var(--font-family);
   background-color: var(--manual-paper);
   color: var(--text-primary);
@@ -21,8 +19,7 @@
   border: 1px solid var(--manual-ink);
 }
 
-.mapboxgl-popup-close-button,
-.maplibregl-popup-close-button {
+.mapboxgl-popup-close-button {
   color: var(--text-secondary);
   font-size: var(--font-size-lg);
   padding: var(--space-2);
@@ -38,8 +35,7 @@
   justify-content: center;
 }
 
-.mapboxgl-popup-close-button:hover,
-.maplibregl-popup-close-button:hover {
+.mapboxgl-popup-close-button:hover {
   color: var(--text-primary);
   background: var(--manual-paper-shade);
 }

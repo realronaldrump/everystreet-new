@@ -75,8 +75,7 @@ body.live-navigation-active .main-content {
   z-index: 0;
 }
 
-.live-navigation .mapboxgl-ctrl-bottom-right,
-.live-navigation .maplibregl-ctrl-bottom-right {
+.live-navigation .mapboxgl-ctrl-bottom-right {
   bottom: calc(env(safe-area-inset-bottom) + 190px);
   right: 12px;
 }
