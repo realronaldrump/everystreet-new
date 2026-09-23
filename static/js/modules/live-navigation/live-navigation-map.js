@@ -3,19 +3,11 @@
  * Mapbox map initialization and layer management.
  */
 
-
 import { getCurrentTheme, resolveMapStyle } from "../core/map-style-resolver.js";
 import { BaseFeatureMap } from "../utils/base-map.js";
+import { readToken } from "../core/theme-tokens.js";
 
-const getThemeColor = (variable, defaultColor) => {
-  if (typeof window === "undefined") {
-    return defaultColor;
-  }
-  const value = getComputedStyle(document.documentElement)
-    .getPropertyValue(variable)
-    .trim();
-  return value || defaultColor;
-};
+const getThemeColor = readToken;
 
 /**
  * Map manager for live navigation navigation

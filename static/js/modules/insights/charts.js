@@ -7,6 +7,7 @@ import { aggregatePeriods, normalizeDailyDistances } from "./derived-insights.js
 import { formatHourLabel, parseCalendarDate } from "./formatters.js";
 import { loadAndShowTripsForDrilldown, loadAndShowTripsForTimeCell } from "./modal.js";
 import { getChart, getState, setChart } from "./state.js";
+import { readToken } from "../core/theme-tokens.js";
 
 const chartCleanupKey = "_esCleanup";
 const HEATMAP_HOURS = Array.from({ length: 24 }, (_, hour) => hour);
@@ -21,11 +22,7 @@ const DAY_LABELS = [
 ];
 let pendingHeatmapResize = false;
 
-function readColorToken(name, fallback) {
-  return (
-    getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback
-  );
-}
+const readColorToken = readToken;
 
 function withAlpha(color, alpha) {
   const hex = color.match(/^#([0-9a-f]{6})$/i)?.[1];

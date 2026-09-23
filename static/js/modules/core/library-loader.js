@@ -1,3 +1,5 @@
+import { readToken } from "./theme-tokens.js";
+
 const pending = new Map();
 const loadedModules = new Map();
 const cdnUrl = (key) => {
@@ -103,10 +105,6 @@ async function ensureMap() {
 // like the rest of the manual instead: the text face for ticks, Franklin
 // labels in legends and tooltips, ink rules for axes, and square marks.
 // Colours are read from the theme tokens, so a theme switch re-applies them.
-function readToken(name) {
-  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-}
-
 function applyChartTheme(chart) {
   const defaults = chart?.defaults;
   if (!defaults?.font) {

@@ -15,6 +15,7 @@ import {
   disableBouncieLiveTracking,
   isBouncieLiveTrackingEnabled,
 } from "./availability.js";
+import { readToken } from "../../core/theme-tokens.js";
 
 /**
  * LiveTripTracker - Real-time trip visualization
@@ -1225,14 +1226,7 @@ class LiveTripTracker {
   }
 
   static getCssVar(name, defaultValue) {
-    try {
-      const value = getComputedStyle(document.documentElement)
-        .getPropertyValue(name)
-        .trim();
-      return value || defaultValue;
-    } catch {
-      return defaultValue;
-    }
+    return readToken(name, defaultValue);
   }
 
   static resolveRgbChannels(colorValue) {

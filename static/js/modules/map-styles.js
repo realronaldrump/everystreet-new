@@ -4,8 +4,9 @@
  * Uses CSS variables for theme consistency
  */
 
-const CAN_READ_DOCUMENT =
-  typeof document !== "undefined" && typeof getComputedStyle === "function";
+import { readToken } from "./core/theme-tokens.js";
+
+const CAN_READ_DOCUMENT = typeof document !== "undefined";
 
 // Fallbacks for environments without computed styles (tests, workers).
 // The live values come from the --map-* inks in core/variables.css.
@@ -73,15 +74,7 @@ const DEFAULT_MAP_LAYER_COLORS = Object.freeze({
   },
 });
 
-const getCSSVariable = (varName, fallback = "") => {
-  if (!CAN_READ_DOCUMENT) {
-    return fallback;
-  }
-  const value = getComputedStyle(document.documentElement)
-    .getPropertyValue(varName)
-    .trim();
-  return value || fallback;
-};
+const getCSSVariable = readToken;
 
 const buildMapLayerColors = () => ({
   trips: {
@@ -103,17 +96,26 @@ const buildMapLayerColors = () => ({
   },
   matchedTrips: {
     default: getCSSVariable("--danger", DEFAULT_MAP_LAYER_COLORS.matchedTrips.default),
-    highlight: getCSSVariable("--cat-sky", DEFAULT_MAP_LAYER_COLORS.matchedTrips.highlight),
+    highlight: getCSSVariable(
+      "--cat-sky",
+      DEFAULT_MAP_LAYER_COLORS.matchedTrips.highlight
+    ),
   },
   streets: {
-    undriven: getCSSVariable("--map-undriven", DEFAULT_MAP_LAYER_COLORS.streets.undriven),
+    undriven: getCSSVariable(
+      "--map-undriven",
+      DEFAULT_MAP_LAYER_COLORS.streets.undriven
+    ),
     driven: getCSSVariable("--map-driven", DEFAULT_MAP_LAYER_COLORS.streets.driven),
     all: getCSSVariable("--cat-sky", DEFAULT_MAP_LAYER_COLORS.streets.all),
   },
   routes: {
     default: getCSSVariable("--map-route", DEFAULT_MAP_LAYER_COLORS.routes.default),
     active: getCSSVariable("--map-driven", DEFAULT_MAP_LAYER_COLORS.routes.active),
-    completed: getCSSVariable("--map-driven", DEFAULT_MAP_LAYER_COLORS.routes.completed),
+    completed: getCSSVariable(
+      "--map-driven",
+      DEFAULT_MAP_LAYER_COLORS.routes.completed
+    ),
   },
   clusters: {
     small: getCSSVariable("--warning", DEFAULT_MAP_LAYER_COLORS.clusters.small),
@@ -122,7 +124,10 @@ const buildMapLayerColors = () => ({
   },
   coverage: {
     driven: getCSSVariable("--map-driven", DEFAULT_MAP_LAYER_COLORS.coverage.driven),
-    undriven: getCSSVariable("--map-undriven", DEFAULT_MAP_LAYER_COLORS.coverage.undriven),
+    undriven: getCSSVariable(
+      "--map-undriven",
+      DEFAULT_MAP_LAYER_COLORS.coverage.undriven
+    ),
     undriveable: getCSSVariable(
       "--map-undriveable",
       DEFAULT_MAP_LAYER_COLORS.coverage.undriveable
@@ -140,7 +145,10 @@ const buildMapLayerColors = () => ({
     ),
   },
   optimalRoute: {
-    driven: getCSSVariable("--map-driven", DEFAULT_MAP_LAYER_COLORS.optimalRoute.driven),
+    driven: getCSSVariable(
+      "--map-driven",
+      DEFAULT_MAP_LAYER_COLORS.optimalRoute.driven
+    ),
     undriven: getCSSVariable(
       "--map-undriven",
       DEFAULT_MAP_LAYER_COLORS.optimalRoute.undriven

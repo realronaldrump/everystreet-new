@@ -8,17 +8,21 @@
  * left as they are: someone who picks them wants that imagery.
  */
 
+import { readToken } from "../core/theme-tokens.js";
+
 const PRINTABLE_STYLE = /\b(light|dark)\b/i;
 const UNPRINTABLE_STYLE = /satellite|streets/i;
 
 const WATER = /water|ocean|lake|river|stream|canal|ditch|drain|reservoir/;
-const GREEN = /park|wood|forest|grass|scrub|landcover|national|cemetery|golf|pitch|garden|wetland|nature|vegetation/;
+const GREEN =
+  /park|wood|forest|grass|scrub|landcover|national|cemetery|golf|pitch|garden|wetland|nature|vegetation/;
 const BUILDING = /building/;
 const BOUNDARY = /admin|boundary/;
 const RAIL = /rail|transit/;
 const CASING = /case|casing|outline/;
 const MAJOR_ROAD = /motorway|trunk|primary|highway|major/;
-const ROAD = /road|street|bridge|tunnel|link|minor|secondary|tertiary|service|path|track|pedestrian|steps|ferry/;
+const ROAD =
+  /road|street|bridge|tunnel|link|minor|secondary|tertiary|service|path|track|pedestrian|steps|ferry/;
 
 // Mapbox GL only parses the comma form of rgb(); tokens use the modern one.
 function toGlColor(value) {
@@ -34,9 +38,7 @@ function toGlColor(value) {
 }
 
 function readInks() {
-  const styles = getComputedStyle(document.documentElement);
-  const token = (name) =>
-    toGlColor(styles.getPropertyValue(`--basemap-${name}`).trim());
+  const token = (name) => toGlColor(readToken(`--basemap-${name}`));
   return {
     paper: token("paper"),
     land: token("land"),
@@ -111,7 +113,11 @@ function paintFor(layer, ink) {
       if (WATER.test(id)) {
         color = ink.labelWater;
       }
-      return { "text-color": color, "text-halo-color": ink.halo, "text-halo-width": 1.2 };
+      return {
+        "text-color": color,
+        "text-halo-color": ink.halo,
+        "text-halo-width": 1.2,
+      };
     }
     default:
       return null;

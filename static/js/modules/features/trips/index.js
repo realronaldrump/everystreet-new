@@ -41,6 +41,7 @@ import {
   setStorage,
   toFiniteNumber,
 } from "../../utils.js";
+import { readToken } from "../../core/theme-tokens.js";
 
 // State management
 let tripsData = [];
@@ -2307,21 +2308,11 @@ function sanitizeSvgPath(value) {
   return cleaned.length > 0 ? cleaned : null;
 }
 
-function getThemeColor(variable, defaultColor) {
-  if (typeof window === "undefined") {
-    return defaultColor;
-  }
-  const value = getComputedStyle(document.documentElement)
-    .getPropertyValue(variable)
-    .trim();
-  return value || defaultColor;
-}
-
 function getTripUiColors() {
   return {
-    primary: getThemeColor("--primary", "#8fa6b4"),
-    success: getThemeColor("--success", "#8fa6b4"),
-    stroke: getThemeColor("--text-primary", "#ece2cb"),
+    primary: readToken("--primary", "#8fa6b4"),
+    success: readToken("--success", "#8fa6b4"),
+    stroke: readToken("--text-primary", "#ece2cb"),
   };
 }
 
