@@ -20,7 +20,7 @@ const C = {
   halo: "#bb8851",
 };
 const DISPLAY = '"Source Serif 4", Georgia, serif';
-const TEXT = '"Source Sans 3", sans-serif';
+const TEXT = '"Libre Franklin", sans-serif';
 const MONTH = new Intl.DateTimeFormat("en-US", {
   month: "short",
   year: "numeric",
@@ -213,7 +213,7 @@ export async function createShareRenderer(canvas, model) {
     ctx.fillText("EVERY STREET", 87, 73);
     ctx.textAlign = "right";
     ctx.fillStyle = C.muted;
-    ctx.font = `400 23px ${TEXT}`;
+    ctx.font = `500 23px ${TEXT}`;
     ctx.fillText("CITY OF LIGHT", 1016, 73);
     ctx.textAlign = "left";
     ctx.fillStyle = C.paper;
@@ -224,7 +224,7 @@ export async function createShareRenderer(canvas, model) {
     ctx.fillText(subtitle, 65, 291);
 
     ctx.fillStyle = C.brass;
-    ctx.font = `400 24px ${TEXT}`;
+    ctx.font = `500 24px ${TEXT}`;
     const closing = frame.time >= 9.4;
     const chapter = closing
       ? model.driven.length
@@ -241,10 +241,10 @@ export async function createShareRenderer(canvas, model) {
     ctx.fillText("One street at a time.", 62, 1026);
     ctx.font = `500 96px ${TEXT}`;
     ctx.fillText(NUMBER.format(frame.percent) + "%", 62, 1142);
-    ctx.font = `400 58px ${TEXT}`;
+    ctx.font = `500 58px ${TEXT}`;
     ctx.fillText(NUMBER.format(frame.miles) + " mi", 518, 1142);
     ctx.fillStyle = C.muted;
-    ctx.font = `400 25px ${TEXT}`;
+    ctx.font = `500 25px ${TEXT}`;
     ctx.fillText("streets explored", 65, 1180);
     ctx.fillText("unique street miles", 520, 1180);
     ctx.strokeStyle = C.edge;
@@ -258,9 +258,9 @@ export async function createShareRenderer(canvas, model) {
     ctx.fillText("Every street has a story.", 65, 1280);
     ctx.textAlign = "right";
     ctx.fillStyle = C.muted;
-    ctx.font = `400 24px ${TEXT}`;
+    ctx.font = `500 24px ${TEXT}`;
     ctx.fillText("everystreet.me", 1015, 1280);
-    ctx.font = `400 20px ${TEXT}`;
+    ctx.font = `500 20px ${TEXT}`;
     ctx.fillText("Map data © OpenStreetMap contributors", 1015, 1320);
     ctx.textAlign = "left";
     return frame;

@@ -1,4 +1,4 @@
-"""Structural guardrails for the Blueprint & Brass design language."""
+"""Structural guardrails for the motorist's manual design language."""
 
 import colorsys
 import re
