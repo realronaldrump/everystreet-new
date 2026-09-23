@@ -117,7 +117,7 @@ test("renderAreaCards normalizes missing coverage percentage values", async () =
     assert.equal(result.hasAreas, true);
     assert.equal(grid.style.display, "grid");
     assert.match(grid.innerHTML, /0\.0%/);
-    assert.match(grid.innerHTML, /stroke-dashoffset:\s*125\.66;/);
+    assert.match(grid.innerHTML, /class="survey-fill[^"]*" style="width: 0\.0%"/);
   } finally {
     global.document = originalDocument;
     global.window = originalWindow;

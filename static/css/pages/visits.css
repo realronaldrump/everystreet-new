@@ -33,18 +33,18 @@
 }
 
 .visits-section {
-  background: var(--surface-1);
-  border-radius: var(--radius-lg);
-  padding: var(--space-4);
+  background: transparent;
+  border-radius: 0;
+  padding: var(--space-3) 0 var(--space-6);
   margin-bottom: var(--space-4);
-  border: 1px solid var(--border-color);
-  box-shadow: var(--shadow-sm);
+  border: 0;
+  box-shadow: none;
+  border-top: 2px solid var(--manual-ink);
 }
 
 @media (width >= 768px) {
   .visits-section {
-    border-radius: var(--radius-xl);
-    padding: var(--space-6);
+    padding: var(--space-3) 0 var(--space-8);
     margin-bottom: var(--space-5);
   }
 }
@@ -86,19 +86,20 @@
 }
 
 .section-title {
-  font-family: var(--font-family-text);
-  font-size: var(--font-size-lg);
-  font-weight: var(--font-weight-bold);
+  font-family: var(--font-family-display);
+  font-size: var(--font-size-2xl);
+  font-weight: 800;
   color: var(--text-primary);
   display: flex;
   align-items: center;
   gap: var(--space-2);
   margin-bottom: var(--space-2);
+  letter-spacing: var(--tracking-display);
 }
 
 @media (width >= 768px) {
   .section-title {
-    font-size: var(--font-size-xl);
+    font-size: var(--font-size-3xl);
     gap: var(--space-3);
   }
 }
@@ -106,6 +107,7 @@
 .section-subtitle {
   color: var(--text-secondary);
   font-size: var(--font-size-sm);
+  font-style: italic;
 }
 
 /* Header figures */
@@ -427,16 +429,15 @@
 }
 
 .pattern-card {
-  background: var(--surface-2);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
+  background: var(--surface-1);
+  border: 1px solid var(--manual-rule);
+  border-radius: 0;
   padding: var(--space-5);
   transition: all var(--transition-normal);
 }
 
 .pattern-card:hover {
-  border-color: var(--cat-purple);
-  transform: translateX(4px);
+  border-color: var(--manual-ink);
 }
 
 .pattern-header {
@@ -447,14 +448,15 @@
 }
 
 .pattern-icon {
-  width: 36px;
-  height: 36px;
-  background: rgb(var(--cat-purple-rgb) / 15%);
-  border-radius: var(--radius-lg);
+  width: auto;
+  height: auto;
+  background: transparent;
+  border-radius: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: var(--font-size-lg);
+  font-size: var(--font-size-md);
+  color: var(--manual-rust-ink);
 }
 
 .pattern-card h4 {

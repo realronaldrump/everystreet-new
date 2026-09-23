@@ -69,10 +69,13 @@
   transform: rotate(180deg);
 }
 
+/* A range other than today: the box gets a rust offset, like a
+   pencilled mark in the margin. */
 .date-picker-trigger.has-filter {
-  border-color: rgb(var(--primary-rgb) / 52%);
-  background: rgb(var(--primary-rgb) / 8%);
-  color: var(--primary);
+  border-color: var(--manual-ink);
+  background: var(--manual-paper-shade);
+  color: var(--manual-ink);
+  box-shadow: 2px 2px 0 var(--manual-rust);
 }
 
 .date-picker-dropdown {

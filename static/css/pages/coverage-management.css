@@ -239,16 +239,16 @@
 .area-card-skeleton {
   height: 260px;
   background: var(--manual-paper-shade);
-  border-radius: var(--radius-xl);
-  border: 1px solid var(--border-color);
+  border-radius: 0;
+  border: 1px solid var(--manual-rule-faint);
   animation: loadingPulse 1.5s ease-in-out infinite;
 }
 
 /* Area card */
 .area-card {
   background: var(--surface-1);
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--border-color-light);
+  border-radius: 0;
+  border: 1px solid var(--manual-rule);
   padding: var(--card-padding-lg);
   display: flex;
   flex-direction: column;
@@ -262,16 +262,16 @@
 }
 
 .area-card:hover {
-  box-shadow: var(--shadow-xs);
-  border-color: var(--border-color-light);
+  box-shadow: 3px 3px 0 var(--manual-rule-faint);
+  border-color: var(--manual-ink);
   transform: none;
 }
 
 .area-card--job-active {
   opacity: 1;
   cursor: pointer;
-  border-color: color-mix(in srgb, var(--info) 35%, var(--border-color));
-  background: rgb(var(--info-rgb) / 7%);
+  border-color: var(--manual-navy);
+  background: var(--manual-paper-shade);
   animation: card-job-glow 2.8s ease-in-out infinite;
 }
 
@@ -283,7 +283,7 @@
 }
 
 .area-card--job-active:hover {
-  border-color: color-mix(in srgb, var(--info) 55%, var(--border-color));
+  border-color: var(--manual-ink);
 }
 
 @keyframes active-card-enter {
@@ -315,8 +315,8 @@
    ============================================================================= */
 
 .area-card--complete {
-  border-color: var(--color-driven);
-  box-shadow: inset 0 0 0 1px rgb(var(--primary-rgb) / 18%);
+  border-color: var(--manual-ink);
+  box-shadow: inset 0 0 0 1px var(--manual-ink);
 }
 
 .area-completion-banner {
@@ -325,14 +325,16 @@
   gap: var(--space-2);
   align-self: flex-start;
   padding: var(--space-1) var(--space-3);
-  border-radius: var(--radius-sm);
+  border-radius: 0;
   background: transparent;
-  color: var(--color-driven);
-  font-family: var(--font-numeric);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  letter-spacing: var(--tracking-normal);
-  border: 1px solid var(--manual-rule);
+  color: var(--manual-rust-ink);
+  font-family: var(--font-family-label);
+  font-size: var(--font-size-xs);
+  font-weight: 800;
+  letter-spacing: var(--tracking-label);
+  border: 1.5px solid var(--manual-rust);
+  text-transform: uppercase;
+  transform: rotate(-2deg);
 }
 
 /* Sidebar 100% celebration */
@@ -408,52 +410,15 @@
   font-family: var(--font-family-label);
 }
 
-/* Progress row */
+/* Progress row: the figure over a printed survey scale */
 .area-card-progress {
   display: flex;
-  align-items: center;
-  gap: var(--space-4);
+  flex-direction: column;
+  gap: var(--space-3);
 }
 
-/* Mini SVG ring */
-.area-mini-ring {
-  flex-shrink: 0;
-}
-
-.area-mini-ring-svg {
-  display: block;
-}
-
-/* Ring fill class for tier coloring */
-.ring-track {
-  stroke: rgb(var(--text-rgb) / 10%);
-}
-
-.ring-fill {
-  transition:
-    stroke-dashoffset 1s ease,
-    stroke 0.4s ease;
-  stroke: var(--primary);
-}
-
-.ring-fill.tier-danger {
-  stroke: var(--color-driven);
-}
-
-.ring-fill.tier-warning {
-  stroke: var(--color-driven);
-}
-
-.ring-fill.tier-info {
-  stroke: var(--color-driven);
-}
-
-.ring-fill.tier-success {
-  stroke: var(--color-driven);
-}
-
-.ring-fill.tier-complete {
-  stroke: var(--color-driven);
+.area-survey {
+  width: 100%;
 }
 
 .area-progress-text {
@@ -462,12 +427,14 @@
 }
 
 .area-pct-large {
-  font-size: var(--font-size-2xl);
-  font-weight: var(--font-weight-bold);
+  font-size: var(--font-size-3xl);
+  font-weight: 800;
   font-family: var(--font-numeric-display);
   color: var(--text-primary);
   display: block;
   line-height: 1;
+  letter-spacing: var(--tracking-tight);
+  font-variant-numeric: lining-nums tabular-nums;
 }
 
 .area-pct-sub {
@@ -475,6 +442,7 @@
   color: var(--text-secondary);
   display: block;
   margin-top: var(--space-1);
+  font-style: italic;
 }
 
 /* Card stats */
@@ -601,21 +569,6 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   max-width: 180px;
-}
-
-/* Spinning arc overlay on the mini-ring during active jobs */
-.ring-spinner {
-  stroke: var(--info);
-  stroke-dasharray: 28 97.66;
-  stroke-dashoffset: 0;
-  opacity: 0.75;
-  animation: ring-spin 1.1s linear infinite;
-}
-
-@keyframes ring-spin {
-  to {
-    stroke-dashoffset: -125.66;
-  }
 }
 
 /* Dim stale progress data while rebuild is in progress */
@@ -2017,7 +1970,7 @@
   z-index: 5;
   max-width: calc(100% - 2rem);
   padding: 0.5rem 0.75rem;
-  border-radius: 0.5rem;
+  border-radius: var(--radius-sm);
   background: var(--surface-1);
   color: var(--text-primary);
   font-size: var(--font-size-sm);

@@ -41,21 +41,27 @@
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  font-family: var(--font-family-display);
-  color: var(--text-primary);
+  font-family: var(--font-family-label);
+  color: var(--manual-rust-ink);
+  font-size: var(--font-size-sm);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-label);
 }
 
 .gas-tracking-page .card-title i {
-  color: var(--primary);
+  color: var(--manual-rust-ink);
 }
 
 .card-badge {
   padding: var(--space-1) var(--space-3);
-  background: rgb(var(--warning-rgb) / 16%);
-  color: var(--warning);
-  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--manual-ink);
+  border-radius: 0;
   font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-medium);
+  font-weight: 700;
+  border: 1px solid var(--manual-rule);
+  font-family: var(--font-family-label);
 }
 
 .card-badge.subtle {
@@ -352,12 +358,12 @@
 
 .checkbox-label--panel {
   align-items: flex-start;
-  justify-content: space-between;
+  justify-content: flex-start;
   width: 100%;
   padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border-color);
-  background: var(--surface-2);
+  border-radius: 0;
+  border: 1px solid var(--manual-rule);
+  background: transparent;
   gap: var(--space-3);
 }
 
@@ -379,8 +385,8 @@
 }
 
 .checkbox-label--panel.warning {
-  border-color: rgb(var(--warning-rgb) / 30%);
-  background: rgb(var(--warning-rgb) / 10%);
+  border-color: var(--manual-mustard);
+  background: rgb(var(--manual-mustard-rgb) / 10%);
 }
 
 .checkbox-label--panel.warning i {
@@ -718,7 +724,7 @@
   }
 
   .gas-tracking-page .card-title {
-    font-size: var(--font-size-md);
+    font-size: var(--font-size-xs);
   }
 
   .gas-form {

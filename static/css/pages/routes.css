@@ -203,13 +203,13 @@
   align-items: center;
   gap: var(--space-2);
   padding: 0 var(--space-3);
-  border-radius: var(--radius-sm);
+  border-radius: 0;
   border: 1px solid var(--manual-rule);
-  background: rgb(var(--backdrop-rgb) / 18%);
+  background: var(--surface-1);
 }
 
 .routes-search i {
-  color: rgb(var(--primary-rgb) / 70%);
+  color: var(--manual-ink-faint);
 }
 
 .routes-search-input {
@@ -309,9 +309,9 @@
 .routes-toggle-ui {
   width: 44px;
   height: 26px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--manual-rule);
-  background: var(--manual-paper-shade);
+  border-radius: 0;
+  border: 1px solid var(--manual-ink-soft);
+  background: transparent;
   position: relative;
   transition: background var(--transition-fast);
 }
@@ -319,23 +319,23 @@
 .routes-toggle-ui::after {
   content: "";
   position: absolute;
-  top: 3px;
+  top: 4px;
   left: 4px;
-  width: 18px;
-  height: 18px;
-  border-radius: var(--radius-sm);
-  background: rgb(var(--text-rgb) / 78%);
+  width: 16px;
+  height: 16px;
+  border-radius: 0;
+  background: var(--manual-ink-soft);
   transition: transform var(--transition-fast);
 }
 
 .routes-toggle input:checked + .routes-toggle-ui {
-  background: rgb(var(--primary-rgb) / 26%);
-  border-color: var(--manual-rule);
+  background: var(--manual-ink);
+  border-color: var(--manual-ink);
 }
 
 .routes-toggle input:checked + .routes-toggle-ui::after {
-  transform: translateX(16px);
-  background: rgb(var(--text-rgb) / 92%);
+  transform: translateX(18px);
+  background: var(--manual-paper);
 }
 
 .routes-toggle-text {
@@ -427,9 +427,9 @@
   display: grid;
   grid-template-rows: auto auto auto;
   background: var(--surface-1);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--manual-rule);
+  border-radius: 0;
+  box-shadow: none;
   overflow: hidden;
   cursor: pointer;
   transition:
@@ -438,13 +438,12 @@
     border-color var(--transition-normal);
   min-height: 160px;
 
-  --route-stroke: rgb(var(--primary-rgb) / 90%);
+  --route-stroke: var(--manual-navy);
 }
 
 .route-card:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
-  border-color: var(--manual-rule);
+  box-shadow: 3px 3px 0 var(--manual-rule-faint);
+  border-color: var(--manual-ink);
 }
 
 .route-card-top {
@@ -527,9 +526,12 @@
   height: 5.5rem;
   position: relative;
   overflow: hidden;
-  border-radius: 0.6rem;
+  border-radius: 0;
   margin: 0 var(--space-3);
-  background: var(--manual-paper-shade);
+  border: 1px solid var(--manual-rule-faint);
+  background-color: var(--manual-paper-shade);
+  background-image: var(--manual-grid);
+  background-size: 20px 20px;
 }
 
 .route-card-visual .route-preview-svg {
@@ -694,7 +696,7 @@
   padding: var(--space-3);
   border-radius: var(--radius-sm);
   border: 1px solid var(--manual-rule);
-  background: rgb(var(--backdrop-rgb) / 14%);
+  background: var(--manual-paper-shade);
   display: grid;
   gap: 0.15rem;
 }
@@ -738,9 +740,9 @@
   display: grid;
   gap: var(--space-2);
   padding: 0.65rem 0.75rem;
-  border-radius: 0.75rem;
+  border-radius: var(--radius-sm);
   border: 1px solid var(--manual-rule);
-  background: rgb(var(--backdrop-rgb) / 14%);
+  background: var(--manual-paper-shade);
   text-decoration: none;
   color: inherit;
 }
@@ -983,7 +985,7 @@ html[data-bs-theme="light"] .route-preview-svg path {
   min-height: 44px;
   border: 1px solid var(--manual-rule);
   border-radius: var(--radius-sm);
-  background: rgb(var(--backdrop-rgb) / 18%);
+  background: var(--manual-paper-shade);
   padding: 0.45rem 0.8rem;
   display: inline-flex;
   align-items: center;
@@ -1008,9 +1010,9 @@ html[data-bs-theme="light"] .route-preview-svg path {
 }
 
 .routes-explorer-status {
-  border-radius: 0.8rem;
+  border-radius: var(--radius-sm);
   border: 1px solid var(--manual-rule);
-  background: rgb(var(--backdrop-rgb) / 14%);
+  background: var(--manual-paper-shade);
   color: var(--text-secondary);
   padding: 0.7rem 0.85rem;
   font-size: var(--font-size-sm);
@@ -1045,7 +1047,7 @@ html[data-bs-theme="light"] .route-preview-svg path {
 
 .routes-summary-kpi {
   border: 1px solid var(--manual-rule);
-  border-radius: 0.85rem;
+  border-radius: var(--radius-sm);
   padding: var(--space-3);
   background: var(--manual-paper-shade);
   display: grid;
@@ -1077,9 +1079,9 @@ html[data-bs-theme="light"] .route-preview-svg path {
 
 .routes-chart-panel {
   border: 1px solid var(--manual-rule);
-  border-radius: 0.9rem;
+  border-radius: var(--radius-sm);
   padding: var(--space-3);
-  background: rgb(var(--backdrop-rgb) / 14%);
+  background: var(--manual-paper-shade);
   display: grid;
   gap: var(--space-3);
 }
@@ -1103,7 +1105,7 @@ html[data-bs-theme="light"] .route-preview-svg path {
 
 .routes-chart-wrap {
   border: 1px dashed var(--manual-rule);
-  border-radius: 0.75rem;
+  border-radius: var(--radius-sm);
   min-height: 11rem;
   height: 11rem;
   padding: 0.45rem;
@@ -1118,8 +1120,8 @@ html[data-bs-theme="light"] .route-preview-svg path {
 .routes-chart-empty {
   position: absolute;
   inset: 0.35rem;
-  border-radius: 0.6rem;
-  background: rgb(var(--backdrop-rgb) / 16%);
+  border-radius: var(--radius-sm);
+  background: var(--manual-paper-shade);
   border: 1px solid var(--manual-rule);
   color: var(--text-tertiary);
   display: grid;
@@ -1131,7 +1133,7 @@ html[data-bs-theme="light"] .route-preview-svg path {
 
 .routes-rebuild-hint {
   padding: 0.75rem 1rem;
-  border-radius: 0.6rem;
+  border-radius: var(--radius-sm);
   background: rgb(var(--cat-amber-rgb) / 12%);
   border: 1px solid rgb(var(--cat-amber-rgb) / 25%);
   color: var(--text-secondary);
@@ -1148,7 +1150,7 @@ html[data-bs-theme="light"] .route-preview-svg path {
 .routes-variant-share-item,
 .routes-variant-item {
   border: 1px solid var(--manual-rule);
-  border-radius: 0.75rem;
+  border-radius: var(--radius-sm);
   background: var(--manual-paper-shade);
   padding: 0.6rem 0.75rem;
 }
@@ -1208,7 +1210,7 @@ html[data-bs-theme="light"] .route-preview-svg path {
 .routes-variant-link {
   min-height: 44px;
   border: 1px solid var(--manual-rule);
-  border-radius: 0.65rem;
+  border-radius: var(--radius-sm);
   padding: 0.45rem 0.7rem;
   display: inline-flex;
   align-items: center;
@@ -1231,7 +1233,7 @@ html[data-bs-theme="light"] .route-preview-svg path {
   border-radius: var(--radius-sm);
   padding: 0.28rem 0.62rem;
   border: 1px solid var(--manual-rule);
-  background: rgb(var(--backdrop-rgb) / 14%);
+  background: var(--manual-paper-shade);
   min-height: 32px;
 }
 
@@ -1298,7 +1300,7 @@ html[data-bs-theme="light"] .route-preview-svg path {
 /* Modal Insight Banner */
 .route-insight-banner {
   padding: var(--space-3);
-  border-radius: 0.8rem;
+  border-radius: var(--radius-sm);
   background: var(--manual-paper-shade);
   border: 1px solid var(--manual-rule);
   display: grid;
@@ -1336,9 +1338,9 @@ html[data-bs-theme="light"] .route-preview-svg path {
 .route-key-fact {
   text-align: center;
   padding: var(--space-3);
-  border-radius: 0.8rem;
+  border-radius: var(--radius-sm);
   border: 1px solid var(--manual-rule);
-  background: rgb(var(--backdrop-rgb) / 10%);
+  background: var(--manual-paper-shade);
   display: grid;
   gap: 0.25rem;
   justify-items: center;
@@ -1407,8 +1409,8 @@ html[data-bs-theme="light"] .route-preview-svg path {
 .connected-place-link {
   min-height: 44px;
   border: 1px solid var(--manual-rule);
-  border-radius: 0.7rem;
-  background: rgb(var(--backdrop-rgb) / 14%);
+  border-radius: var(--radius-sm);
+  background: var(--manual-paper-shade);
   color: inherit;
   text-decoration: none;
   padding: 0.5rem 0.7rem;
@@ -1431,7 +1433,7 @@ html[data-bs-theme="light"] .route-preview-svg path {
 
 .routes-inline-empty {
   border: 1px dashed var(--manual-rule);
-  border-radius: 0.8rem;
+  border-radius: var(--radius-sm);
   padding: var(--space-3);
   color: var(--text-tertiary);
   text-align: center;
@@ -1472,7 +1474,7 @@ html[data-bs-theme="light"] .route-preview-svg path {
 .route-trip-open-link {
   min-height: 44px;
   border: 1px solid var(--manual-rule);
-  border-radius: 0.65rem;
+  border-radius: var(--radius-sm);
   padding: 0.45rem 0.7rem;
   display: inline-flex;
   align-items: center;

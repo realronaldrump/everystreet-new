@@ -19,7 +19,7 @@
   max-width: 14rem;
   padding: 0.75rem 0.875rem;
   border: 1px solid rgb(255 206 135 / 18%);
-  border-radius: 1rem;
+  border-radius: var(--radius-sm);
   background: rgb(13 12 11 / 96%);
   box-shadow: var(--shadow-xs);
   color: rgb(247 235 212);

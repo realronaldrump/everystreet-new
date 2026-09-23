@@ -1012,7 +1012,7 @@ function renderPaceEvents(series) {
     )}.</div>`;
     return;
   }
-  container.innerHTML = `<div class="journal-chart-events-heading"><strong>Momentous dates</strong><span>Select one to move the timeline and map.</span></div>
+  container.innerHTML = `<div class="journal-chart-events-heading"><strong>Key dates</strong><span>Select one to move the timeline and map.</span></div>
     <ol>${events
       .map((event) => {
         const index = nearestSeriesIndex(event.occurredAt, series);

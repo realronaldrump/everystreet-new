@@ -1292,7 +1292,7 @@ html:not(.light-mode) body .trips-journal-page .filter-select option {
   position: relative;
   overflow: hidden;
   background-color: var(--manual-paper-shade);
-  background-image: linear-gradient(var(--manual-rule-faint) 1px, transparent 1px), linear-gradient(90deg, var(--manual-rule-faint) 1px, transparent 1px);
+  background-image: var(--manual-grid);
   background-size: 24px 24px;
   background-position: -1px -1px;
   border-bottom: 1px solid var(--manual-rule);

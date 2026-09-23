@@ -1663,7 +1663,7 @@ async function viewArea(areaId) {
       journalLink.href = `/coverage-management/${encodeURIComponent(areaId)}/journal`;
       journalLink.setAttribute(
         "aria-label",
-        `Open the complete coverage Field Journal for ${area.display_name}`
+        `Open the full coverage history for ${area.display_name}`
       );
     }
 

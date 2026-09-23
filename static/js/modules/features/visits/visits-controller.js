@@ -29,7 +29,7 @@ const IMPERIAL_CONFIG = {
 };
 
 // Place icon - generic pin for all places
-const PLACE_ICON = "📍";
+const PLACE_ICON = '<i class="fas fa-location-dot" aria-hidden="true"></i>';
 
 const DISCOVERY_PREVIEW_COLORS = {
   fill: "#7893a6",

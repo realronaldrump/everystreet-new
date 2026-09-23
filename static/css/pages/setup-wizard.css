@@ -16,67 +16,83 @@
 }
 
 .setup-progress-track {
-  display: flex;
-  align-items: center;
-  gap: 0;
-  max-width: 420px;
+  max-width: 42rem;
   margin: 0 auto;
 }
 
-.setup-progress-step {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-2);
-  flex: 0 0 auto;
-  cursor: default;
-}
+/* ─── Map engine choice ─────────────────────────────────────────── */
 
-.setup-progress-dot {
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
+.setup-provider-grid {
   display: grid;
-  place-items: center;
-  font-size: var(--font-size-md);
-  background: var(--surface-2);
-  border: 2px solid var(--border-color);
-  color: var(--text-tertiary);
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: var(--space-4);
+}
+
+.setup-provider-card {
   position: relative;
-  z-index: 1;
+  display: block;
+  cursor: pointer;
 }
 
-.setup-progress-step.is-active .setup-progress-dot {
-  background: rgb(var(--primary-rgb) / 18%);
-  border-color: var(--manual-rule);
-  color: rgb(var(--primary-rgb));
-  box-shadow: 0 0 0 4px rgb(var(--primary-rgb) / 12%);
+.setup-provider-input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
 }
 
-.setup-progress-step.is-complete .setup-progress-dot {
-  background: rgb(var(--success-rgb) / 18%);
-  border-color: rgb(var(--success-rgb) / 70%);
-  color: rgb(var(--success-rgb));
-  box-shadow: 0 0 0 4px rgb(var(--success-rgb) / 12%);
+.setup-provider-content {
+  display: flex;
+  gap: var(--space-4);
+  height: 100%;
+  padding: var(--space-4);
+  border: 1px solid var(--manual-rule);
+  background: var(--surface-1);
+  transition:
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast);
 }
 
-.setup-progress-label {
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-label);
-  color: var(--text-tertiary);
-  transition: color 0.3s ease;
-  font-family: var(--font-family-label);
+.setup-provider-card:hover .setup-provider-content {
+  border-color: var(--manual-ink);
 }
 
-.setup-progress-step.is-active .setup-progress-label {
-  color: var(--text-primary);
+.setup-provider-input:checked + .setup-provider-content {
+  border-color: var(--manual-ink);
+  box-shadow:
+    inset 0 0 0 1px var(--manual-ink),
+    3px 3px 0 var(--manual-rule-faint);
 }
 
-.setup-progress-step.is-complete .setup-progress-label {
-  color: rgb(var(--success-rgb));
+.setup-provider-input:focus-visible + .setup-provider-content {
+  outline: var(--focus-outline);
+  outline-offset: 2px;
+}
+
+.setup-provider-icon {
+  display: grid;
+  flex: 0 0 2.5rem;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border: 1px solid var(--manual-rule);
+  color: var(--manual-ink-soft);
+}
+
+.setup-provider-input:checked + .setup-provider-content .setup-provider-icon {
+  border-color: var(--manual-ink);
+  background: var(--manual-ink);
+  color: var(--manual-paper);
+}
+
+.setup-provider-text h3 {
+  margin: 0 0 var(--space-1);
+  font-size: var(--font-size-lg);
+}
+
+.setup-provider-text p {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
 }
 
 /* ─── Hero ──────────────────────────────────────────────────────── */
@@ -780,50 +796,6 @@ details[open] .setup-help-toggle::after {
   .setup-card-header {
     flex-direction: column;
   }
-}
-
-/* Field Atlas: one visible workflow stepper and hairline content cards. */
-
-.setup-progress-track.atlas-stepper {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(4.5rem, 1fr);
-  max-width: 42rem;
-  border-bottom: 1px solid var(--border-color);
-}
-
-.setup-progress-step.atlas-step {
-  flex-direction: row;
-  align-items: center;
-  gap: var(--space-2);
-  min-height: var(--touch-target);
-  padding: var(--space-2) var(--space-3) var(--space-2) 0;
-}
-
-.setup-progress-step.atlas-step .setup-progress-dot.atlas-step-index,
-.setup-progress-step.atlas-step.is-active .setup-progress-dot.atlas-step-index,
-.setup-progress-step.atlas-step.is-complete .setup-progress-dot.atlas-step-index {
-  width: auto;
-  height: auto;
-  min-width: 2ch;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-  color: var(--text-tertiary);
-}
-
-.setup-progress-step.atlas-step.is-active .setup-progress-dot.atlas-step-index {
-  color: var(--text-primary);
-}
-
-.setup-progress-step.atlas-step.is-complete .setup-progress-dot.atlas-step-index {
-  color: transparent;
-}
-
-.setup-progress-step.atlas-step .setup-progress-label.atlas-step-label,
-.setup-progress-step.atlas-step.is-active .setup-progress-label.atlas-step-label {
-  color: inherit;
 }
 
 .setup-hero.page-masthead {

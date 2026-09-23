@@ -329,10 +329,6 @@ function renderAreaCard(area, coverageJob, routeJob) {
     totalSegments - drivenSegments - undriveableSegments
   );
 
-  // Small inline SVG ring (48px container, r=20, cx/cy=24)
-  const MINI_R = 20;
-  const miniCircumference = 2 * Math.PI * MINI_R;
-  const miniOffset = miniCircumference - (pct / 100) * miniCircumference;
   const routeStatus = renderRouteStatus(area, routeJob);
   const routeMenuLabel = hasSavedRoute
     ? "Regenerate Optimal Route"
@@ -368,33 +364,12 @@ function renderAreaCard(area, coverageJob, routeJob) {
       </div>
 
       <div class="area-card-progress">
-        <div class="area-mini-ring" aria-hidden="true">
-          <svg class="area-mini-ring-svg"
-               width="48" height="48"
-               viewBox="0 0 48 48">
-            <circle class="ring-track"
-                    cx="24" cy="24" r="${MINI_R}"
-                    fill="none" stroke-width="4" />
-            <circle class="ring-fill ${tierClass}"
-                    cx="24" cy="24" r="${MINI_R}"
-                    fill="none" stroke-width="4"
-                    stroke-linecap="round"
-                    transform="rotate(-90 24 24)"
-                    style="stroke-dasharray: ${miniCircumference.toFixed(2)}; stroke-dashoffset: ${miniOffset.toFixed(2)};" />
-            ${
-              hasActiveCoverageJob
-                ? `<circle class="ring-spinner"
-                    cx="24" cy="24" r="${MINI_R}"
-                    fill="none" stroke-width="4"
-                    stroke-linecap="round"
-                    transform="rotate(-90 24 24)" />`
-                : ""
-            }
-          </svg>
-        </div>
         <div class="area-progress-text">
           <span class="area-pct-large">${pct.toFixed(1)}%</span>
           <span class="area-pct-sub">${formatMiles(area.driven_length_miles)} driven</span>
+        </div>
+        <div class="survey-bar area-survey${hasActiveCoverageJob ? " is-working" : ""}" aria-hidden="true">
+          <span class="survey-fill ${tierClass}" style="width: ${pct.toFixed(1)}%"></span>
         </div>
       </div>
 
@@ -423,8 +398,8 @@ function renderAreaCard(area, coverageJob, routeJob) {
                 data-area-id="${area.id}"
                 data-area-name="${areaName}"
                 ${!isReady ? "disabled" : ""}
-                aria-label="Open the coverage Field Journal for ${areaName}"
-                title="Open Field Journal">
+                aria-label="Open the coverage history for ${areaName}"
+                title="Open coverage history">
           <i class="fas fa-book-open me-1" aria-hidden="true"></i>Open Journal
         </button>
         <button class="btn ${isError ? "btn-outline-danger" : "btn-outline"} btn-sm flex-grow-1"

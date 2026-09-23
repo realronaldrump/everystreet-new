@@ -122,7 +122,7 @@ const BREADCRUMB_DETAIL_ROUTES = [
   {
     pattern: /^\/coverage-management\/[^/]+\/journal$/,
     parent: "/coverage-management",
-    label: "Field Journal",
+    label: "Coverage history",
   },
   {
     pattern: /^\/trips\/[^/]+$/,
