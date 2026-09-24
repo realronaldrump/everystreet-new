@@ -118,7 +118,7 @@ const dataManager = {
           detail: {
             featureCount: bundle.trip_count,
             bundle,
-            renderer: "deck",
+            renderer: "mapbox",
           },
         })
       );
@@ -175,7 +175,7 @@ const dataManager = {
             detail: {
               featureCount: bundle.trip_count,
               bundle,
-              renderer: "deck",
+              renderer: "mapbox",
             },
           })
         );

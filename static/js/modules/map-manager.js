@@ -13,7 +13,6 @@
 import { CONFIG } from "./core/config.js";
 import store from "./core/store.js";
 import mapCore from "./map-core.js";
-import MapStyles from "./map-styles.js";
 import googleMapCore from "./maps/google_map.js";
 import { createCoordinateBounds } from "./utils/bounds.js";
 import { utils } from "./utils.js";
@@ -160,33 +159,9 @@ const mapManager = {
       return;
     }
 
-    // Build list of queryable layers
-    const queryLayers = [];
-
-    if (store.map.getLayer("trips-hitbox")) {
-      queryLayers.push("trips-hitbox");
-    } else if (!store.mapLayers.trips?.isHeatmap && store.map.getLayer("trips-layer")) {
-      queryLayers.push("trips-layer");
-    } else if (
-      store.mapLayers.trips?.isHeatmap &&
-      store.map.getLayer("trips-layer-1")
-    ) {
-      queryLayers.push("trips-layer-1");
-    }
-
-    if (store.map.getLayer("matchedTrips-hitbox")) {
-      queryLayers.push("matchedTrips-hitbox");
-    } else if (
-      !store.mapLayers.matchedTrips?.isHeatmap &&
-      store.map.getLayer("matchedTrips-layer")
-    ) {
-      queryLayers.push("matchedTrips-layer");
-    } else if (
-      store.mapLayers.matchedTrips?.isHeatmap &&
-      store.map.getLayer("matchedTrips-layer-1")
-    ) {
-      queryLayers.push("matchedTrips-layer-1");
-    }
+    const queryLayers = ["trips-hitbox", "matchedTrips-hitbox"].filter((layerId) =>
+      store.map.getLayer(layerId)
+    );
 
     if (queryLayers.length === 0) {
       // No queryable layers, just clear selection if needed
@@ -211,194 +186,16 @@ const mapManager = {
   },
 
   /**
-   * Refresh trip styling based on selection state
-   * Throttled to prevent excessive updates
+   * Redraw the selected trip. Throttled: selection can change on every click.
    */
-  refreshTripStyles: utils.throttle(function () {
+  refreshTripStyles: utils.throttle(() => {
     if (!store.map || !store.mapInitialized) {
       return;
     }
-
-    const selectedId = store.selectedTripId ? String(store.selectedTripId) : null;
-
-    ["trips", "matchedTrips"].forEach((layerName) => {
-      const layerInfo = store.mapLayers[layerName];
-      if (!layerInfo?.visible) {
-        return;
-      }
-
-      // Skip heatmap layers - they don't support trip selection styling
-      if (layerInfo.isHeatmap) {
-        return;
-      }
-
-      const layerId = `${layerName}-layer`;
-      if (!store.map.getLayer(layerId)) {
-        return;
-      }
-
-      const baseColor = MapStyles.layerColor(layerInfo);
-      const baseWeight = layerInfo.weight || 2;
-
-      // Build color expression
-      const colorExpr = selectedId
-        ? [
-            "case",
-            [
-              "==",
-              ["to-string", ["coalesce", ["get", "transactionId"], ["get", "id"]]],
-              selectedId,
-            ],
-            MapStyles.layerColor(layerInfo, "highlightColor"),
-            baseColor,
-          ]
-        : baseColor;
-
-      // Build width expression
-      const widthExpr = selectedId
-        ? [
-            "case",
-            [
-              "==",
-              ["to-string", ["coalesce", ["get", "transactionId"], ["get", "id"]]],
-              selectedId,
-            ],
-            baseWeight * 2,
-            baseWeight,
-          ]
-        : baseWeight;
-
-      try {
-        store.map.setPaintProperty(layerId, "line-color", colorExpr);
-        store.map.setPaintProperty(layerId, "line-opacity", layerInfo.opacity);
-        store.map.setPaintProperty(layerId, "line-width", widthExpr);
-      } catch (error) {
-        console.warn("Failed to update trip styles:", error);
-      }
-    });
-
-    // Update overlay for heatmap selected trip
-    this._updateSelectedTripOverlay(selectedId);
     import("./trip-map-renderer.js")
       .then((module) => module.default.refreshSelection())
       .catch(() => {});
   }, CONFIG.MAP.throttleDelay),
-
-  /**
-   * Update or remove the selected trip overlay (for heatmap mode)
-   * @private
-   */
-  _updateSelectedTripOverlay(selectedId) {
-    if (!store.map || !store.mapInitialized) {
-      return;
-    }
-
-    const sourceId = "selected-trip-source";
-    const layerId = "selected-trip-layer";
-
-    const removeOverlay = () => {
-      if (store.map.getLayer(layerId)) {
-        store.map.removeLayer(layerId);
-      }
-      if (store.map.getSource(sourceId)) {
-        store.map.removeSource(sourceId);
-      }
-    };
-
-    // Remove overlay if no selection or not in heatmap mode
-    const selectedLayer = store.selectedTripLayer;
-    const validHeatmapLayer =
-      selectedLayer === "trips" || selectedLayer === "matchedTrips";
-    const layerInfo = validHeatmapLayer ? store.mapLayers[selectedLayer] : null;
-
-    if (
-      !selectedId ||
-      !layerInfo ||
-      !layerInfo.isHeatmap ||
-      !layerInfo.visible ||
-      !validHeatmapLayer
-    ) {
-      removeOverlay();
-      return;
-    }
-
-    // Find the matching feature
-    const tripLayer = layerInfo.layer;
-    const matchingFeature = tripLayer?.features?.find((feature) => {
-      const featureId =
-        feature?.properties?.transactionId ||
-        feature?.properties?.id ||
-        feature?.properties?.tripId ||
-        feature?.id;
-      return featureId != null && String(featureId) === selectedId;
-    });
-
-    if (!matchingFeature?.geometry) {
-      removeOverlay();
-      return;
-    }
-
-    const selectedFeature = {
-      type: "Feature",
-      geometry: matchingFeature.geometry,
-      properties: matchingFeature.properties || {},
-    };
-
-    const highlightColor =
-      selectedLayer === "matchedTrips"
-        ? MapStyles.MAP_LAYER_COLORS.matchedTrips.highlight
-        : MapStyles.MAP_LAYER_COLORS.trips.selected;
-
-    const highlightWidth = [
-      "interpolate",
-      ["linear"],
-      ["zoom"],
-      6,
-      2,
-      10,
-      4,
-      14,
-      6,
-      18,
-      10,
-      22,
-      14,
-    ];
-
-    // Create or update source
-    if (!store.map.getSource(sourceId)) {
-      store.map.addSource(sourceId, {
-        type: "geojson",
-        data: { type: "FeatureCollection", features: [selectedFeature] },
-      });
-    } else {
-      store.map.getSource(sourceId).setData({
-        type: "FeatureCollection",
-        features: [selectedFeature],
-      });
-    }
-
-    // Create or update layer
-    if (!store.map.getLayer(layerId)) {
-      store.map.addLayer({
-        id: layerId,
-        type: "line",
-        source: sourceId,
-        layout: {
-          "line-join": "round",
-          "line-cap": "round",
-        },
-        paint: {
-          "line-color": highlightColor,
-          "line-opacity": 0.9,
-          "line-width": highlightWidth,
-        },
-      });
-    } else {
-      store.map.setPaintProperty(layerId, "line-color", highlightColor);
-      store.map.setPaintProperty(layerId, "line-width", highlightWidth);
-    }
-  },
 
   /**
    * Fit the map to visible trip data only, or restore the configured empty view.

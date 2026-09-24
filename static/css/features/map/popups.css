@@ -133,3 +133,23 @@
   border: 1px solid var(--border-color);
   min-width: 280px;
 }
+
+/* === Trip heat readout: the trip count under the pointer === */
+.trip-heat-tip {
+  pointer-events: none;
+  animation: none;
+}
+
+.trip-heat-tip .mapboxgl-popup-content {
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--manual-ink);
+  box-shadow: 2px 2px 0 var(--manual-rule-faint);
+  font-family: var(--font-numeric);
+  font-size: var(--font-size-xs);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.trip-heat-tip .mapboxgl-popup-tip {
+  display: none;
+}

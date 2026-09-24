@@ -53,16 +53,17 @@ test("trip map worker decodes full-detail bundle paths into binary buffers", () 
   assert.ok(Math.abs(decoded.positions[5] - 31.5504) < 1e-6);
 });
 
-test("map route and data manager use deck-backed trip map bundles", () => {
+test("map route and data manager draw trip map bundles natively", () => {
   const routeLoader = readStaticJs("modules", "core", "route-loader.js");
   const dataManager = readStaticJs("modules", "data-manager.js");
   const config = readStaticJs("modules", "core", "config.js");
   const layerManager = readStaticJs("modules", "layer-manager.js");
   const tripMapRenderer = readStaticJs("modules", "trip-map-renderer.js");
 
+  // Trips draw as Mapbox layers, so the map page no longer loads deck.gl.
   assert.match(
     routeLoader,
-    /\["\/map",\s*"\.\.\/\.\.\/pages\/map\.js",\s*\["map",\s*"deck"\]\]/
+    /\["\/map",\s*"\.\.\/\.\.\/pages\/map\.js",\s*\["map"\]\]/
   );
   assert.match(config, /tripMapBundle:\s*"\/api\/map\/trips\/bundle"/);
   assert.match(dataManager, /tripMapRenderer\.setLayerData\("trips",\s*bundle\)/);
@@ -81,5 +82,6 @@ test("map route and data manager use deck-backed trip map bundles", () => {
     /estimated_cost:\s*trip\?\.estimated_cost\s*\?\?\s*null/
   );
   assert.match(tripMapRenderer, /closeOnClick:\s*false/);
-  assert.match(tripMapRenderer, /srcEvent\?\.stopPropagation\?\.\(\)/);
+  assert.match(tripMapRenderer, /originalEvent\?\.stopPropagation\?\.\(\)/);
+  assert.doesNotMatch(tripMapRenderer, /deck\./);
 });

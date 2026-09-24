@@ -4,7 +4,6 @@ import test from "node:test";
 import store from "../static/js/modules/core/store.js";
 import tripMapRenderer from "../static/js/modules/trip-map-renderer.js";
 
-const originalDeck = globalThis.deck;
 const originalDecodeTrips = tripMapRenderer.decodeTrips;
 const originalTripsLayer = structuredClone(store.mapLayers.trips);
 
@@ -22,8 +21,7 @@ function decodedFixture() {
 
 test.beforeEach(() => {
   tripMapRenderer.layers.clear();
-  tripMapRenderer.overlay = null;
-  tripMapRenderer._nativeSourceData.clear();
+  tripMapRenderer._sourceData.clear();
   store.map = null;
   store.mapLayers.trips = {
     ...structuredClone(originalTripsLayer),
@@ -34,12 +32,10 @@ test.beforeEach(() => {
 
 test.afterEach(() => {
   tripMapRenderer.layers.clear();
-  tripMapRenderer.overlay = null;
-  tripMapRenderer._nativeSourceData.clear();
+  tripMapRenderer._sourceData.clear();
   tripMapRenderer.decodeTrips = originalDecodeTrips;
   store.map = null;
   store.mapLayers.trips = structuredClone(originalTripsLayer);
-  globalThis.deck = originalDeck;
 });
 
 test("decoded paths are indexed once by trip for large-bundle lookups", async () => {
@@ -67,33 +63,4 @@ test("decoded paths are indexed once by trip for large-bundle lookups", async ()
       [-107.0, 39.8],
     ],
   ]);
-});
-
-test("unchanged binary geometry keeps stable deck data between renders", () => {
-  globalThis.deck = {
-    PathLayer: class PathLayer {
-      constructor(props) {
-        this.props = props;
-      }
-    },
-  };
-  const layerState = {
-    bundle: { trip_count: 2, trips: [{ id: "trip-a" }, { id: "trip-b" }] },
-    decoded: decodedFixture(),
-    tripById: new Map(),
-    featureCollection: null,
-  };
-
-  const [firstLayer] = tripMapRenderer.buildLayersForTripLayer(
-    "trips",
-    store.mapLayers.trips,
-    layerState
-  );
-  const [secondLayer] = tripMapRenderer.buildLayersForTripLayer(
-    "trips",
-    store.mapLayers.trips,
-    layerState
-  );
-
-  assert.equal(firstLayer.props.data, secondLayer.props.data);
 });

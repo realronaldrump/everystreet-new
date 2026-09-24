@@ -155,7 +155,7 @@ Order = user traffic × visible damage.
 | Driven / covered / live | sage | `--color-driven`, `--live` |
 | Undriven / remaining | coral | `--color-undriven` (#c47050, keep) |
 | Individual trip paths | cool blue #3d9be9 (keep — cool routes vs warm heat) | `--map-trip-path` |
-| Frequency heat | existing warm ramp | keep |
+| Frequency heat | five-step warm scale by trips per road (log scale): ember to white-hot at night, terracotta to garnet on paper | `--map-heat-0` to `--map-heat-4` |
 | Planned route | ochre | `--warning` family |
 | Stopped-in regions | steel | `--cat-steel` |
 | Chart categorical | sage → ochre → steel → coral → slate → purple, in that order | document in variables.css |

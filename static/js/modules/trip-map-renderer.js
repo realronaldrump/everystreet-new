@@ -1,32 +1,156 @@
+/**
+ * Draws recorded and matched trips on the Map page with native Mapbox layers.
+ *
+ * Paths draw every trip once, older trips fading back. Heat draws every road
+ * in the colour of how many trips used it: the worker gives each stretch of
+ * each trip its trip count (trip-heat.js), so a road driven four hundred
+ * times prints differently from one driven forty times instead of both
+ * saturating into the same translucent wash.
+ */
 
 import { CONFIG } from "./core/config.js";
 import store from "./core/store.js";
-import {
-  isTerrainReliefApplied,
-  MAP_TERRAIN_RELIEF_APPLIED_EVENT,
-} from "./features/map/terrain-relief.js";
-import heatmapUtils from "./heatmap-utils.js";
+import { readMapColor } from "./core/theme-tokens.js";
 import MapStyles from "./map-styles.js";
+import { heatLevel } from "./trip-heat.js";
 import tripInteractions from "./trip-interactions.js";
 
-/** A trip layer's ink, falling back to the trips layer's for custom layers. */
-const tripLayerColor = (layerInfo) =>
-  MapStyles.layerColor(layerInfo) || MapStyles.layerColor(CONFIG.LAYER_DEFAULTS.trips);
-
-const TRIP_LAYER_NAMES = new Set(["trips", "matchedTrips"]);
+const TRIP_LAYER_NAMES = ["trips", "matchedTrips"];
 const WORKER_URL = new URL("./trip-map-worker.js", import.meta.url);
-const NATIVE_LAYER_SUFFIXES = ["-hitbox", "-layer-2", "-layer-1", "-layer-0", "-layer"];
-const SELECTED_NATIVE_SOURCE_ID = "trip-map-selected-source";
-const LARGE_NATIVE_HEATMAP_TRIP_THRESHOLD = 2_500;
+const SELECTED_SOURCE_ID = "trip-map-selected-source";
+const SELECTED_CASING_ID = "trip-map-selected-casing";
+const SELECTED_LAYER_ID = "trip-map-selected-layer";
+const HEAT_TOKENS = ["--map-heat-0", "--map-heat-1", "--map-heat-2", "--map-heat-3", "--map-heat-4"];
+const HEAT_STOPS = [0, 0.25, 0.5, 0.75, 1];
+/** A range shorter than this is one outing; its trips do not fade by age. */
+const RECENCY_MIN_SPAN_MS = 36 * 60 * 60 * 1000;
 
 function isTripLayer(layerName) {
-  return TRIP_LAYER_NAMES.has(layerName);
+  return TRIP_LAYER_NAMES.includes(layerName);
 }
 
-function isGoogleMapProvider() {
-  return String(globalThis?.window?.MAP_PROVIDER || "")
-    .trim()
-    .toLowerCase() === "google";
+function layerIds(layerName) {
+  return {
+    source: `${layerName}-source`,
+    heatSource: `${layerName}-heat-source`,
+    paths: `${layerName}-layer`,
+    heat: `${layerName}-layer-heat`,
+    heatGlow: `${layerName}-layer-heat-glow`,
+    hitbox: `${layerName}-hitbox`,
+  };
+}
+
+/** A width that grows with zoom: `[[zoom, width], ...]`, widths may be expressions. */
+function byZoom(stops) {
+  return ["interpolate", ["exponential", 1.5], ["zoom"], ...stops.flat()];
+}
+
+/** Width from `thin` (heat 0) to `thick` (heat 1) at each zoom. */
+function heatWidth(stops) {
+  return byZoom(
+    stops.map(([zoom, thin, thick]) => [
+      zoom,
+      ["+", thin, ["*", thick - thin, ["get", "h"]]],
+    ])
+  );
+}
+
+const HEAT_LINE_WIDTH = [
+  [4, 0.5, 1.1],
+  [9, 0.8, 1.9],
+  [12, 1, 2.8],
+  [15, 1.5, 4.4],
+  [18, 2.6, 8],
+];
+const HEAT_GLOW_WIDTH = [
+  [4, 2, 4],
+  [9, 3, 7],
+  [12, 4, 11],
+  [15, 6, 18],
+  [18, 10, 30],
+];
+const PATH_WIDTH = [
+  [4, 0.5],
+  [9, 0.8],
+  [12, 1.3],
+  [15, 2.3],
+  [18, 4],
+];
+const MATCHED_WIDTH = [
+  [4, 0.6],
+  [9, 1],
+  [12, 1.6],
+  [15, 2.8],
+  [18, 4.5],
+];
+const SELECTED_WIDTH = [
+  [4, 2],
+  [9, 2.6],
+  [12, 3.4],
+  [15, 5],
+  [18, 8],
+];
+const HITBOX_WIDTH = [
+  [6, 8],
+  [10, 12],
+  [14, 16],
+  [18, 20],
+  [22, 24],
+];
+
+function normalizeTripId(trip) {
+  return String(trip?.id ?? trip?.transactionId ?? "");
+}
+
+function tripTime(trip) {
+  const time = Date.parse(trip?.start_time || trip?.end_time || "");
+  return Number.isFinite(time) ? time : null;
+}
+
+/** 0 for the oldest trip in the bundle, 1 for the newest. */
+function recencyScale(trips) {
+  const times = trips.map(tripTime).filter((time) => time !== null);
+  if (!times.length) {
+    return () => 1;
+  }
+  const oldest = Math.min(...times);
+  const span = Math.max(...times) - oldest;
+  if (span < RECENCY_MIN_SPAN_MS) {
+    return () => 1;
+  }
+  return (trip) => {
+    const time = tripTime(trip);
+    return time === null ? 1 : Math.round(((time - oldest) / span) * 1000) / 1000;
+  };
+}
+
+function toTripProperties(trip, layerName, recency = 1) {
+  return {
+    transactionId: normalizeTripId(trip),
+    id: normalizeTripId(trip),
+    imei: trip?.imei || "",
+    source: layerName === "matchedTrips" ? "matched" : "bouncie",
+    startTime: trip?.start_time || null,
+    endTime: trip?.end_time || null,
+    distance: trip?.distance_miles ?? null,
+    duration: trip?.duration_seconds ?? null,
+    avgSpeed: trip?.avg_speed ?? null,
+    maxSpeed: trip?.max_speed ?? null,
+    estimated_cost: trip?.estimated_cost ?? null,
+    coverageDistance: trip?.coverage_distance_miles ?? null,
+    pointsRecorded: trip?.point_count ?? 0,
+    startLocation: trip?.start_location ?? null,
+    destination: trip?.destination ?? null,
+    geometrySource: trip?.geometry_source || null,
+    r: recency,
+  };
+}
+
+function typedArrayFromBuffer(value, Type) {
+  if (value instanceof Type) {
+    return value;
+  }
+  return new Type(value || 0);
 }
 
 function isFiniteBbox(bbox) {
@@ -57,19 +181,21 @@ function extendBounds(bounds, coord) {
   return true;
 }
 
-function boundsFromCoords(coords) {
-  const bounds = [
+function emptyBounds() {
+  return [
     Number.POSITIVE_INFINITY,
     Number.POSITIVE_INFINITY,
     Number.NEGATIVE_INFINITY,
     Number.NEGATIVE_INFINITY,
   ];
-  let hasCoords = false;
+}
 
+function boundsFromCoords(coords) {
+  const bounds = emptyBounds();
+  let hasCoords = false;
   (coords || []).forEach((coord) => {
     hasCoords = extendBounds(bounds, coord) || hasCoords;
   });
-
   return hasCoords ? bounds : null;
 }
 
@@ -77,100 +203,14 @@ function boundsFromDecoded(decoded) {
   if (!decoded?.length || !decoded.positions?.length) {
     return null;
   }
-
-  const bounds = [
-    Number.POSITIVE_INFINITY,
-    Number.POSITIVE_INFINITY,
-    Number.NEGATIVE_INFINITY,
-    Number.NEGATIVE_INFINITY,
-  ];
+  const bounds = emptyBounds();
   let hasCoords = false;
-
   for (let index = 0; index < decoded.positions.length; index += 2) {
     hasCoords =
       extendBounds(bounds, [decoded.positions[index], decoded.positions[index + 1]]) ||
       hasCoords;
   }
-
   return hasCoords ? bounds : null;
-}
-
-function toMapboxLineWidth(baseWidth = 2) {
-  const width = Number(baseWidth) || 2;
-  return [
-    "interpolate",
-    ["linear"],
-    ["zoom"],
-    7,
-    Math.max(0.5, width * 0.45),
-    12,
-    width,
-    16,
-    width * 1.6,
-    20,
-    width * 2.4,
-  ];
-}
-
-function normalizeTripId(trip) {
-  return String(trip?.id ?? trip?.transactionId ?? "");
-}
-
-function tripCountForLayer(layerState) {
-  return Number(
-    layerState?.bundle?.trip_count || layerState?.bundle?.trips?.length || 0
-  );
-}
-
-function toTripProperties(trip, layerName) {
-  return {
-    transactionId: normalizeTripId(trip),
-    id: normalizeTripId(trip),
-    imei: trip?.imei || "",
-    source: layerName === "matchedTrips" ? "matched" : "bouncie",
-    startTime: trip?.start_time || null,
-    endTime: trip?.end_time || null,
-    distance: trip?.distance_miles ?? null,
-    duration: trip?.duration_seconds ?? null,
-    avgSpeed: trip?.avg_speed ?? null,
-    maxSpeed: trip?.max_speed ?? null,
-    estimated_cost: trip?.estimated_cost ?? null,
-    coverageDistance: trip?.coverage_distance_miles ?? null,
-    pointsRecorded: trip?.point_count ?? 0,
-    startLocation: trip?.start_location ?? null,
-    destination: trip?.destination ?? null,
-    geometrySource: trip?.geometry_source || null,
-  };
-}
-
-function typedArrayFromBuffer(value, Type) {
-  if (value instanceof Type) {
-    return value;
-  }
-  return new Type(value || 0);
-}
-
-function colorWithAlpha(hex, alpha = 255) {
-  const fallback = [212, 148, 60, alpha];
-  if (typeof hex !== "string") {
-    return fallback;
-  }
-  const normalized = hex.trim().replace("#", "");
-  if (![3, 6].includes(normalized.length)) {
-    return fallback;
-  }
-  const expanded =
-    normalized.length === 3
-      ? normalized
-          .split("")
-          .map((ch) => `${ch}${ch}`)
-          .join("")
-      : normalized;
-  const value = Number.parseInt(expanded, 16);
-  if (!Number.isFinite(value)) {
-    return fallback;
-  }
-  return [(value >> 16) & 255, (value >> 8) & 255, value & 255, alpha];
 }
 
 function indexDecodedPathsByTrip(decoded) {
@@ -179,7 +219,6 @@ function indexDecodedPathsByTrip(decoded) {
   if (!tripIndices?.length) {
     return pathIndicesByTrip;
   }
-
   for (let pathIndex = 0; pathIndex < tripIndices.length; pathIndex += 1) {
     const tripIndex = tripIndices[pathIndex];
     const pathIndices = pathIndicesByTrip.get(tripIndex);
@@ -192,37 +231,41 @@ function indexDecodedPathsByTrip(decoded) {
   return pathIndicesByTrip;
 }
 
+function sliceCoordinates(positions, start, end) {
+  const coordinates = [];
+  for (let point = start; point <= end; point += 1) {
+    coordinates.push([positions[point * 2], positions[point * 2 + 1]]);
+  }
+  return coordinates;
+}
+
+/** "1 trip", "14 trips", "about 140 trips": counts are neighbourhood estimates. */
+export function describeRoadTrips(count) {
+  const trips = Math.max(1, Math.round(Number(count) || 1));
+  if (trips === 1) {
+    return "1 trip";
+  }
+  if (trips < 20) {
+    return `${trips} trips`;
+  }
+  const magnitude = 10 ** Math.max(0, Math.floor(Math.log10(trips)) - 1);
+  return `About ${(Math.round(trips / magnitude) * magnitude).toLocaleString()} trips`;
+}
+
 const tripMapRenderer = {
-  overlay: null,
   worker: null,
   nextRequestId: 1,
   pending: new Map(),
   layers: new Map(),
-  selectedLayerId: "trip-map-selected-layer",
-  terrainActive: false,
-  _terrainListenerBound: false,
-  _mapListenersBound: false,
   _suppressedBy: new Set(),
-  _nativeHandlers: new Map(),
-  _nativeSourceData: new Map(),
-  _nativeRendered: false,
-  _heatZoom: Number.NaN,
+  _handlers: new Map(),
+  _sourceData: new Map(),
+  _listenersBound: false,
+  _heatTip: null,
 
   isTripLayer,
 
-  isAvailable() {
-    if (isGoogleMapProvider()) {
-      return false;
-    }
-    return Boolean(
-      store.map &&
-        typeof store.map.addControl === "function" &&
-        globalThis.deck?.MapboxOverlay &&
-        globalThis.deck?.PathLayer
-    );
-  },
-
-  canRenderNativeLayers() {
+  canRender() {
     const { map } = store;
     return Boolean(
       map &&
@@ -235,56 +278,13 @@ const tripMapRenderer = {
     );
   },
 
-  shouldUseNativeRenderer() {
-    return (
-      this.canRenderNativeLayers() &&
-      (!this.isAvailable() ||
-        !this.hasVisibleHeatmapTripLayer() ||
-        this.hasLargeVisibleHeatmapTripLayer())
-    );
-  },
-
-  hasVisibleHeatmapTripLayer() {
-    return ["trips", "matchedTrips"].some((layerName) => {
-      const layerInfo = store.mapLayers[layerName];
-      const layerState = this.layers.get(layerName);
-      return Boolean(
-        layerInfo?.visible && layerInfo.isHeatmap && layerState?.decoded?.length
-      );
-    });
-  },
-
-  hasLargeVisibleHeatmapTripLayer() {
-    return ["trips", "matchedTrips"].some((layerName) => {
-      const layerInfo = store.mapLayers[layerName];
-      const layerState = this.layers.get(layerName);
-      return Boolean(
-        layerInfo?.visible &&
-          layerInfo.isHeatmap &&
-          layerState?.decoded?.length &&
-          tripCountForLayer(layerState) >= LARGE_NATIVE_HEATMAP_TRIP_THRESHOLD
-      );
-    });
-  },
-
-  _currentTheme() {
-    return (
-      globalThis?.document?.documentElement?.getAttribute("data-bs-theme") || "dark"
-    );
-  },
-
-  _currentZoom() {
-    const zoom = Number(store.map?.getZoom?.());
-    return Number.isFinite(zoom) ? zoom : 12;
-  },
-
   ensureWorker() {
     if (this.worker) {
       return this.worker;
     }
     this.worker = new Worker(WORKER_URL, { type: "module" });
     this.worker.onmessage = (event) => {
-      const { id, ok, decoded, error } = event.data || {};
+      const { id, ok, decoded, heat, error } = event.data || {};
       const pending = this.pending.get(id);
       if (!pending) {
         return;
@@ -299,206 +299,47 @@ const tripMapRenderer = {
         positions: typedArrayFromBuffer(decoded.positions, Float64Array),
         startIndices: typedArrayFromBuffer(decoded.startIndices, Uint32Array),
         tripIndices: typedArrayFromBuffer(decoded.tripIndices, Uint32Array),
+        heat: heat
+          ? {
+              length: heat.length,
+              paths: typedArrayFromBuffer(heat.paths, Uint32Array),
+              starts: typedArrayFromBuffer(heat.starts, Uint32Array),
+              ends: typedArrayFromBuffer(heat.ends, Uint32Array),
+              frequencies: typedArrayFromBuffer(heat.frequencies, Uint32Array),
+              reference: heat.reference,
+            }
+          : null,
       });
     };
     return this.worker;
   },
 
-  decodeTrips(trips) {
+  decodeTrips(trips, { heat = false } = {}) {
     const worker = this.ensureWorker();
     const id = this.nextRequestId++;
     const promise = new Promise((resolve, reject) => {
       this.pending.set(id, { resolve, reject });
     });
-    worker.postMessage({ id, trips });
+    worker.postMessage({ id, trips, heat });
     return promise;
-  },
-
-  ensureOverlay() {
-    this._bindTerrainListener();
-    this._bindMapListeners();
-    if (this.overlay || !this.isAvailable()) {
-      return this.overlay;
-    }
-    this.overlay = new deck.MapboxOverlay({
-      // Keep deck.gl in Mapbox's render pass so camera transforms stay locked
-      // to the basemap through pan, zoom, pitch, and rotation. Terrain paths
-      // are draped with z values separately when relief is enabled.
-      interleaved: true,
-      layers: [],
-    });
-    store.map.addControl(this.overlay);
-    return this.overlay;
-  },
-
-  _bindTerrainListener() {
-    if (this._terrainListenerBound || typeof document === "undefined") {
-      return;
-    }
-    this._terrainListenerBound = true;
-    // Terrain may have been applied before any trips rendered (e.g. when the
-    // saved preference is on at page load), so capture the current state once.
-    this.terrainActive = isTerrainReliefApplied();
-    document.addEventListener(MAP_TERRAIN_RELIEF_APPLIED_EVENT, (event) => {
-      this.setTerrainActive(event?.detail?.active === true);
-    });
-  },
-
-  setTerrainActive(active) {
-    const next = Boolean(active);
-    if (next === this.terrainActive) {
-      return;
-    }
-    this.terrainActive = next;
-    this.render();
-  },
-
-  _rebuildOverlay() {
-    this._detachOverlay();
-    this.render();
-  },
-
-  _detachOverlay() {
-    const { map } = store;
-    if (this.overlay && map && typeof map.removeControl === "function") {
-      try {
-        map.removeControl(this.overlay);
-      } catch {
-        // Overlay may already be detached during teardown.
-      }
-    }
-    this.overlay = null;
-  },
-
-  _bindMapListeners() {
-    if (this._mapListenersBound) {
-      return;
-    }
-    const { map } = store;
-    if (!map || typeof map.on !== "function") {
-      return;
-    }
-    this._mapListenersBound = true;
-    // DEM tiles stream in progressively, so elevations sampled right after
-    // terrain is enabled are often incomplete. Re-sample once the map settles
-    // (and after zooming in for finer detail) so trip paths track the surface.
-    map.on("idle", () => this._handleMapIdle());
-    // Mapbox resolves the heat ramps itself from zoom expressions; deck.gl
-    // gets fixed numbers, so its tiers have to be rebuilt as the camera
-    // moves. The geometry buffers are cached, so this is only a props diff.
-    map.on("zoomend", () => this._handleZoomEnd());
-  },
-
-  _handleZoomEnd() {
-    if (this._nativeRendered || !this.overlay || this.areTripLayersSuppressed()) {
-      return;
-    }
-    if (Math.abs(this._currentZoom() - this._heatZoom) < 0.25) {
-      return;
-    }
-    if (!this.hasVisibleHeatmapTripLayer()) {
-      return;
-    }
-    this.render();
-  },
-
-  _handleMapIdle() {
-    if (!this.terrainActive || !this.layers.size) {
-      return;
-    }
-    const { map } = store;
-    const currentZoom = Math.floor(Number(map?.getZoom?.() ?? 0));
-    let changed = false;
-    for (const [layerName, layerState] of this.layers) {
-      if (!layerState?.decoded?.positions?.length) {
-        continue;
-      }
-      const needsResample =
-        !layerState.drapedPositions ||
-        layerState.drapePending === true ||
-        currentZoom > (layerState.drapeZoom ?? -1);
-      if (needsResample && this._drapeLayerPositions(layerName)) {
-        changed = true;
-      }
-    }
-    if (changed) {
-      this.render();
-    }
-  },
-
-  // Builds a [lng, lat, elevation] position buffer so deck.gl renders the
-  // trip path on the terrain surface instead of at sea level (z=0).
-  _drapeLayerPositions(layerName) {
-    const { map } = store;
-    const layerState = this.layers.get(layerName);
-    const flat = layerState?.decoded?.positions;
-    if (!flat?.length || typeof map?.queryTerrainElevation !== "function") {
-      return false;
-    }
-
-    const pointCount = Math.floor(flat.length / 2);
-    const previous = layerState.drapedPositions;
-    const reusePrevious = previous && previous.length === pointCount * 3;
-    const draped = new Float64Array(pointCount * 3);
-    let pending = false;
-
-    for (let index = 0; index < pointCount; index += 1) {
-      const lng = flat[index * 2];
-      const lat = flat[index * 2 + 1];
-      const elevation = map.queryTerrainElevation([lng, lat]);
-      draped[index * 3] = lng;
-      draped[index * 3 + 1] = lat;
-      if (Number.isFinite(elevation)) {
-        draped[index * 3 + 2] = elevation;
-      } else if (reusePrevious) {
-        // Keep the last known elevation while the DEM tile reloads.
-        draped[index * 3 + 2] = previous[index * 3 + 2];
-        pending = true;
-      } else {
-        draped[index * 3 + 2] = 0;
-        pending = true;
-      }
-    }
-
-    layerState.drapedPositions = draped;
-    layerState.drapePending = pending;
-    layerState.drapeZoom = Math.floor(Number(map.getZoom?.() ?? 0));
-    return true;
-  },
-
-  _ensureDrape(layerName) {
-    const layerState = this.layers.get(layerName);
-    if (!layerState?.decoded?.positions?.length) {
-      return;
-    }
-    if (this.terrainActive) {
-      if (!layerState.drapedPositions) {
-        this._drapeLayerPositions(layerName);
-      }
-    } else if (layerState.drapedPositions) {
-      layerState.drapedPositions = null;
-      layerState.drapePending = false;
-      layerState.drapeZoom = -1;
-    }
-  },
-
-  _drapePath(path) {
-    const { map } = store;
-    if (!this.terrainActive || typeof map?.queryTerrainElevation !== "function") {
-      return path;
-    }
-    return path.map(([lng, lat]) => {
-      const elevation = map.queryTerrainElevation([lng, lat]);
-      return [lng, lat, Number.isFinite(elevation) ? elevation : 0];
-    });
   },
 
   async setLayerData(layerName, bundle) {
     if (!isTripLayer(layerName) || !bundle) {
       return null;
     }
+    const current = this.layers.get(layerName);
+    if (current?.bundle === bundle) {
+      // A style reload re-applies the layer it already has.
+      this.render();
+      return current;
+    }
+
     performance.mark?.(`trip-map:${layerName}:decode-start`);
-    const decoded = await this.decodeTrips(bundle.trips || []);
+    // Only recorded trips are drawn as heat; matched trips skip the count.
+    const decoded = await this.decodeTrips(bundle.trips || [], {
+      heat: layerName === "trips",
+    });
     performance.mark?.(`trip-map:${layerName}:decode-end`);
     performance.measure?.(
       `trip-map:${layerName}:decode`,
@@ -514,18 +355,20 @@ const tripMapRenderer = {
     const layerState = {
       bundle,
       decoded,
+      heat: decoded.heat || null,
       pathIndicesByTrip: indexDecodedPathsByTrip(decoded),
       tripById,
       featureCollection: null,
-      deckDataCache: null,
+      heatCollection: null,
     };
     this.layers.set(layerName, layerState);
-    store.mapLayers[layerName].layer = {
-      type: "TripMapBundle",
-      bundle,
-      features: null,
-    };
+    if (store.mapLayers[layerName]) {
+      store.mapLayers[layerName].layer = { type: "TripMapBundle", bundle, features: null };
+    }
     this.render();
+    globalThis.document?.dispatchEvent?.(
+      new CustomEvent("es:trip-layer-drawn", { detail: { layerName } })
+    );
     return layerState;
   },
 
@@ -538,7 +381,7 @@ const tripMapRenderer = {
   },
 
   setUseHeatmap(useHeatmap) {
-    ["trips", "matchedTrips"].forEach((layerName) => {
+    TRIP_LAYER_NAMES.forEach((layerName) => {
       if (store.mapLayers[layerName]) {
         store.mapLayers[layerName].isHeatmap = useHeatmap !== false;
       }
@@ -547,17 +390,15 @@ const tripMapRenderer = {
   },
 
   suppressTripLayers(reason = "default") {
-    const key = String(reason || "default");
     const wasSuppressed = this.areTripLayersSuppressed();
-    this._suppressedBy.add(key);
+    this._suppressedBy.add(String(reason || "default"));
     if (!wasSuppressed) {
       this.render();
     }
   },
 
   restoreTripLayers(reason = "default") {
-    const key = String(reason || "default");
-    if (!this._suppressedBy.delete(key)) {
+    if (!this._suppressedBy.delete(String(reason || "default"))) {
       return;
     }
     if (!this.areTripLayersSuppressed()) {
@@ -573,141 +414,98 @@ const tripMapRenderer = {
     this.render();
   },
 
+  /** Heat mode applies to recorded trips; matched trips always draw as paths. */
+  _drawsHeat(layerName) {
+    return layerName === "trips" && store.mapLayers[layerName]?.isHeatmap === true;
+  },
+
+  _bindListeners() {
+    if (this._listenersBound || typeof document === "undefined") {
+      return;
+    }
+    this._listenersBound = true;
+    // Satellite and street styles survive a theme switch, so re-ink by hand.
+    document.addEventListener("themeChanged", () => this.render());
+  },
+
   render() {
-    if (this.areTripLayersSuppressed()) {
-      if (this.overlay) {
-        this.overlay.setProps({ layers: [] });
-      }
-      this._clearNativeLayers();
-      performance.mark?.("trip-map:suppressed");
+    if (!this.canRender()) {
       return;
     }
+    this._bindListeners();
+    const suppressed = this.areTripLayersSuppressed();
+    const beforeId = this.getBeforeLayerId();
+    this._layersAdded = false;
 
-    if (this.shouldUseNativeRenderer()) {
-      // deck.gl shares Mapbox's WebGL context. Removing it while showing
-      // native paths prevents a stale overlay from clearing the basemap.
-      // Large heatmaps also stay responsive by letting Mapbox tile the full
-      // geometry in workers instead of drawing duplicate full-world buffers.
-      this._detachOverlay();
-      this.renderNativeLayers();
-      performance.mark?.("trip-map:native-rendered");
-      return;
-    }
-
-    if (this._nativeRendered) {
-      this._clearNativeLayers();
-    }
-
-    const overlay = this.ensureOverlay();
-    if (!overlay) {
-      return;
-    }
-
-    const layers = [];
-    ["trips", "matchedTrips"].forEach((layerName) => {
-      const layerInfo = store.mapLayers[layerName];
+    TRIP_LAYER_NAMES.forEach((layerName) => {
+      const info = store.mapLayers[layerName];
       const layerState = this.layers.get(layerName);
-      if (!layerInfo?.visible || !layerState?.decoded?.length) {
+      const visible = !suppressed && info?.visible && layerState?.decoded?.length > 0;
+      if (!visible) {
+        this._hideTripLayer(layerName);
         return;
       }
-      this._ensureDrape(layerName);
-      layers.push(...this.buildLayersForTripLayer(layerName, layerInfo, layerState));
+      if (this._drawsHeat(layerName) && layerState.heat) {
+        this._drawHeat(layerName, layerState, beforeId);
+      } else {
+        this._drawPaths(layerName, info, beforeId);
+      }
     });
-
-    layers.push(...this.buildSelectedLayers());
-    overlay.setProps({ layers });
+    this._drawSelection(suppressed, beforeId);
+    if (this._layersAdded) {
+      this._orderLayers(beforeId);
+    }
     performance.mark?.("trip-map:rendered");
   },
 
-  renderNativeLayers() {
-    if (!this.canRenderNativeLayers()) {
+  /** Bottom to top: heat, recorded paths, matched paths, the selection, hitboxes. */
+  _orderLayers(beforeId) {
+    const { map } = store;
+    if (typeof map.moveLayer !== "function") {
       return;
     }
-
-    this._nativeRendered = true;
-    ["trips", "matchedTrips"].forEach((layerName) => {
-      const layerInfo = store.mapLayers[layerName];
-      const layerState = this.layers.get(layerName);
-      if (!layerInfo?.visible || !layerState?.decoded?.length) {
-        this._removeNativeTripLayer(layerName);
-        return;
-      }
-      this._renderNativeTripLayer(layerName, layerInfo, layerState);
-    });
-    this._renderNativeSelectedLayer();
+    const trips = layerIds("trips");
+    const matched = layerIds("matchedTrips");
+    const drawn = [
+      trips.heatGlow,
+      trips.heat,
+      trips.paths,
+      matched.paths,
+      SELECTED_CASING_ID,
+      SELECTED_LAYER_ID,
+    ];
+    const target = beforeId && map.getLayer(beforeId) ? beforeId : undefined;
+    drawn.filter((id) => map.getLayer(id)).forEach((id) => map.moveLayer(id, target));
+    [trips.hitbox, matched.hitbox]
+      .filter((id) => map.getLayer(id))
+      .forEach((id) => map.moveLayer(id));
   },
 
-  _nativeLayerIds(layerName) {
-    return NATIVE_LAYER_SUFFIXES.map((suffix) => `${layerName}${suffix}`);
-  },
-
-  _safeMapCall(callback) {
-    try {
-      callback();
-    } catch (error) {
-      console.warn("Trip native map layer operation failed:", error);
+  _setVisibility(layerId, visible) {
+    if (store.map.getLayer(layerId)) {
+      store.map.setLayoutProperty(layerId, "visibility", visible ? "visible" : "none");
     }
   },
 
-  _removeNativeHandlers(layerName) {
-    const record = this._nativeHandlers.get(layerName);
-    if (!record || !store.map?.off) {
-      this._nativeHandlers.delete(layerName);
-      return;
-    }
-    Object.entries(record.handlers || {}).forEach(([eventName, handler]) => {
-      this._safeMapCall(() => store.map.off(eventName, record.layerId, handler));
-    });
-    this._nativeHandlers.delete(layerName);
-  },
-
-  _removeNativeTripLayer(layerName) {
-    if (!store.map) {
-      return;
-    }
-    this._removeNativeHandlers(layerName);
-    this._nativeLayerIds(layerName).forEach((layerId) => {
-      if (store.map.getLayer?.(layerId)) {
-        this._safeMapCall(() => store.map.removeLayer(layerId));
-      }
-    });
-    const sourceId = `${layerName}-source`;
-    if (store.map.getSource?.(sourceId)) {
-      this._safeMapCall(() => store.map.removeSource(sourceId));
-    }
-    this._nativeSourceData.delete(sourceId);
-  },
-
-  _clearNativeSelectedLayer() {
-    if (!store.map) {
-      return;
-    }
-    if (store.map.getLayer?.(this.selectedLayerId)) {
-      this._safeMapCall(() => store.map.removeLayer(this.selectedLayerId));
-    }
-    if (store.map.getSource?.(SELECTED_NATIVE_SOURCE_ID)) {
-      this._safeMapCall(() => store.map.removeSource(SELECTED_NATIVE_SOURCE_ID));
-    }
-    this._nativeSourceData.delete(SELECTED_NATIVE_SOURCE_ID);
-  },
-
-  _clearNativeLayers() {
-    ["trips", "matchedTrips"].forEach((layerName) =>
-      this._removeNativeTripLayer(layerName)
+  _hideTripLayer(layerName) {
+    const ids = layerIds(layerName);
+    [ids.paths, ids.heat, ids.heatGlow, ids.hitbox].forEach((layerId) =>
+      this._setVisibility(layerId, false)
     );
-    this._clearNativeSelectedLayer();
-    this._nativeRendered = false;
+    if (layerName === "trips") {
+      this._hideHeatTip();
+    }
   },
 
-  _ensureNativeSource(sourceId, data, options = {}) {
+  _ensureSource(sourceId, data) {
     const source = store.map.getSource(sourceId);
     if (source) {
-      const cached = this._nativeSourceData.get(sourceId);
+      const cached = this._sourceData.get(sourceId);
       if (cached?.map !== store.map || cached.data !== data) {
         source.setData(data);
-        this._nativeSourceData.set(sourceId, { map: store.map, data });
+        this._sourceData.set(sourceId, { map: store.map, data });
       }
-      return source;
+      return;
     }
     store.map.addSource(sourceId, {
       type: "geojson",
@@ -715,186 +513,234 @@ const tripMapRenderer = {
       tolerance: 0.375,
       buffer: 64,
       maxzoom: 18,
-      ...options,
     });
-    this._nativeSourceData.set(sourceId, { map: store.map, data });
-    return store.map.getSource(sourceId);
+    this._sourceData.set(sourceId, { map: store.map, data });
   },
 
-  _removeNativeLayer(layerId) {
-    if (store.map?.getLayer?.(layerId)) {
-      this._safeMapCall(() => store.map.removeLayer(layerId));
+  /**
+   * Add a line layer or bring an existing one up to date. A layer bound to
+   * another source (the hitbox follows the drawing mode) is rebuilt.
+   */
+  _ensureLayer({ id, source, paint, layout = {}, filter = null }, beforeId) {
+    const { map } = store;
+    const existing = map.getLayer(id);
+    if (existing && existing.source !== source) {
+      this._removeHandlers(id);
+      map.removeLayer(id);
     }
-  },
-
-  _setNativeLayerVisibility(layerId, visible) {
-    if (store.map?.getLayer?.(layerId)) {
-      store.map.setLayoutProperty(layerId, "visibility", visible ? "visible" : "none");
-    }
-  },
-
-  _renderNativeTripLayer(layerName, layerInfo) {
-    const sourceId = `${layerName}-source`;
-    const featureCollection = this.getFeatureCollection(layerName);
-    const beforeId = this.getBeforeLayerId();
-
-    this._ensureNativeSource(sourceId, featureCollection, {
-      lineMetrics: true,
-      promoteId: "transactionId",
-    });
-
-    if (layerInfo.isHeatmap) {
-      this._renderNativeHeatmapLayers(layerName, layerInfo, sourceId, beforeId);
-    } else {
-      this._renderNativeLineLayer(layerName, layerInfo, sourceId, beforeId);
-    }
-    this._renderNativeHitboxLayer(layerName, layerInfo, sourceId);
-  },
-
-  _renderNativeLineLayer(layerName, layerInfo, sourceId, beforeId) {
-    const layerId = `${layerName}-layer`;
-    [0, 1, 2].forEach((index) =>
-      this._removeNativeLayer(`${layerName}-layer-${index}`)
-    );
-
-    const paint = {
-      "line-color": tripLayerColor(layerInfo),
-      "line-opacity": layerInfo.opacity ?? 1,
-      "line-width": toMapboxLineWidth(layerInfo.weight || 2),
-    };
-
-    if (!store.map.getLayer(layerId)) {
-      store.map.addLayer(
+    if (!map.getLayer(id)) {
+      map.addLayer(
         {
-          id: layerId,
+          id,
           type: "line",
-          source: sourceId,
-          minzoom: layerInfo.minzoom || 0,
-          maxzoom: layerInfo.maxzoom || 22,
-          layout: {
-            visibility: layerInfo.visible ? "visible" : "none",
-            "line-join": "round",
-            "line-cap": "round",
-          },
+          source,
+          layout: { "line-join": "round", "line-cap": "round", ...layout },
           paint,
+          ...(filter ? { filter } : {}),
         },
         beforeId
+      );
+      this._layersAdded = true;
+      return true;
+    }
+    Object.entries(paint).forEach(([property, value]) =>
+      map.setPaintProperty(id, property, value)
+    );
+    Object.entries(layout).forEach(([property, value]) =>
+      map.setLayoutProperty(id, property, value)
+    );
+    if (filter) {
+      map.setFilter?.(id, filter);
+    }
+    map.setLayoutProperty(id, "visibility", "visible");
+    return false;
+  },
+
+  heatInks() {
+    return HEAT_TOKENS.map((token) => readMapColor(token));
+  },
+
+  _heatColor() {
+    const inks = this.heatInks();
+    return ["interpolate", ["linear"], ["get", "h"], ...HEAT_STOPS.flatMap((stop, index) => [stop, inks[index]])];
+  },
+
+  _isDarkEdition() {
+    return globalThis.document?.documentElement?.getAttribute("data-bs-theme") !== "light";
+  },
+
+  _drawHeat(layerName, layerState, beforeId) {
+    const ids = layerIds(layerName);
+    this._setVisibility(ids.paths, false);
+    this._ensureSource(ids.heatSource, this.getHeatCollection(layerName));
+
+    const color = this._heatColor();
+    const sortKey = ["get", "h"];
+    if (this._isDarkEdition()) {
+      // Only the busiest roads glow, and only on the night edition: on
+      // paper a glow reads as a smudge.
+      this._ensureLayer(
+        {
+          id: ids.heatGlow,
+          source: ids.heatSource,
+          filter: [">=", ["get", "h"], 0.5],
+          layout: { "line-sort-key": sortKey },
+          paint: {
+            "line-color": color,
+            "line-width": heatWidth(HEAT_GLOW_WIDTH),
+            "line-blur": heatWidth(
+              HEAT_GLOW_WIDTH.map(([zoom, thin, thick]) => [zoom, thin * 0.6, thick * 0.6])
+            ),
+            "line-opacity": ["interpolate", ["linear"], ["get", "h"], 0.5, 0, 1, 0.34],
+          },
+        },
+        beforeId
+      );
+    } else {
+      this._setVisibility(ids.heatGlow, false);
+    }
+    this._ensureLayer(
+      {
+        id: ids.heat,
+        source: ids.heatSource,
+        layout: { "line-sort-key": sortKey },
+        paint: {
+          "line-color": color,
+          "line-width": heatWidth(HEAT_LINE_WIDTH),
+          // Roads driven once or twice recede; the regulars print solid.
+          "line-opacity": ["interpolate", ["linear"], ["get", "h"], 0, 0.62, 0.3, 0.86, 0.6, 0.97, 1, 1],
+        },
+      },
+      beforeId
+    );
+    this._drawHitbox(layerName, ids.heatSource, sortKey);
+  },
+
+  _drawPaths(layerName, info, beforeId) {
+    const ids = layerIds(layerName);
+    [ids.heat, ids.heatGlow].forEach((layerId) => this._setVisibility(layerId, false));
+    this._ensureSource(ids.source, this.getFeatureCollection(layerName));
+    const matched = layerName === "matchedTrips";
+    const ink =
+      MapStyles.layerColor(info) || MapStyles.layerColor(CONFIG.LAYER_DEFAULTS.trips);
+    const opacity = info.opacity ?? 1;
+    this._ensureLayer(
+      {
+        id: ids.paths,
+        source: ids.source,
+        layout: { "line-sort-key": ["get", "r"] },
+        paint: {
+          "line-color": ink,
+          "line-width": byZoom(matched ? MATCHED_WIDTH : PATH_WIDTH),
+          // Newer trips print over older ones, and older ones fade back.
+          "line-opacity": matched
+            ? 0.9 * opacity
+            : ["interpolate", ["linear"], ["get", "r"], 0, 0.3 * opacity, 1, 0.9 * opacity],
+        },
+      },
+      beforeId
+    );
+    this._drawHitbox(layerName, ids.source, ["get", "r"]);
+  },
+
+  /** An invisible, wide line to click; the top feature matches the drawing. */
+  _drawHitbox(layerName, source, sortKey) {
+    const { hitbox } = layerIds(layerName);
+    const created = this._ensureLayer({
+      id: hitbox,
+      source,
+      layout: { "line-sort-key": sortKey },
+      paint: {
+        "line-color": readMapColor("--basemap-paper") || "rgba(0, 0, 0, 0)",
+        "line-opacity": 0.01,
+        "line-width": byZoom(HITBOX_WIDTH),
+      },
+    });
+    if (created || !this._handlers.has(hitbox)) {
+      this._bindTripInteractions(layerName, hitbox);
+    }
+  },
+
+  _drawSelection(suppressed, beforeId) {
+    const selectedId = store.selectedTripId ? String(store.selectedTripId) : null;
+    const selectedLayer = store.selectedTripLayer;
+    const feature =
+      !suppressed &&
+      selectedId &&
+      isTripLayer(selectedLayer) &&
+      store.mapLayers[selectedLayer]?.visible
+        ? this.getTripFeature(selectedLayer, selectedId, { lightweight: false })
+        : null;
+    if (!feature) {
+      [SELECTED_CASING_ID, SELECTED_LAYER_ID].forEach((layerId) =>
+        this._setVisibility(layerId, false)
       );
       return;
     }
 
-    Object.entries(paint).forEach(([property, value]) => {
-      store.map.setPaintProperty(layerId, property, value);
-    });
-    this._setNativeLayerVisibility(layerId, layerInfo.visible);
-  },
-
-  _renderNativeHeatmapLayers(layerName, layerInfo, sourceId, beforeId) {
-    this._removeNativeLayer(`${layerName}-layer`);
-
-    const glowLayers = heatmapUtils.generateTripHeatLayers(
-      tripCountForLayer(this.layers.get(layerName)),
-      layerInfo.opacity ?? 1,
-      this._currentTheme(),
-      this.getHeatmapPalette(layerName)
-    );
-
-    glowLayers.forEach((glowConfig, index) => {
-      const layerId = `${layerName}-layer-${index}`;
-      if (!store.map.getLayer(layerId)) {
-        store.map.addLayer(
-          {
-            id: layerId,
-            type: "line",
-            source: sourceId,
-            minzoom: layerInfo.minzoom || 0,
-            maxzoom: layerInfo.maxzoom || 22,
-            layout: {
-              visibility: layerInfo.visible ? "visible" : "none",
-              // Matches the deck.gl tiers: rounded joints and caps double up
-              // the alpha wherever a translucent trace bends or ends.
-              "line-join": "miter",
-              "line-cap": "butt",
-            },
-            paint: glowConfig.paint,
-          },
-          beforeId
-        );
-        return;
-      }
-
-      Object.entries(glowConfig.paint).forEach(([property, value]) => {
-        store.map.setPaintProperty(layerId, property, value);
-      });
-      this._setNativeLayerVisibility(layerId, layerInfo.visible);
-    });
-  },
-
-  _getNativeTripHitboxWidth() {
-    return [
-      "interpolate",
-      ["linear"],
-      ["zoom"],
-      6,
-      8,
-      10,
-      12,
-      14,
-      16,
-      18,
-      20,
-      22,
-      24,
-    ];
-  },
-
-  _renderNativeHitboxLayer(layerName, layerInfo, sourceId) {
-    const hitboxLayerId = `${layerName}-hitbox`;
-    const paint = {
-      "line-color": "#000000",
-      "line-opacity": 0.02,
-      "line-width": this._getNativeTripHitboxWidth(),
-    };
-
-    if (!store.map.getLayer(hitboxLayerId)) {
-      store.map.addLayer({
-        id: hitboxLayerId,
-        type: "line",
-        source: sourceId,
-        minzoom: layerInfo.minzoom || 0,
-        maxzoom: layerInfo.maxzoom || 22,
-        layout: {
-          visibility: layerInfo.visible ? "visible" : "none",
-          "line-join": "round",
-          "line-cap": "round",
+    this._ensureSource(SELECTED_SOURCE_ID, { type: "FeatureCollection", features: [feature] });
+    const width = byZoom(SELECTED_WIDTH);
+    // Over the warm heat scale the chosen trip prints in the cool trip ink;
+    // over blue paths it prints in the page ink.
+    const ink = this._drawsHeat(selectedLayer)
+      ? readMapColor("--map-trip-path")
+      : MapStyles.MAP_LAYER_COLORS?.trips?.selected;
+    // A paper-coloured casing lifts the chosen trip off every road beneath it.
+    this._ensureLayer(
+      {
+        id: SELECTED_CASING_ID,
+        source: SELECTED_SOURCE_ID,
+        paint: {
+          "line-color": readMapColor("--basemap-paper"),
+          "line-width": byZoom(SELECTED_WIDTH.map(([zoom, value]) => [zoom, value + 3])),
+          "line-opacity": 0.9,
         },
-        paint,
-      });
-    } else {
-      Object.entries(paint).forEach(([property, value]) => {
-        store.map.setPaintProperty(hitboxLayerId, property, value);
-      });
-      this._setNativeLayerVisibility(hitboxLayerId, layerInfo.visible);
-    }
-
-    this._bindNativeTripInteractions(layerName, hitboxLayerId);
+      },
+      beforeId
+    );
+    this._ensureLayer(
+      {
+        id: SELECTED_LAYER_ID,
+        source: SELECTED_SOURCE_ID,
+        paint: {
+          "line-color": ink,
+          "line-width": width,
+          "line-opacity": 1,
+        },
+      },
+      beforeId
+    );
   },
 
-  _bindNativeTripInteractions(layerName, hitboxLayerId) {
+  _removeHandlers(layerId) {
+    const record = this._handlers.get(layerId);
+    this._handlers.delete(layerId);
+    if (!record || !store.map?.off) {
+      return;
+    }
+    Object.entries(record).forEach(([eventName, handler]) => {
+      try {
+        store.map.off(eventName, layerId, handler);
+      } catch {
+        // The map may already have dropped the layer.
+      }
+    });
+  },
+
+  _bindTripInteractions(layerName, hitboxLayerId) {
     if (!store.map?.on) {
       return;
     }
+    this._removeHandlers(hitboxLayerId);
 
-    this._removeNativeHandlers(layerName);
-
-    const clickHandler = (event) => {
+    const click = (event) => {
       if (
         typeof event?.originalEvent?.button === "number" &&
         event.originalEvent.button !== 0
       ) {
         return;
       }
-      if (typeof store.map?.isMoving === "function" && store.map.isMoving()) {
+      if (store.map?.isMoving?.()) {
         return;
       }
       if (layerName === "trips" && store.map.getLayer?.("matchedTrips-hitbox")) {
@@ -905,237 +751,101 @@ const tripMapRenderer = {
           return;
         }
       }
-
-      const feature = event?.features?.[0];
+      const tripId = event?.features?.[0]?.properties?.transactionId;
+      const feature = tripId
+        ? this.getTripFeature(layerName, tripId, { lightweight: false })
+        : null;
       if (!feature) {
         return;
       }
       event.originalEvent?.stopPropagation?.();
-      tripInteractions.handleTripClick(event, feature, layerName);
+      store._lastTripMapPickTs = Date.now();
+      tripInteractions.handleTripClick(event, feature, layerName, { closeOnClick: false });
     };
 
-    const mouseEnterHandler = () => {
+    const enter = () => {
       const canvas = store.map?.getCanvas?.();
       if (canvas?.style) {
         canvas.style.cursor = "pointer";
       }
     };
 
-    const mouseLeaveHandler = () => {
+    const move = (event) => {
+      if (!this._drawsHeat(layerName) || store.map?.isMoving?.()) {
+        this._hideHeatTip();
+        return;
+      }
+      const count = event?.features?.[0]?.properties?.n;
+      if (!count) {
+        this._hideHeatTip();
+        return;
+      }
+      this._showHeatTip(event.lngLat, describeRoadTrips(count));
+    };
+
+    const leave = () => {
       const canvas = store.map?.getCanvas?.();
       if (canvas?.style) {
         canvas.style.cursor = "";
       }
+      this._hideHeatTip();
     };
 
-    store.map.on("click", hitboxLayerId, clickHandler);
-    store.map.on("mouseenter", hitboxLayerId, mouseEnterHandler);
-    store.map.on("mouseleave", hitboxLayerId, mouseLeaveHandler);
-
-    this._nativeHandlers.set(layerName, {
-      layerId: hitboxLayerId,
-      handlers: {
-        click: clickHandler,
-        mouseenter: mouseEnterHandler,
-        mouseleave: mouseLeaveHandler,
-      },
+    store.map.on("click", hitboxLayerId, click);
+    store.map.on("mouseenter", hitboxLayerId, enter);
+    store.map.on("mousemove", hitboxLayerId, move);
+    store.map.on("mouseleave", hitboxLayerId, leave);
+    this._handlers.set(hitboxLayerId, {
+      click,
+      mouseenter: enter,
+      mousemove: move,
+      mouseleave: leave,
     });
   },
 
-  _renderNativeSelectedLayer() {
-    const selectedId = store.selectedTripId ? String(store.selectedTripId) : null;
-    const selectedLayer = store.selectedTripLayer;
-    if (!selectedId || !isTripLayer(selectedLayer)) {
-      this._clearNativeSelectedLayer();
+  _showHeatTip(lngLat, text) {
+    const Popup = globalThis.mapboxgl?.Popup;
+    if (!Popup || !lngLat) {
       return;
     }
-
-    const feature = this.getTripFeature(selectedLayer, selectedId, {
-      lightweight: false,
+    this._heatTip ||= new Popup({
+      closeButton: false,
+      closeOnClick: false,
+      className: "trip-heat-tip",
+      offset: 12,
+      anchor: "bottom",
     });
-    if (!feature) {
-      this._clearNativeSelectedLayer();
-      return;
+    this._heatTip.setLngLat(lngLat).setText(text);
+    if (!this._heatTip.isOpen?.()) {
+      this._heatTip.addTo(store.map);
     }
+  },
 
-    const featureCollection = { type: "FeatureCollection", features: [feature] };
-    this._ensureNativeSource(SELECTED_NATIVE_SOURCE_ID, featureCollection, {
-      promoteId: "transactionId",
-    });
+  _hideHeatTip() {
+    this._heatTip?.remove();
+  },
 
-    const highlightColor =
-      (selectedLayer === "matchedTrips"
-        ? MapStyles.MAP_LAYER_COLORS?.matchedTrips?.highlight
-        : MapStyles.MAP_LAYER_COLORS?.trips?.selected);
-
-    const paint = {
-      "line-color": highlightColor,
-      "line-opacity": 0.95,
-      "line-width": toMapboxLineWidth(5),
+  /**
+   * What the heat colours mean for the legend: the five inks and the trip
+   * counts at each end and the middle of the (logarithmic) scale.
+   */
+  getHeatLegend(layerName = "trips") {
+    const reference = this.layers.get(layerName)?.heat?.reference;
+    if (!reference) {
+      return { inks: this.heatInks(), ticks: [] };
+    }
+    const middle = Math.max(2, Math.round(Math.sqrt(reference)));
+    const ticks = [1, middle, reference].filter(
+      (value, index, list) => list.indexOf(value) === index
+    );
+    return {
+      inks: this.heatInks(),
+      ticks: ticks.map((value, index) =>
+        index === ticks.length - 1 && ticks.length > 1
+          ? `${value.toLocaleString()}+`
+          : value.toLocaleString()
+      ),
     };
-
-    if (!store.map.getLayer(this.selectedLayerId)) {
-      store.map.addLayer(
-        {
-          id: this.selectedLayerId,
-          type: "line",
-          source: SELECTED_NATIVE_SOURCE_ID,
-          layout: {
-            visibility: "visible",
-            "line-join": "round",
-            "line-cap": "round",
-          },
-          paint,
-        },
-        this.getBeforeLayerId()
-      );
-      return;
-    }
-
-    Object.entries(paint).forEach(([property, value]) => {
-      store.map.setPaintProperty(this.selectedLayerId, property, value);
-    });
-    this._setNativeLayerVisibility(this.selectedLayerId, true);
-  },
-
-  buildLayersForTripLayer(layerName, layerInfo, layerState) {
-    const { decoded } = layerState;
-    const draped =
-      this.terrainActive && layerState.drapedPositions?.length
-        ? layerState.drapedPositions
-        : null;
-    const positions = draped || decoded.positions;
-    const positionSize = draped ? 3 : 2;
-    const cache = layerState.deckDataCache;
-    const data =
-      cache?.positions === positions &&
-      cache?.startIndices === decoded.startIndices &&
-      cache?.length === decoded.length &&
-      cache?.positionSize === positionSize
-        ? cache.data
-        : {
-            length: decoded.length,
-            startIndices: decoded.startIndices,
-            attributes: {
-              getPath: { value: positions, size: positionSize },
-            },
-          };
-    if (data !== cache?.data) {
-      layerState.deckDataCache = {
-        positions,
-        startIndices: decoded.startIndices,
-        length: decoded.length,
-        positionSize,
-        data,
-      };
-    }
-    const beforeId = this.getBeforeLayerId();
-    const common = {
-      data,
-      _pathType: "open",
-      widthUnits: "pixels",
-      jointRounded: true,
-      capRounded: true,
-      parameters: { depthTest: false },
-      beforeId,
-    };
-
-    if (layerInfo.isHeatmap) {
-      this._heatZoom = this._currentZoom();
-      const tiers = heatmapUtils.tripHeatTiersAtZoom(
-        tripCountForLayer(layerState),
-        layerInfo.opacity ?? 1,
-        this._currentTheme(),
-        this.getHeatmapPalette(layerName),
-        this._heatZoom
-      );
-
-      // Rounded joints emit a wedge at every vertex that overlaps the
-      // neighbouring segment quads. On a translucent line each overlap
-      // composites twice, so a dense GPS trace turns into a string of beads
-      // that tracks how slowly the car was moving. Mitred joints abut instead.
-      return tiers.map((tier, index) => {
-        const pickable = index === 0;
-        return new deck.PathLayer({
-          ...common,
-          id: `${layerName}-trip-map-${tier.name}`,
-          jointRounded: false,
-          capRounded: false,
-          miterLimit: 2,
-          pickable,
-          getColor: colorWithAlpha(tier.color, Math.round(tier.opacity * 255)),
-          getWidth: tier.width,
-          widthMinPixels: heatmapUtils.MIN_LINE_WIDTH,
-          onClick: pickable ? (info) => this.handleTripClick(info, layerName) : null,
-        });
-      });
-    }
-
-    return [
-      new deck.PathLayer({
-        ...common,
-        id: `${layerName}-trip-map-line`,
-        pickable: true,
-        getColor: colorWithAlpha(tripLayerColor(layerInfo), 230),
-        getWidth: layerInfo.weight || 2,
-        opacity: layerInfo.opacity ?? 1,
-        onClick: (info) => this.handleTripClick(info, layerName),
-      }),
-    ];
-  },
-
-  buildSelectedLayers() {
-    const selectedId = store.selectedTripId ? String(store.selectedTripId) : null;
-    const selectedLayer = store.selectedTripLayer;
-    if (!selectedId || !isTripLayer(selectedLayer)) {
-      return [];
-    }
-    const paths = this.getTripPaths(selectedLayer, selectedId);
-    if (!paths.length) {
-      return [];
-    }
-
-    const data = this.terrainActive
-      ? paths.map((path) => this._drapePath(path))
-      : paths;
-
-    const highlightColor =
-      (selectedLayer === "matchedTrips"
-        ? MapStyles.MAP_LAYER_COLORS?.matchedTrips?.highlight
-        : MapStyles.MAP_LAYER_COLORS?.trips?.selected);
-
-    return [
-      new deck.PathLayer({
-        id: this.selectedLayerId,
-        data,
-        pickable: false,
-        getPath: (path) => path,
-        getColor: colorWithAlpha(highlightColor, 245),
-        getWidth: 5,
-        widthUnits: "pixels",
-        widthMinPixels: 3,
-        widthMaxPixels: 12,
-        jointRounded: true,
-        capRounded: true,
-        parameters: { depthTest: false },
-        beforeId: this.getBeforeLayerId(),
-      }),
-    ];
-  },
-
-  getHeatmapPalette(layerName) {
-    if (layerName === "matchedTrips") {
-      const colors = MapStyles.MAP_LAYER_COLORS?.matchedTrips || {};
-      // Its own three-stop ramp in the matched hue. The layer's `highlight`
-      // is the selection colour, not a hot core — using it here left every
-      // tier the same red with a cool cast on top and no sense of frequency.
-      return {
-        halo: "#6d2029",
-        glow: colors.default,
-        core: "#ffdcd2",
-      };
-    }
-    return heatmapUtils.COLORS[this._currentTheme()] || heatmapUtils.COLORS.dark;
   },
 
   getBeforeLayerId() {
@@ -1149,51 +859,17 @@ const tripMapRenderer = {
     }
   },
 
-  handleTripClick(info, layerName) {
-    if (!info || typeof info.index !== "number") {
-      return false;
-    }
-    info.srcEvent?.stopPropagation?.();
-    info.srcEvent?.preventDefault?.();
-
-    const layerState = this.layers.get(layerName);
-    const tripIndex = layerState?.decoded?.tripIndices?.[info.index];
-    const trip = layerState?.bundle?.trips?.[tripIndex];
-    if (!trip) {
-      return false;
-    }
-
-    const tripId = normalizeTripId(trip);
-    store._lastTripMapPickTs = Date.now();
-    store.selectedTripId = tripId;
-    store.selectedTripLayer = layerName;
-    this.refreshSelection();
-
-    const feature = this.getTripFeature(layerName, tripId, { lightweight: false });
-    tripInteractions.handleTripClick(
-      { lngLat: info.coordinate || [0, 0], originalEvent: info.srcEvent },
-      feature,
-      layerName,
-      { closeOnClick: false }
-    );
-    return true;
-  },
-
   getBundleBounds(layerName = "trips") {
     const layerState = this.layers.get(layerName);
     const decodedBounds = boundsFromDecoded(layerState?.decoded);
     if (isFiniteBbox(decodedBounds)) {
       return decodedBounds.map(Number);
     }
-
     if (
-      Number(
-        layerState?.bundle?.trip_count || layerState?.bundle?.trips?.length || 0
-      ) <= 0
+      Number(layerState?.bundle?.trip_count || layerState?.bundle?.trips?.length || 0) <= 0
     ) {
       return null;
     }
-
     const bbox = layerState?.bundle?.bbox;
     return isFiniteBbox(bbox) ? bbox.map(Number) : null;
   },
@@ -1203,7 +879,6 @@ const tripMapRenderer = {
     if (isFiniteBbox(pathBounds)) {
       return pathBounds.map(Number);
     }
-
     const trip = this.layers.get(layerName)?.tripById?.get(String(tripId))?.trip;
     return isFiniteBbox(trip?.bbox) ? trip.bbox.map(Number) : null;
   },
@@ -1214,28 +889,20 @@ const tripMapRenderer = {
     if (!match || !layerState.decoded?.length) {
       return [];
     }
-    const paths = [];
     const { positions, startIndices } = layerState.decoded;
     if (!(layerState.pathIndicesByTrip instanceof Map)) {
       layerState.pathIndicesByTrip = indexDecodedPathsByTrip(layerState.decoded);
     }
-    const pathIndices = layerState.pathIndicesByTrip.get(match.index) || [];
-    pathIndices.forEach((pathIndex) => {
-      const start = startIndices[pathIndex];
-      const end = startIndices[pathIndex + 1];
-      const path = [];
-      for (let pointIndex = start; pointIndex < end; pointIndex += 1) {
-        path.push([positions[pointIndex * 2], positions[pointIndex * 2 + 1]]);
-      }
-      if (path.length >= 2) {
-        paths.push(path);
-      }
-    });
-    return paths;
+    return (layerState.pathIndicesByTrip.get(match.index) || [])
+      .map((pathIndex) =>
+        sliceCoordinates(positions, startIndices[pathIndex], startIndices[pathIndex + 1] - 1)
+      )
+      .filter((path) => path.length >= 2);
   },
 
   getTripFeature(layerName, tripId, { lightweight = true } = {}) {
-    const trip = this.layers.get(layerName)?.tripById?.get(String(tripId))?.trip;
+    const layerState = this.layers.get(layerName);
+    const trip = layerState?.tripById?.get(String(tripId))?.trip;
     if (!trip) {
       return null;
     }
@@ -1243,6 +910,7 @@ const tripMapRenderer = {
     if (!lightweight && !paths.length) {
       return null;
     }
+    layerState.recency ||= recencyScale(layerState.bundle?.trips || []);
     const geometry =
       paths.length > 1
         ? { type: "MultiLineString", coordinates: paths }
@@ -1252,7 +920,7 @@ const tripMapRenderer = {
       id: normalizeTripId(trip),
       source: layerName,
       geometry,
-      properties: toTripProperties(trip, layerName),
+      properties: toTripProperties(trip, layerName, layerState.recency(trip)),
     };
   },
 
@@ -1261,22 +929,50 @@ const tripMapRenderer = {
     if (!layerState) {
       return { type: "FeatureCollection", features: [] };
     }
-    if (layerState.featureCollection) {
-      return layerState.featureCollection;
+    if (!layerState.featureCollection) {
+      const features = (layerState.bundle?.trips || [])
+        .map((trip) =>
+          this.getTripFeature(layerName, normalizeTripId(trip), { lightweight: false })
+        )
+        .filter(Boolean);
+      layerState.featureCollection = { type: "FeatureCollection", features };
     }
-    const features = (layerState.bundle?.trips || [])
-      .map((trip) =>
-        this.getTripFeature(layerName, normalizeTripId(trip), {
-          lightweight: false,
-        })
-      )
-      .filter(Boolean);
-    layerState.featureCollection = { type: "FeatureCollection", features };
     return layerState.featureCollection;
   },
 
+  /** One feature per run of similar frequency: `h` is heat 0 to 1, `n` trips. */
+  getHeatCollection(layerName) {
+    const layerState = this.layers.get(layerName);
+    const heat = layerState?.heat;
+    if (!heat) {
+      return { type: "FeatureCollection", features: [] };
+    }
+    if (!layerState.heatCollection) {
+      const { positions, tripIndices } = layerState.decoded;
+      const trips = layerState.bundle?.trips || [];
+      const features = new Array(heat.length);
+      for (let run = 0; run < heat.length; run += 1) {
+        const frequency = heat.frequencies[run];
+        features[run] = {
+          type: "Feature",
+          geometry: {
+            type: "LineString",
+            coordinates: sliceCoordinates(positions, heat.starts[run], heat.ends[run]),
+          },
+          properties: {
+            transactionId: normalizeTripId(trips[tripIndices[heat.paths[run]]]),
+            n: frequency,
+            h: Math.round(heatLevel(frequency, heat.reference) * 1000) / 1000,
+          },
+        };
+      }
+      layerState.heatCollection = { type: "FeatureCollection", features };
+    }
+    return layerState.heatCollection;
+  },
+
   getRenderableFeatures() {
-    return ["trips", "matchedTrips"].flatMap(
+    return TRIP_LAYER_NAMES.flatMap(
       (layerName) => this.getFeatureCollection(layerName).features || []
     );
   },
@@ -1286,7 +982,21 @@ const tripMapRenderer = {
     if (store.mapLayers[layerName]) {
       store.mapLayers[layerName].layer = null;
     }
-    this._removeNativeTripLayer(layerName);
+    const ids = layerIds(layerName);
+    if (store.map) {
+      [ids.hitbox, ids.paths, ids.heat, ids.heatGlow].forEach((layerId) => {
+        this._removeHandlers(layerId);
+        if (store.map.getLayer?.(layerId)) {
+          store.map.removeLayer(layerId);
+        }
+      });
+      [ids.source, ids.heatSource].forEach((sourceId) => {
+        if (store.map.getSource?.(sourceId)) {
+          store.map.removeSource(sourceId);
+        }
+        this._sourceData.delete(sourceId);
+      });
+    }
     this.render();
   },
 };

@@ -4,7 +4,6 @@
  * This module handles:
  * - Layer creation and updates on the map
  * - Layer visibility toggling with fade animations
- * - Heatmap rendering with dynamic opacity
  * - Trip interaction hitbox layers
  *
  * Note: This module does NOT fetch data - it only renders provided data.
@@ -12,14 +11,14 @@
  */
 
 import store from "./core/store.js";
-import heatmapUtils from "./heatmap-utils.js";
 import MapStyles from "./map-styles.js";
 import notificationManager from "./ui/notifications.js";
 import { utils } from "./utils.js";
 
 // Layers that support trip click interactions
 const INTERACTIVE_TRIP_LAYERS = new Set(["trips", "matchedTrips"]);
-const DECK_TRIP_LAYERS = new Set(["trips", "matchedTrips"]);
+// Recorded and matched trips are drawn by trip-map-renderer.js.
+const TRIP_BUNDLE_LAYERS = new Set(["trips", "matchedTrips"]);
 
 // Animation constants
 const FADE_DURATION = 320;
@@ -37,24 +36,10 @@ const layerManager = {
   // Event handler tracking for proper cleanup
   _layerCleanupMap: new Map(),
   _layerUpdateQueue: new Map(),
-  _heatmapEventsBound: false,
-  _heatmapRefreshHandler: null,
   _cachedFirstSymbolLayerId: null,
 
   _notifyLegendChanged() {
     document.dispatchEvent(new CustomEvent(LAYERS_CHANGE_EVENT));
-  },
-
-  _isDeckTripBundleLayer(layerName, layerInfo = store.mapLayers[layerName]) {
-    return (
-      DECK_TRIP_LAYERS.has(layerName) && layerInfo?.layer?.type === "TripMapBundle"
-    );
-  },
-
-  _refreshDeckTripRenderer() {
-    import("./trip-map-renderer.js")
-      .then((module) => module.default.render())
-      .catch(() => {});
   },
 
   getFirstSymbolLayerId() {
@@ -316,39 +301,6 @@ const layerManager = {
   },
 
   // ============================================================
-  // Heatmap Event Management
-  // ============================================================
-
-  /**
-   * Bind heatmap refresh events on map move
-   */
-  bindHeatmapEvents() {
-    if (this._heatmapEventsBound || !store.map) {
-      return;
-    }
-
-    const refreshHeatmaps = utils.debounce(() => {
-      if (!store.map || !store.mapInitialized) {
-        return;
-      }
-
-      Object.entries(store.mapLayers).forEach(([layerName, info]) => {
-        if (
-          info?.isHeatmap &&
-          info.visible &&
-          !this._isDeckTripBundleLayer(layerName, info)
-        ) {
-          this._refreshHeatmapStyle(layerName);
-        }
-      });
-    }, 150);
-
-    this._heatmapRefreshHandler = refreshHeatmaps;
-    store.map.on("moveend", refreshHeatmaps);
-    this._heatmapEventsBound = true;
-  },
-
-  // ============================================================
   // Layer Toggle and Visibility
   // ============================================================
 
@@ -390,17 +342,13 @@ const layerManager = {
         );
       }
 
-      if (DECK_TRIP_LAYERS.has(name) && layerInfo.layer?.type === "TripMapBundle") {
+      if (TRIP_BUNDLE_LAYERS.has(name)) {
         const tripMapRenderer = (await import("./trip-map-renderer.js")).default;
         tripMapRenderer.setLayerVisibility(name, visible);
         return;
       }
 
-      if (layerInfo.isHeatmap) {
-        await this._toggleHeatmapLayer(name, layerInfo, visible);
-      } else {
-        await this._toggleStandardLayer(name, layerInfo, visible);
-      }
+      await this._toggleStandardLayer(name, layerInfo, visible);
     } finally {
       if (loadingEl) {
         loadingEl.classList.add("d-none");
@@ -411,51 +359,7 @@ const layerManager = {
   },
 
   /**
-   * Toggle heatmap layer visibility
-   * @private
-   */
-  async _toggleHeatmapLayer(name, layerInfo, visible) {
-    if (this._isDeckTripBundleLayer(name, layerInfo)) {
-      this._refreshDeckTripRenderer();
-      return;
-    }
-
-    const firstGlowLayer = `${name}-layer-0`;
-
-    if (store.map?.getLayer(firstGlowLayer)) {
-      this._updateHeatmapLayersVisibility(name, layerInfo, visible);
-      if (visible) {
-        this._scheduleHeatmapRefresh(name);
-      }
-    } else if (visible && layerInfo.layer) {
-      await this.updateMapLayer(name, layerInfo.layer);
-    }
-
-    this._updateHitboxVisibility(name, visible);
-  },
-
-  /**
-   * Update heatmap layer visibility with opacity animation
-   * @private
-   */
-  _updateHeatmapLayersVisibility(name, layerInfo, visible) {
-    const tripCount = layerInfo.layer?.features?.length || 0;
-    const visibleTripCount = this._getHeatmapTripCountInView(name, tripCount);
-    const opacities = heatmapUtils.getUpdatedOpacities(
-      visibleTripCount,
-      layerInfo.opacity ?? 1
-    );
-
-    for (let i = 0; i < 2; i++) {
-      const glowLayerId = `${name}-layer-${i}`;
-      if (store.map.getLayer(glowLayerId)) {
-        this._fadeLayer(glowLayerId, visible, opacities[i]);
-      }
-    }
-  },
-
-  /**
-   * Toggle standard (non-heatmap) layer visibility
+   * Toggle standard layer visibility
    * @private
    */
   async _toggleStandardLayer(name, layerInfo, visible) {
@@ -537,42 +441,11 @@ const layerManager = {
 
   async setTripLayerRenderMode(useHeatmap) {
     const nextUseHeatmap = useHeatmap !== false;
-    const layerNames = ["trips", "matchedTrips"];
-    const rebuildPromises = [];
-    let modeChanged = false;
-
-    layerNames.forEach((layerName) => {
-      const layerInfo = store.mapLayers[layerName];
-      if (!layerInfo) {
-        return;
-      }
-
-      const layerModeChanged = layerInfo.isHeatmap !== nextUseHeatmap;
-      if (layerModeChanged) {
-        modeChanged = true;
-      }
-      layerInfo.isHeatmap = nextUseHeatmap;
-
-      if (!store.map || !store.mapInitialized || !layerModeChanged) {
-        return;
-      }
-
-      if (layerInfo.layer?.type === "TripMapBundle") {
-        return;
-      }
-
-      const layerId = `${layerName}-layer`;
-      const sourceId = `${layerName}-source`;
-      this._removeExistingLayerAndSource(layerName, layerId, sourceId);
-
-      if (layerInfo.layer) {
-        rebuildPromises.push(this.updateMapLayer(layerName, layerInfo.layer));
-      }
-    });
-
-    if (rebuildPromises.length > 0) {
-      await Promise.allSettled(rebuildPromises);
-    }
+    const modeChanged = ["trips", "matchedTrips"].some(
+      (layerName) =>
+        store.mapLayers[layerName] &&
+        store.mapLayers[layerName].isHeatmap !== nextUseHeatmap
+    );
 
     const tripMapRenderer = (await import("./trip-map-renderer.js")).default;
     tripMapRenderer.setUseHeatmap(nextUseHeatmap);
@@ -580,145 +453,6 @@ const layerManager = {
     if (modeChanged) {
       this._triggerTripStyleRefresh();
     }
-  },
-
-  // ============================================================
-  // Heatmap Utilities
-  // ============================================================
-
-  /**
-   * Get count of unique trips visible in current viewport
-   * @private
-   */
-  _getHeatmapTripCountInView(layerName, defaultCount) {
-    if (!store.map || !store.mapInitialized) {
-      return defaultCount;
-    }
-
-    const layerId = `${layerName}-layer-1`;
-    if (!store.map.getLayer(layerId)) {
-      return defaultCount;
-    }
-
-    const rendered = store.map.queryRenderedFeatures({ layers: [layerId] });
-    if (!rendered?.length) {
-      return 0;
-    }
-
-    const uniqueTrips = new Set();
-    rendered.forEach((feature, index) => {
-      const id =
-        feature.properties?.transactionId ??
-        feature.properties?.id ??
-        feature.id ??
-        `rendered-${index}`;
-      uniqueTrips.add(String(id));
-    });
-
-    return uniqueTrips.size;
-  },
-
-  /**
-   * Refresh heatmap style based on current view
-   * @private
-   */
-  _refreshHeatmapStyle(layerName) {
-    const layerInfo = store.mapLayers[layerName];
-    if (!layerInfo?.isHeatmap || !layerInfo.layer || !store.map) {
-      return;
-    }
-    if (this._isDeckTripBundleLayer(layerName, layerInfo)) {
-      return;
-    }
-
-    const firstGlowLayerId = `${layerName}-layer-0`;
-    const secondGlowLayerId = `${layerName}-layer-1`;
-    const missingGlowLayers =
-      !store.map.getLayer(firstGlowLayerId) || !store.map.getLayer(secondGlowLayerId);
-
-    if (missingGlowLayers) {
-      if (!store.map.isStyleLoaded()) {
-        store.map.once("styledata", () => {
-          this._refreshHeatmapStyle(layerName);
-        });
-        return;
-      }
-
-      if (layerInfo._heatmapRebuildInProgress) {
-        return;
-      }
-
-      layerInfo._heatmapRebuildInProgress = true;
-      const sourceId = `${layerName}-source`;
-      const layerId = `${layerName}-layer`;
-
-      this._updateHeatmapLayer(layerName, layerInfo.layer, sourceId, layerId, layerInfo)
-        .catch((error) => {
-          console.warn(`Failed to rebuild heatmap layer ${layerName}:`, error);
-        })
-        .finally(() => {
-          layerInfo._heatmapRebuildInProgress = false;
-        });
-      return;
-    }
-
-    const theme = document.documentElement.getAttribute("data-bs-theme") || "dark";
-    const totalTripCount = layerInfo.layer?.features?.length || 0;
-    const visibleTripCount = this._getHeatmapTripCountInView(layerName, totalTripCount);
-
-    const { glowLayers } = heatmapUtils.generateHeatmapConfig(layerInfo.layer, {
-      theme,
-      opacity: layerInfo.opacity,
-      visibleTripCount,
-      palette: this._getHeatmapPalette(layerName),
-    });
-
-    glowLayers.forEach((glowConfig, index) => {
-      const glowLayerId = `${layerName}-layer-${index}`;
-      if (!store.map.getLayer(glowLayerId)) {
-        return;
-      }
-
-      store.map.setPaintProperty(
-        glowLayerId,
-        "line-color",
-        glowConfig.paint["line-color"]
-      );
-      store.map.setPaintProperty(
-        glowLayerId,
-        "line-width",
-        glowConfig.paint["line-width"]
-      );
-      store.map.setPaintProperty(
-        glowLayerId,
-        "line-opacity",
-        glowConfig.paint["line-opacity"]
-      );
-
-      if (glowConfig.paint["line-blur"] !== undefined) {
-        store.map.setPaintProperty(
-          glowLayerId,
-          "line-blur",
-          glowConfig.paint["line-blur"]
-        );
-      }
-    });
-  },
-
-  /**
-   * Schedule heatmap refresh on next idle
-   * Fixed: Only use map.once('idle'), not both requestAnimationFrame AND idle
-   * @private
-   */
-  _scheduleHeatmapRefresh(layerName) {
-    if (!store.map) {
-      return;
-    }
-
-    // Use only map idle event to prevent double refresh
-    store.map.once("idle", () => {
-      this._refreshHeatmapStyle(layerName);
-    });
   },
 
   // ============================================================
@@ -768,15 +502,9 @@ const layerManager = {
     try {
       await this._ensureStyleLoaded();
 
-      if (DECK_TRIP_LAYERS.has(layerName) && data?.type === "TripMapBundle") {
-        this._removeExistingLayerAndSource(layerName, layerId, sourceId);
+      if (TRIP_BUNDLE_LAYERS.has(layerName) && data?.type === "TripMapBundle") {
         const tripMapRenderer = (await import("./trip-map-renderer.js")).default;
         await tripMapRenderer.setLayerData(layerName, data.bundle);
-        return;
-      }
-
-      if (layerInfo.isHeatmap) {
-        await this._updateHeatmapLayer(layerName, data, sourceId, layerId, layerInfo);
         return;
       }
 
@@ -1431,180 +1159,6 @@ const layerManager = {
     store.map.addLayer(layerConfig, beforeId);
   },
 
-  _getHeatmapPalette(layerName) {
-    if (layerName !== "matchedTrips") {
-      return null;
-    }
-
-    const { matchedTrips } = MapStyles.MAP_LAYER_COLORS;
-    return { glow: matchedTrips.default, core: matchedTrips.highlight };
-  },
-
-  // ============================================================
-  // Heatmap Layer Management
-  // ============================================================
-
-  /**
-   * Update or create heatmap layer (2 stacked glow layers)
-   * @private
-   */
-  async _updateHeatmapLayer(layerName, data, sourceId, _layerId, layerInfo) {
-    const theme = document.documentElement.getAttribute("data-bs-theme") || "dark";
-    const totalTripCount = data?.features?.length || 0;
-    const visibleTripCount = this._getHeatmapTripCountInView(layerName, totalTripCount);
-
-    const heatmapConfig = heatmapUtils.generateHeatmapConfig(data, {
-      theme,
-      opacity: layerInfo.opacity,
-      visibleTripCount,
-      palette: this._getHeatmapPalette(layerName),
-    });
-
-    const { glowLayers } = heatmapConfig;
-
-    const existingSource = store.map.getSource(sourceId);
-    const firstGlowLayerId = `${layerName}-layer-0`;
-    const existingGlowLayer = store.map.getLayer(firstGlowLayerId);
-
-    // Fast path: update existing source and layer paint properties
-    if (existingSource && existingGlowLayer) {
-      try {
-        existingSource.setData(data);
-
-        glowLayers.forEach((glowConfig, index) => {
-          const glowLayerId = `${layerName}-layer-${index}`;
-          if (store.map.getLayer(glowLayerId)) {
-            store.map.setPaintProperty(
-              glowLayerId,
-              "line-color",
-              glowConfig.paint["line-color"]
-            );
-            store.map.setPaintProperty(
-              glowLayerId,
-              "line-width",
-              glowConfig.paint["line-width"]
-            );
-            store.map.setPaintProperty(
-              glowLayerId,
-              "line-opacity",
-              glowConfig.paint["line-opacity"]
-            );
-
-            if (glowConfig.paint["line-blur"] !== undefined) {
-              store.map.setPaintProperty(
-                glowLayerId,
-                "line-blur",
-                glowConfig.paint["line-blur"]
-              );
-            }
-
-            store.map.setLayoutProperty(
-              glowLayerId,
-              "visibility",
-              layerInfo.visible ? "visible" : "none"
-            );
-          }
-        });
-
-        layerInfo.layer = data;
-        this._scheduleHeatmapRefresh(layerName);
-
-        if (this._shouldEnableTripInteractions(layerName)) {
-          await this._setupTripInteractions(layerName, sourceId, layerInfo);
-        }
-
-        return;
-      } catch (updateError) {
-        console.warn(
-          `Falling back to heatmap layer rebuild for ${layerName}:`,
-          updateError
-        );
-      }
-    }
-
-    // Cleanup existing layer variants before rebuilding heatmap layers.
-    this._removeExistingLayerAndSource(layerName, `${layerName}-layer`, sourceId);
-
-    await new Promise((resolve) => requestAnimationFrame(resolve));
-
-    // Create new source
-    const refreshedSource = store.map.getSource(sourceId);
-    if (refreshedSource) {
-      refreshedSource.setData(data);
-    } else {
-      store.map.addSource(sourceId, {
-        type: "geojson",
-        data,
-        tolerance: 0.375,
-        buffer: 64,
-        maxzoom: 18,
-        lineMetrics: true,
-      });
-    }
-
-    // Create stacked glow layers
-    glowLayers.forEach((glowConfig, index) => {
-      const glowLayerId = `${layerName}-layer-${index}`;
-
-      if (store.map.getLayer(glowLayerId)) {
-        store.map.setPaintProperty(
-          glowLayerId,
-          "line-color",
-          glowConfig.paint["line-color"]
-        );
-        store.map.setPaintProperty(
-          glowLayerId,
-          "line-width",
-          glowConfig.paint["line-width"]
-        );
-        store.map.setPaintProperty(
-          glowLayerId,
-          "line-opacity",
-          glowConfig.paint["line-opacity"]
-        );
-        if (glowConfig.paint["line-blur"] !== undefined) {
-          store.map.setPaintProperty(
-            glowLayerId,
-            "line-blur",
-            glowConfig.paint["line-blur"]
-          );
-        }
-        store.map.setLayoutProperty(
-          glowLayerId,
-          "visibility",
-          layerInfo.visible ? "visible" : "none"
-        );
-        return;
-      }
-
-      // Insert heatmap glow layers below map labels
-      const glowBeforeId = this.getFirstSymbolLayerId();
-      store.map.addLayer(
-        {
-          id: glowLayerId,
-          type: "line",
-          source: sourceId,
-          minzoom: layerInfo.minzoom || 0,
-          maxzoom: layerInfo.maxzoom || 22,
-          layout: {
-            visibility: layerInfo.visible ? "visible" : "none",
-            "line-join": "round",
-            "line-cap": "round",
-          },
-          paint: glowConfig.paint,
-        },
-        glowBeforeId
-      );
-    });
-
-    layerInfo.layer = data;
-    this._scheduleHeatmapRefresh(layerName);
-
-    if (this._shouldEnableTripInteractions(layerName)) {
-      await this._setupTripInteractions(layerName, sourceId, layerInfo);
-    }
-  },
-
   // ============================================================
   // Cleanup
   // ============================================================
@@ -1615,13 +1169,6 @@ const layerManager = {
   cleanup() {
     if (!store.map) {
       return;
-    }
-
-    // Remove heatmap refresh handler
-    if (this._heatmapRefreshHandler) {
-      store.map.off("moveend", this._heatmapRefreshHandler);
-      this._heatmapRefreshHandler = null;
-      this._heatmapEventsBound = false;
     }
 
     // Remove all tracked layer handlers

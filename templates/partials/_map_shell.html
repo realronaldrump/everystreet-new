@@ -109,14 +109,14 @@ Flow
             <button type="button"
                     id="trip-render-paths"
                     class="lens-segment"
-                    title="Show each recorded trip as a blue path"
+                    title="Draw every trip, with older trips fading back"
                     aria-pressed="true">
 Paths
             </button>
             <button type="button"
                     id="trip-render-heat"
                     class="lens-segment"
-                    title="Make roads you drive most glow warmer and brighter"
+                    title="Color each road by how many trips used it"
                     aria-pressed="false">
 Heat
             </button>
@@ -127,7 +127,7 @@ Heat
           </label>
         </div>
         <p class="lens-render-hint">
-Paths trace each trip. Heat shows the roads you repeat; brighter means more often.
+Paths draws every trip; older ones fade. Heat colors each road by how many trips used it. Hover a road to see the count.
         </p>
         <ol id="trip-journal" class="trip-journal" aria-label="Trip journal">
         </ol>

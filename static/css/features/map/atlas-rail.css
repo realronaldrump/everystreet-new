@@ -807,7 +807,61 @@
     var(--legend-color-2, var(--cat-coral)) 52%,
     var(--legend-color-3, var(--surface-1)) 100%
   );
-  box-shadow: var(--legend-color-2) 34%, transparent);
+}
+
+/* A colour scale with its values beneath: trip heat, or trip age. */
+.atlas-legend-item--scale {
+  display: grid;
+  grid-template-columns: auto minmax(120px, 184px);
+  align-items: center;
+  column-gap: var(--space-3);
+  row-gap: var(--space-1);
+}
+
+.atlas-legend-ramp {
+  grid-column: 2;
+  height: 6px;
+  border-radius: 1px;
+}
+
+.atlas-legend-ramp--heat {
+  background: linear-gradient(
+    90deg,
+    var(--map-heat-0),
+    var(--map-heat-1) 25%,
+    var(--map-heat-2) 50%,
+    var(--map-heat-3) 75%,
+    var(--map-heat-4)
+  );
+}
+
+[data-bs-theme="dark"] .atlas-legend-ramp--heat {
+  box-shadow: 0 0 6px rgb(var(--manual-rust-rgb) / 35%);
+}
+
+.atlas-legend-ramp--fade {
+  background: linear-gradient(
+    90deg,
+    rgb(var(--map-trip-path-rgb) / 30%),
+    rgb(var(--map-trip-path-rgb) / 90%)
+  );
+}
+
+.atlas-legend-ticks {
+  grid-column: 2;
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-numeric);
+  font-weight: var(--font-weight-normal);
+  letter-spacing: var(--tracking-normal);
+  text-transform: none;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+}
+
+.atlas-legend-item--scale .atlas-legend-label {
+  grid-row: 1;
+  white-space: nowrap;
 }
 
 /* ---- Mobile: rail becomes the bottom sheet ----------------------- */

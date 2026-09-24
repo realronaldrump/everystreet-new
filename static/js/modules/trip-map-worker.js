@@ -1,3 +1,5 @@
+import { heatRuns } from "./trip-heat.js";
+
 const POLYLINE6_SCALE = 1_000_000;
 
 function decodePolyline6(encoded) {
@@ -91,23 +93,45 @@ export function decodeBundle(trips = []) {
   };
 }
 
+/**
+ * Heat runs as typed arrays so they transfer without copying: for run `i`,
+ * points `starts[i]..ends[i]` of path `paths[i]`, `frequencies[i]` trips.
+ */
+export function packHeat(decoded) {
+  const { runs, reference } = heatRuns(decoded);
+  const paths = new Uint32Array(runs.length);
+  const starts = new Uint32Array(runs.length);
+  const ends = new Uint32Array(runs.length);
+  const frequencies = new Uint32Array(runs.length);
+  runs.forEach((run, index) => {
+    paths[index] = run.path;
+    starts[index] = run.start;
+    ends[index] = run.end;
+    frequencies[index] = run.frequency;
+  });
+  return { length: runs.length, paths, starts, ends, frequencies, reference };
+}
+
 if (typeof self !== "undefined" && typeof self.postMessage === "function") {
   self.onmessage = (event) => {
-    const { id, trips } = event.data || {};
+    const { id, trips, heat: wantsHeat } = event.data || {};
     try {
       const decoded = decodeBundle(Array.isArray(trips) ? trips : []);
-      self.postMessage(
-        {
-          id,
-          ok: true,
-          decoded,
-        },
-        [
-          decoded.positions.buffer,
-          decoded.startIndices.buffer,
-          decoded.tripIndices.buffer,
-        ]
-      );
+      const heat = wantsHeat ? packHeat(decoded) : null;
+      const transfer = [
+        decoded.positions.buffer,
+        decoded.startIndices.buffer,
+        decoded.tripIndices.buffer,
+      ];
+      if (heat) {
+        transfer.push(
+          heat.paths.buffer,
+          heat.starts.buffer,
+          heat.ends.buffer,
+          heat.frequencies.buffer
+        );
+      }
+      self.postMessage({ id, ok: true, decoded, heat }, transfer);
     } catch (error) {
       self.postMessage({
         id,

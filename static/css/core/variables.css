@@ -91,6 +91,14 @@
   --map-place: var(--map-driven);
   --map-place-outline: #6e93ad;
 
+  /* Trip heat: how many trips used a road, from once (ember) to the most
+     travelled roads (white-hot). Steps are logarithmic; see trip-heat.js. */
+  --map-heat-0: #7a3024;
+  --map-heat-1: #b2412a;
+  --map-heat-2: #e06a2c;
+  --map-heat-3: #f5a746;
+  --map-heat-4: #fff0c8;
+
   /* Basemap inks (maps/manual-basemap.js recolours the Mapbox light and
      dark styles with these): dark stock, dim roads, and a dull mustard
      for highways, like a road atlas printed for night reading. */
@@ -409,6 +417,14 @@ html.light-mode body {
   --map-undriveable: #8f8676;
   --map-route: #a88430;
   --map-place-outline: #2f5068;
+
+  /* On paper the busiest roads print deepest, so heat runs from a pale
+     terracotta to a dark garnet instead of towards white. */
+  --map-heat-0: #d9a27c;
+  --map-heat-1: #d0703f;
+  --map-heat-2: #bf3f2a;
+  --map-heat-3: #95192c;
+  --map-heat-4: #5a0d26;
   --basemap-paper: #efe6d1;
   --basemap-land: #ebe1ca;
   --basemap-green: #e2dbbf;

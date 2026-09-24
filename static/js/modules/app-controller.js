@@ -10,10 +10,9 @@
  *
  * Initialization Flow:
  * 1. mapManager.initialize() → creates map via mapCore
- * 2. layerManager.bindHeatmapEvents() → sets up heatmap refresh
- * 3. Wire up callbacks for cross-module communication
- * 4. Fetch initial data
- * 5. Set up UI event listeners
+ * 2. Wire up callbacks for cross-module communication
+ * 3. Fetch initial data
+ * 4. Set up UI event listeners
  */
 
 import { CONFIG } from "./core/config.js";
@@ -356,9 +355,6 @@ const AppController = {
         }
 
         await this._applyTripLayerRenderModePreference();
-
-        // Set up layer manager
-        layerManager.bindHeatmapEvents();
 
         // Wire up callback for trip style refresh (avoids circular dependency)
         layerManager.setTripStyleRefreshCallback(() => {

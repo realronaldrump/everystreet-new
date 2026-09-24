@@ -27,9 +27,10 @@ const RAIL_COLLAPSED_KEY = CONFIG.STORAGE_KEYS.atlasRailCollapsed;
 const LEGEND_PRESETS = {
   tripPaths: [
     {
-      label: "Recorded paths",
-      type: "line",
-      color: "var(--map-trip-path)",
+      label: "Trips",
+      type: "scale",
+      ramp: "fade",
+      ticks: ["Older", "Newer"],
     },
   ],
   tripsMatched: {
@@ -144,17 +145,36 @@ export default function initAtlasRail({ registerCleanup }) {
     if (!getTripLayerHeatmapPreference()) {
       return LEGEND_PRESETS.tripPaths;
     }
-    // The heat ramp differs by edition; show the one the map is drawing.
-    const { halo, glow, core } = tripMapRenderer.getHeatmapPalette("trips");
     return [
       {
-        label: "Frequency · low → high",
-        type: "gradient",
-        color: halo,
-        color2: glow,
-        color3: core,
+        label: "Trips on a road",
+        type: "scale",
+        ramp: "heat",
+        ticks: tripMapRenderer.getHeatLegend("trips").ticks,
       },
     ];
+  };
+
+  const scaleItem = (item) => {
+    const li = document.createElement("li");
+    li.className = "atlas-legend-item atlas-legend-item--scale";
+    const label = document.createElement("span");
+    label.className = "atlas-legend-label";
+    label.textContent = item.label;
+    const ramp = document.createElement("span");
+    ramp.className = `atlas-legend-ramp atlas-legend-ramp--${item.ramp}`;
+    ramp.setAttribute("aria-hidden", "true");
+    const ticks = document.createElement("span");
+    ticks.className = "atlas-legend-ticks";
+    ticks.append(
+      ...item.ticks.map((tick) => {
+        const span = document.createElement("span");
+        span.textContent = tick;
+        return span;
+      })
+    );
+    li.append(label, ramp, ticks);
+    return li;
   };
 
   const renderLegend = () => {
@@ -169,6 +189,9 @@ export default function initAtlasRail({ registerCleanup }) {
     }
     legendList.replaceChildren(
       ...items.map((item) => {
+        if (item.type === "scale") {
+          return scaleItem(item);
+        }
         const li = document.createElement("li");
         li.className = "atlas-legend-item";
         const swatch = document.createElement("span");
@@ -355,6 +378,7 @@ export default function initAtlasRail({ registerCleanup }) {
   on(document, "es:layers-change", renderLegend);
   on(document, TRIP_LAYER_RENDER_MODE_EVENT, renderLegend);
   on(document, "themeChanged", renderLegend);
+  on(document, "es:trip-layer-drawn", renderLegend);
 
   // ---- Boot ---------------------------------------------------------
   const savedLens = utils.getStorage(LENS_STORAGE_KEY);
