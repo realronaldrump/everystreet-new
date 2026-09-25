@@ -40,6 +40,16 @@ class StreetsResponse(BaseModel):
     area_version: int
 
 
+class StreetRow(BaseModel):
+    """The Street fields a map feature reads; skips tags and graph data."""
+
+    segment_id: str
+    geometry: dict[str, Any] = Field(default_factory=dict)
+    street_name: str | None = None
+    highway_type: str = "unclassified"
+    length_miles: float = 0.0
+
+
 class MarkSegmentRequest(BaseModel):
     status: Literal["undriveable", "undriven", "driven", "automatic"]
     source: Literal["manual"] = "manual"
@@ -112,13 +122,18 @@ def _feature(street, state):
     )
 
 
-async def _features(area, streets, *, parts=False, keep=None):
-    states = await CoverageState.find(
-        {
+async def _features(area, streets, *, parts=False, keep=None, whole_area=False):
+    # For a whole area, read every state by the area index instead of sending
+    # tens of thousands of segment ids in an $in list.
+    state_query = (
+        {"area_id": area.id}
+        if whole_area
+        else {
             "area_id": area.id,
             "segment_id": {"$in": [street.segment_id for street in streets]},
         }
-    ).to_list()
+    )
+    states = await CoverageState.find(state_query).to_list()
     by_id = {state.segment_id: state for state in states}
     features = [_feature(street, by_id.get(street.segment_id)) for street in streets]
     if parts or keep:
@@ -193,6 +208,7 @@ async def get_streets_in_viewport(
         )
         .sort("segment_id")
         .limit(VIEWPORT_LIMIT + 1)
+        .project(StreetRow)
         .to_list()
     )
     truncated = len(streets) > VIEWPORT_LIMIT
@@ -238,10 +254,12 @@ async def get_all_streets(
     etag = _revision_etag(area_id, area, status_filter, render_parts)
     if request.headers.get("if-none-match") == etag:
         return _not_modified(etag)
-    streets = await Street.find(
-        {"area_id": area_id, "area_version": area.area_version}
-    ).to_list()
-    features = await _features(area, streets, parts=render_parts)
+    streets = (
+        await Street.find({"area_id": area_id, "area_version": area.area_version})
+        .project(StreetRow)
+        .to_list()
+    )
+    features = await _features(area, streets, parts=render_parts, whole_area=True)
     if status_filter:
         features = [
             feature
@@ -284,10 +302,12 @@ async def get_street_map(request: Request, area_id: PydanticObjectId):
     etag = _revision_etag(area_id, area, "map-v1")
     if request.headers.get("if-none-match") == etag:
         return _not_modified(etag)
-    streets = await Street.find(
-        {"area_id": area_id, "area_version": area.area_version}
-    ).to_list()
-    features = await _features(area, streets, keep=MAP_PROPERTIES)
+    streets = (
+        await Street.find({"area_id": area_id, "area_version": area.area_version})
+        .project(StreetRow)
+        .to_list()
+    )
+    features = await _features(area, streets, keep=MAP_PROPERTIES, whole_area=True)
     return _geojson_response(
         features,
         etag=etag,
@@ -301,13 +321,17 @@ async def selected_streets(
     area_id: PydanticObjectId, ids: Annotated[list[str], Query(max_length=300)]
 ):
     area = await _area(area_id)
-    streets = await Street.find(
-        {
-            "area_id": area_id,
-            "area_version": area.area_version,
-            "segment_id": {"$in": ids},
-        }
-    ).to_list()
+    streets = (
+        await Street.find(
+            {
+                "area_id": area_id,
+                "area_version": area.area_version,
+                "segment_id": {"$in": ids},
+            }
+        )
+        .project(StreetRow)
+        .to_list()
+    )
     return {
         "type": "FeatureCollection",
         "features": [
@@ -431,13 +455,17 @@ async def mark_segments_driven(
 async def simulate_drive(area_id: PydanticObjectId, request: SimulateDriveRequest):
     area = await _area(area_id)
     ids = sorted(set(request.segment_ids))
-    streets = await Street.find(
-        {
-            "area_id": area_id,
-            "area_version": area.area_version,
-            "segment_id": {"$in": ids},
-        }
-    ).to_list()
+    streets = (
+        await Street.find(
+            {
+                "area_id": area_id,
+                "area_version": area.area_version,
+                "segment_id": {"$in": ids},
+            }
+        )
+        .project(StreetRow)
+        .to_list()
+    )
     if len(streets) != len(ids):
         raise HTTPException(409, "Selected streets changed; refresh the map")
     features = await _features(area, streets)

@@ -126,6 +126,7 @@ def _patch_auth_test_dependencies(monkeypatch: pytest.MonkeyPatch) -> None:
         "admin.services.admin_service.AdminService.get_persisted_app_settings",
         staticmethod(fake_get_settings),
     )
+    monkeypatch.setattr("core.template_context.get_service_config", fake_get_settings)
     monkeypatch.setattr("core.auth.get_shared_redis", fake_get_shared_redis)
     monkeypatch.setattr(
         live_api.TrackingService,

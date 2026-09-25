@@ -1,5 +1,7 @@
 from fastapi.templating import Jinja2Templates
 
+from core.assets import library_preload_urls, module_preloads
+
 # Single shared template environment — all page routers import this
 # instead of creating separate Jinja2Templates instances.
 templates = Jinja2Templates(directory="templates")
@@ -70,6 +72,8 @@ def register_template_globals(tpl: Jinja2Templates | None = None) -> None:
     target = tpl or templates
     target.env.globals.setdefault("LIB_VERSIONS", LIB_VERSIONS)
     target.env.globals.setdefault("CDN", CDN)
+    target.env.globals.setdefault("module_preloads", module_preloads)
+    target.env.globals.setdefault("library_preload_urls", library_preload_urls)
 
 
 # Auto-register on the shared instance at import time.

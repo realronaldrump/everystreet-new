@@ -1,81 +1,28 @@
-{#- Stylesheet manifests. Each file gets its own <link> so the browser
-    discovers them all at once (no @import chains), and files under the
-    versioned prefix are cached for the life of a deploy. Order is cascade
-    order. -#}
-
-{% set global_stylesheets = [
-  "core/variables.css",
-  "core/reset.css",
-  "core/typography.css",
-  "core/utilities.css",
-  "layout/header.css",
-  "layout/layout.css",
-  "layout/mobile.css",
-  "layout/footer.css",
-  "components/buttons.css",
-  "components/cards.css",
-  "components/manual.css",
-  "components/masthead.css",
-  "components/forms.css",
-  "components/navigation-controls.css",
-  "components/stepper.css",
-  "components/status.css",
-  "components/app-select.css",
-  "components/tables.css",
-  "components/notifications.css",
-  "components/modals.css",
-  "components/pagination.css",
-  "components/mapbox-overrides.css",
-  "components/immersive.css",
-  "components/icons.css",
-  "components/setup-required.css",
-  "components/date-picker.css",
-  "core/animations.css",
-  "layout/navigation-experience.css",
-  "components/loading.css",
-  "components/route-tracer.css",
-] %}
-
-{% set map_feature_stylesheets = [
-  "features/map/base.css",
-  "features/map/atlas-rail.css",
-  "features/map/map-plate.css",
-  "features/map/layers.css",
-  "features/map/popups.css",
-  "features/map/live-tracking.css",
-  "features/simulator.css",
-  "features/map/particle-flow.css",
-  "features/map/destination-bloom.css",
-  "features/map/trip-replay.css",
-] %}
-
-{% set live_navigation_stylesheets = [
-  "features/navigation/steps.css",
-  "features/navigation/mobile.css",
-  "features/navigation/experience.css",
-] %}
+{#- Stylesheets. Shared manifests (core/assets.py STYLESHEET_BUNDLES) are
+    served as one concatenated file each, so a page downloads a few
+    stylesheets instead of dozens. Files under the versioned prefix are
+    cached for the life of a deploy. -#}
 
 {% macro static_css(path) -%}
   <link rel="stylesheet"
         href="/static-v/{{ repo_version.commit_count }}/css/{{ path }}" />
 {%- endmacro %}
 
-{% macro stylesheets(paths) -%}
-  {% for path in paths %}
-    {{ static_css(path) }}
-  {% endfor %}
+{% macro css_bundle(name) -%}
+  <link rel="stylesheet"
+        href="/static-v/{{ repo_version.commit_count }}/css-bundles/{{ name }}.css" />
 {%- endmacro %}
 
 {% macro global_styles() -%}
-  {{ stylesheets(global_stylesheets) }}
+  {{ css_bundle("global") }}
 {%- endmacro %}
 
 {% macro map_feature_styles() -%}
-  {{ stylesheets(map_feature_stylesheets) }}
+  {{ css_bundle("map-features") }}
 {%- endmacro %}
 
 {% macro live_navigation_styles() -%}
-  {{ stylesheets(live_navigation_stylesheets) }}
+  {{ css_bundle("live-navigation") }}
 {%- endmacro %}
 
 {% macro include_mapbox_css() -%}

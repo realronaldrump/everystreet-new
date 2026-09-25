@@ -13,7 +13,7 @@ from urllib.parse import quote, urlparse
 from fastapi import Request, WebSocket, WebSocketException, status
 from fastapi.responses import JSONResponse, RedirectResponse, Response
 from pwdlib import PasswordHash
-from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 from core.redis import get_shared_redis
 
@@ -494,14 +494,6 @@ async def guard_request(request: Request) -> Response | None:
     return None
 
 
-async def auth_guard_dispatch(request: Request, call_next) -> Response:
-    """BaseHTTPMiddleware dispatch that applies the shared auth policy."""
-    response = await guard_request(request)
-    if response is not None:
-        return response
-    return await call_next(request)
-
-
 def require_owner_websocket(websocket: WebSocket) -> AuthContext:
     """Require an owner session for websocket connections."""
     if not owner_login_enabled():
@@ -543,8 +535,22 @@ class TooManyLoginAttemptsError(RuntimeError):
     """Raised when the login rate limit is exhausted."""
 
 
-class AuthGuardMiddleware(BaseHTTPMiddleware):
-    """HTTP middleware wrapper around the shared auth guard."""
+class AuthGuardMiddleware:
+    """Pure ASGI middleware applying the shared auth guard to HTTP requests.
 
-    async def dispatch(self, request: Request, call_next) -> Response:
-        return await auth_guard_dispatch(request, call_next)
+    The guard only reads headers and the session, so there is no need for
+    BaseHTTPMiddleware, which wraps every response body in an extra stream.
+    """
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        response = await guard_request(Request(scope, receive))
+        if response is not None:
+            await response(scope, receive, send)
+            return
+        await self.app(scope, receive, send)

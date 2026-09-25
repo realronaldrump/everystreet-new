@@ -7,16 +7,18 @@ from typing import Any
 from fastapi import Request
 from fastapi.responses import HTMLResponse
 
-from admin.services.admin_service import AdminService
 from config import get_mapbox_token
 from core.auth import get_request_auth_context, owner_login_enabled
 from core.jinja import templates
 from core.repo_info import get_repo_version_info
+from core.service_config import get_service_config
 
 
 async def _get_template_app_settings(include_sensitive: bool) -> dict[str, Any]:
+    # Every page render reads these; use the short-lived per-process cache
+    # rather than a database round trip per request.
     try:
-        settings = await AdminService.get_persisted_app_settings()
+        settings = await get_service_config()
     except Exception:
         settings = None
 

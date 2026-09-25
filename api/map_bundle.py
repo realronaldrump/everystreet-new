@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import math
@@ -43,6 +44,8 @@ from trips.services.trip_map_geometry import (
 router = APIRouter(prefix="/api/map", tags=["map-bundles"])
 
 _EARTH_RADIUS_M = 6_371_000.0
+COVERAGE_BUNDLE_CACHE_PREFIX = "coverage_map_bundle"
+COVERAGE_BUNDLE_VERSION = 2
 
 
 class EncodedGeometryLOD(BaseModel):
@@ -405,20 +408,43 @@ def _build_trip_map_summary(features: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-def _coverage_revision_source(
-    area: CoverageArea,
+def _coverage_features(
+    streets: list[dict[str, Any]],
+    state_map: dict[str, str],
     status_filter: str,
-    segment_count: int,
-    max_state_ts: datetime | None,
-) -> str:
-    area_stamp = (
-        ensure_utc(area.last_synced).isoformat() if area.last_synced else "none"
-    )
-    state_stamp = ensure_utc(max_state_ts).isoformat() if max_state_ts else "none"
-    return (
-        f"{area.id}|{area.area_version}|{status_filter}|{segment_count}|"
-        f"{area.driven_segments}|{area.undriveable_segments}|{area_stamp}|{state_stamp}"
-    )
+) -> tuple[list[CoverageMapFeature], list[list[float]]]:
+    features: list[CoverageMapFeature] = []
+    feature_bboxes: list[list[float]] = []
+    for street in streets:
+        segment_id = street["segment_id"]
+        segment_status = state_map.get(segment_id, "undriven")
+        if status_filter == "undriven" and segment_status != "undriven":
+            continue
+
+        coords = flatten_line_coordinates(street.get("geometry"))
+        if len(coords) < 2:
+            continue
+
+        bbox = bbox_for_coords(coords)
+        feature_bboxes.append(bbox)
+
+        medium = simplify_line_meters(coords, tolerance_m=2.0)
+        low = simplify_line_meters(coords, tolerance_m=8.0)
+
+        features.append(
+            CoverageMapFeature(
+                id=segment_id,
+                status=segment_status,
+                name=street.get("street_name"),
+                bbox=bbox,
+                geom=EncodedGeometryLOD(
+                    full=encode_polyline6(coords),
+                    medium=encode_polyline6(medium),
+                    low=encode_polyline6(low),
+                ),
+            ),
+        )
+    return features, feature_bboxes
 
 
 @router.get("/trips/bundle", response_model=TripMapBundleResponse)
@@ -630,125 +656,67 @@ async def get_coverage_map_bundle(
             detail="Invalid status filter",
         )
 
-    states: list[Any] = []
-    features: list[CoverageMapFeature] = []
-    feature_bboxes: list[list[float]] = []
-
-    if status_filter in {"all", "undriven"}:
-        streets = (
-            await Street.find(
-                {
-                    "area_id": area_id,
-                    "area_version": area.area_version,
-                },
-            )
-            .sort(Street.segment_id)
-            .to_list()
-        )
-
-        states = await CoverageState.find(
-            {
-                "area_id": area_id,
-                "status": {"$in": ["driven", "undriveable"]},
-            },
-        ).to_list()
-        state_map = {state.segment_id: state for state in states}
-
-        for street in streets:
-            segment_status = (
-                state_map.get(street.segment_id).status
-                if street.segment_id in state_map
-                else "undriven"
-            )
-            if status_filter == "undriven" and segment_status != "undriven":
-                continue
-
-            coords = flatten_line_coordinates(street.geometry)
-            if len(coords) < 2:
-                continue
-
-            bbox = bbox_for_coords(coords)
-            feature_bboxes.append(bbox)
-
-            medium = simplify_line_meters(coords, tolerance_m=2.0)
-            low = simplify_line_meters(coords, tolerance_m=8.0)
-
-            features.append(
-                CoverageMapFeature(
-                    id=street.segment_id,
-                    status=segment_status,
-                    name=street.street_name,
-                    bbox=bbox,
-                    geom=EncodedGeometryLOD(
-                        full=encode_polyline6(coords),
-                        medium=encode_polyline6(medium),
-                        low=encode_polyline6(low),
-                    ),
-                ),
-            )
-    else:
-        states = await CoverageState.find(
-            {
-                "area_id": area_id,
-                "status": status_filter,
-            },
-        ).to_list()
-
-        if states:
-            segment_ids = [state.segment_id for state in states]
-            streets = await Street.find(
-                {
-                    "area_id": area_id,
-                    "area_version": area.area_version,
-                    "segment_id": {"$in": segment_ids},
-                },
-            ).to_list()
-
-            for street in streets:
-                coords = flatten_line_coordinates(street.geometry)
-                if len(coords) < 2:
-                    continue
-
-                bbox = bbox_for_coords(coords)
-                feature_bboxes.append(bbox)
-
-                medium = simplify_line_meters(coords, tolerance_m=2.0)
-                low = simplify_line_meters(coords, tolerance_m=8.0)
-
-                features.append(
-                    CoverageMapFeature(
-                        id=street.segment_id,
-                        status=status_filter,
-                        name=street.street_name,
-                        bbox=bbox,
-                        geom=EncodedGeometryLOD(
-                            full=encode_polyline6(coords),
-                            medium=encode_polyline6(medium),
-                            low=encode_polyline6(low),
-                        ),
-                    ),
-                )
-
-    max_state_ts: datetime | None = None
-    for state in states:
-        state_ts = ensure_utc(
-            state.last_driven_at or state.first_driven_at or state.marked_at,
-        )
-        if state_ts and (max_state_ts is None or state_ts > max_state_ts):
-            max_state_ts = state_ts
-
+    # The area's journal revision changes whenever any segment's status does,
+    # so the response can be validated before reading a single street.
     revision = hashlib.sha1(  # nosec B324
-        _coverage_revision_source(
-            area=area,
-            status_filter=status_filter,
-            segment_count=len(features),
-            max_state_ts=max_state_ts,
-        ).encode("utf-8"),
+        (
+            f"{area.id}|{area.area_version}|{area.journal_revision}|"
+            f"{status_filter}|{COVERAGE_BUNDLE_VERSION}"
+        ).encode(),
     ).hexdigest()
     etag = f'"{revision}"'
+    headers = {"ETag": etag, "Cache-Control": "private, max-age=30"}
 
     if _extract_if_none_match(request) == etag:
-        return Response(status_code=304, headers={"ETag": etag})
+        return Response(status_code=304, headers=headers)
+
+    cache_key = f"cache:{COVERAGE_BUNDLE_CACHE_PREFIX}:{revision}"
+    cached_body = await _get_cached_body(cache_key)
+    if cached_body is not None:
+        return Response(
+            content=cached_body, media_type="application/json", headers=headers
+        )
+
+    street_query: dict[str, Any] = {
+        "area_id": area_id,
+        "area_version": area.area_version,
+    }
+    state_query: dict[str, Any] = {"area_id": area_id}
+    if status_filter in {"all", "undriven"}:
+        state_query["status"] = {"$in": ["driven", "undriveable"]}
+    else:
+        state_query["status"] = status_filter
+    state_map = {
+        doc["segment_id"]: doc["status"]
+        async for doc in CoverageState.get_pymongo_collection().find(
+            state_query, projection={"_id": 0, "segment_id": 1, "status": 1}
+        )
+    }
+    if status_filter not in {"all", "undriven"}:
+        street_query["segment_id"] = {"$in": list(state_map)}
+
+    streets: list[dict[str, Any]] = []
+    if status_filter in {"all", "undriven"} or state_map:
+        streets = await (
+            Street.get_pymongo_collection()
+            .find(
+                street_query,
+                projection={
+                    "_id": 0,
+                    "segment_id": 1,
+                    "street_name": 1,
+                    "geometry": 1,
+                },
+            )
+            .sort("segment_id", 1)
+            .to_list(None)
+        )
+
+    # Simplifying and encoding every street is CPU-bound; keep it off the
+    # event loop so other requests are served meanwhile.
+    features, feature_bboxes = await asyncio.to_thread(
+        _coverage_features, streets, state_map, status_filter
+    )
 
     bundle = CoverageMapBundleResponse(
         revision=revision,
@@ -769,8 +737,6 @@ async def get_coverage_map_bundle(
         segments=features,
     )
 
-    return Response(
-        content=bundle.model_dump_json(),
-        media_type="application/json",
-        headers={"ETag": etag, "Cache-Control": "private, max-age=30"},
-    )
+    body = bundle.model_dump_json()
+    await _set_cached_body(cache_key, body)
+    return Response(content=body, media_type="application/json", headers=headers)

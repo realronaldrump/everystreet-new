@@ -84,6 +84,15 @@ Every Street
     {% block extra_css %}
 
     {% endblock %}
+    {#- Fetch the page's whole module graph and route libraries up front
+        instead of one import level at a time. #}
+    {% for src in library_preload_urls(es_route_path, CDN, app_settings.get('map_provider') if app_settings else none) %}
+      <link rel="preload" href="{{ src }}" as="script" />
+    {% endfor %}
+    {% for module in module_preloads(es_route_path) %}
+      <link rel="modulepreload"
+            href="/static-v/{{ repo_version.commit_count }}/js/{{ module }}" />
+    {% endfor %}
 
     {% block head_content %}
 
@@ -462,10 +471,10 @@ Every Street
       <i class="fas fa-compass-drafting" aria-hidden="true"></i>
       <span>Setup required</span>
     </button>
-    <script src="{{ CDN.bootstrap_js }}" crossorigin="anonymous"></script>
+    <script defer src="{{ CDN.bootstrap_js }}" crossorigin="anonymous"></script>
 
-    <script src="{{ CDN.dayjs }}"></script>
-    <script src="{{ CDN.flatpickr_js }}"></script>
+    <script defer src="{{ CDN.dayjs }}"></script>
+    <script defer src="{{ CDN.flatpickr_js }}"></script>
     <script type="text/template" id="es-env-data">
         {
             "authContext": {{ auth_context_json | tojson }},

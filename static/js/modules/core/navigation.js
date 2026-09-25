@@ -487,7 +487,9 @@ async function initializeNavigation() {
           tag.matches?.("script[src], style, link[data-es-map-style]"),
         attributes: ["lang", "dir", "class", /^data-/],
       }),
-      new SwupPreloadPlugin({ preloadInitialPage: true }),
+      // No preloadInitialPage: it re-downloads and re-renders the document the
+      // browser just loaded, competing with the page's own data requests.
+      new SwupPreloadPlugin(),
       new SwupFragmentPlugin({
         rules: [
           {

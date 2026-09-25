@@ -19,6 +19,7 @@ from api.pages import router as pages_router
 from api.routing import router as routing_router
 from api.status import router as status_router
 from auth import router as auth_router
+from core.assets import css_bundle_response
 from core.auth import (
     SESSION_COOKIE_NAME,
     SESSION_TTL_SECONDS,
@@ -129,7 +130,9 @@ async def static_versioned(version: str, path: str, request: Request):
     stay within the same prefix and the current build's files can be cached
     for good (see versioned_cache_control).
     """
-    response = await static_files.get_response(path, request.scope)
+    response = css_bundle_response(path, request) or await static_files.get_response(
+        path, request.scope
+    )
     if response.status_code in {200, 304}:
         response.headers["Cache-Control"] = versioned_cache_control(
             version, get_repo_version_info().commit_count
