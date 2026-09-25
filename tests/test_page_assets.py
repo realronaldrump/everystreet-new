@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 from core.assets import (
     STATIC_ROOT,
     STYLESHEET_BUNDLES,
+    _rebase_css_urls,
     css_bundle_response,
     get_css_bundle,
     library_preload_urls,
@@ -34,6 +35,34 @@ def test_css_bundle_keeps_cascade_order_and_rebases_urls() -> None:
     assert "../../images/" not in body
     assert 'url("#manual-hatch")' in body
     assert get_css_bundle("missing") is None
+
+
+def test_css_bundle_leaves_urls_inside_strings_and_data_uris_alone() -> None:
+    svg = (
+        "url(\"data:image/svg+xml,%3Csvg%3E%3Crect filter='url(%23f)'/%3E%3C/svg%3E\")"
+    )
+    css = (
+        f"a {{ --grain: {svg}; }}\n"
+        '/* url("../../images/in-comment.png") */\n'
+        "b { content: \"url(../x.png)\"; mask: url('../../images/a.webp'); }\n"
+        "c { background: url(../../images/b.png); }\n"
+    )
+    rebased = _rebase_css_urls(css, "components/manual.css")
+    assert svg in rebased
+    assert 'url("../../images/in-comment.png")' in rebased
+    assert '"url(../x.png)"' in rebased
+    assert "url('../images/a.webp')" in rebased
+    assert "url(../images/b.png)" in rebased
+
+
+def test_bundles_keep_every_file_without_relative_urls_verbatim() -> None:
+    for name, paths in STYLESHEET_BUNDLES.items():
+        body = get_css_bundle(name).body.decode()
+        for path in paths:
+            if path == "components/manual.css":
+                continue
+            source = (STATIC_ROOT / "css" / path).read_text(encoding="utf-8")
+            assert f"/* {path} */\n{source}\n" in body, path
 
 
 def test_css_bundle_route_validates_with_etag() -> None:

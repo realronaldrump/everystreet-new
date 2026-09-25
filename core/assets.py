@@ -75,7 +75,14 @@ STYLESHEET_BUNDLES: dict[str, tuple[str, ...]] = {
     ),
 }
 
-_CSS_URL = re.compile(r"""url\(\s*(["']?)([^"')]+)\1\s*\)""")
+# Comments and strings are matched whole so a url() inside them (such as the
+# filter reference inside an inline SVG data URI) is never rewritten.
+_CSS_URL_OR_SKIPPED = re.compile(
+    r"""/\*.*?\*/"""
+    r"""|url\(\s*(?:"((?:\\.|[^"\\])*)"|'((?:\\.|[^'\\])*)'|([^"'()\s]+))\s*\)"""
+    r"""|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'""",
+    re.DOTALL,
+)
 
 
 @dataclass(frozen=True)
@@ -89,14 +96,16 @@ def _rebase_css_urls(css: str, source_path: str) -> str:
     source_dir = posixpath.join("css", posixpath.dirname(source_path))
 
     def replace(match: re.Match[str]) -> str:
-        quote, ref = match.group(1), match.group(2).strip()
-        if ref.startswith(("#", "/", "data:")) or "://" in ref:
+        double, single, bare = match.groups()
+        ref = next((part for part in (double, single, bare) if part is not None), None)
+        if not ref or ref.startswith(("#", "/", "data:")) or "://" in ref:
             return match.group(0)
+        quote = '"' if double is not None else "'" if single is not None else ""
         target = posixpath.normpath(posixpath.join(source_dir, ref))
         rebased = posixpath.relpath(target, CSS_BUNDLE_DIR)
         return f"url({quote}{rebased}{quote})"
 
-    return _CSS_URL.sub(replace, css)
+    return _CSS_URL_OR_SKIPPED.sub(replace, css)
 
 
 @lru_cache(maxsize=16)
