@@ -25,7 +25,6 @@ test("overview requests only the selected range and never waits on movement or u
         .find((call) => call.url.includes("driving-insights"))
         .url.includes("include_movement=false")
     );
-    assert.ok(calls.every((call) => !call.url.includes("driver-behavior")));
   } finally {
     apiClient.get = original;
   }

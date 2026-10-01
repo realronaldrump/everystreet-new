@@ -30,7 +30,6 @@ _ANALYTICS_CACHE_PREFIXES = (
     "driving_insights",
     "movement_insights",
     "trip_analytics",
-    "driver_behavior",
 )
 
 

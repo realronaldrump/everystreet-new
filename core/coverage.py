@@ -6,7 +6,6 @@ import asyncio
 import logging
 import os
 from collections import OrderedDict
-from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from itertools import pairwise
 from statistics import median
@@ -42,7 +41,6 @@ from street_coverage.projection import (
     CoverageDeferred,
     claim_area,
     project_segments,
-    set_manual_status,
 )
 from street_coverage import transactions
 
@@ -349,37 +347,6 @@ async def update_coverage_for_trip(trip_data, trip_id=None, trip_mode=None):
             "Waiting for an intersected area to finish recalculating"
         )
     return total
-
-
-@dataclass(frozen=True)
-class CoverageSegmentsUpdateResult:
-    updated: int
-    newly_driven_segment_ids: list[str]
-    newly_driven_length_miles: float
-
-
-async def update_coverage_for_segments(area_id, segment_ids):
-    """Explicit owner marking; automatic credit must provide historical intervals."""
-    result = await set_manual_status(area_id, segment_ids, "driven")
-    return CoverageSegmentsUpdateResult(
-        result["updated"],
-        list(segment_ids),
-        sum(
-            state["covered_length_miles"]
-            for state in result["states"].values()
-            if state
-        ),
-    )
-
-
-async def mark_segment_undriveable(area_id, segment_id):
-    await set_manual_status(area_id, [segment_id], "undriveable")
-    return True
-
-
-async def mark_segment_undriven(area_id, segment_id):
-    await set_manual_status(area_id, [segment_id], "undriven")
-    return True
 
 
 def _build_backfill_trip_query(area, *, since=None, trip_mode="both"):

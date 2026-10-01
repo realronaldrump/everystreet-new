@@ -27,13 +27,6 @@ class BackgroundTasksConfigModel(BaseModel):
     tasks: dict[str, dict[str, Any]] | None = None
 
 
-class ValidateLocationModel(BaseModel):
-    """Model for location validation."""
-
-    location: str
-    locationType: str
-
-
 class LiveTripPayload(BaseModel):
     """Ephemeral live trip payload returned by tracking endpoints."""
 
@@ -214,29 +207,6 @@ class VisitSuggestion(BaseModel):
     lastVisit: datetime | None = None
     centroid: list[float]
     boundary: dict[str, Any]
-
-
-class VehicleModel(BaseModel):
-    """Model for vehicle data."""
-
-    imei: str
-    vin: str | None = None
-    custom_name: str | None = None
-    make: str | None = None
-    model: str | None = None
-    year: int | None = None
-    bouncie_nickname: str | None = None
-    standard_engine: str | None = None
-    last_synced_at: datetime | None = None
-    bouncie_data: dict[str, Any] | None = None
-    is_active: bool = True
-
-    # Odometer tracking
-    odometer_reading: float | None = None
-    odometer_source: str | None = None  # 'manual', 'estimated', 'bouncie_untrusted'
-    odometer_is_estimated: bool | None = None
-
-    model_config = ConfigDict(extra="allow")
 
 
 class VehicleCreateRequest(BaseModel):

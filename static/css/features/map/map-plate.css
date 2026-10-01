@@ -217,21 +217,6 @@ button.view-popover-row:focus-visible {
   background: var(--primary);
 }
 
-.view-popover-action[aria-pressed="true"] {
-  color: var(--primary);
-}
-
-.view-popover-action i {
-  font-size: var(--font-size-xs);
-  color: inherit;
-}
-
-.view-popover-divider {
-  height: 1px;
-  margin: var(--space-2) var(--space-2);
-  background: var(--border-color);
-}
-
 /* ---- Plate notation ---------------------------------------------- */
 .map-plate {
   position: absolute;

@@ -43,7 +43,6 @@ from gas import router as gas_api_router
 from geo_coverage import router as geo_coverage_api_router
 from logs import router as logs_api_router
 from map_data.api import router as map_data_router
-from processing import router as processing_api_router
 from recurring_routes import router as recurring_routes_router
 from search import router as search_api_router
 from setup import router as setup_api_router
@@ -207,7 +206,6 @@ app.include_router(tracking_api_router)
 app.include_router(logs_api_router)
 app.include_router(map_data_router)
 
-app.include_router(processing_api_router)
 app.include_router(profile_api_router)
 app.include_router(search_api_router)
 app.include_router(setup_api_router)

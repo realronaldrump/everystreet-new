@@ -1,6 +1,6 @@
 /**
- * View popover — one quiet button housing the basemap style select,
- * the 3D buildings and terrain switches, and the simulator entry.
+ * View popover — one quiet button housing the basemap style select
+ * and the 3D buildings and terrain switches.
  * Replaces the old FAB dock.
  */
 

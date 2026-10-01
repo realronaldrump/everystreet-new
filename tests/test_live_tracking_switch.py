@@ -83,9 +83,7 @@ def test_disabled_webhook_acknowledges_without_parsing_auth_or_dispatch(
     app.include_router(webhooks.router)
     with TestClient(app) as client:
         response = client.post(webhooks.LIVE_BOUNCIE_WEBHOOK_PATH, content="not-json")
-        simulator = client.post("/api/simulator/bouncie-webhook", json={})
     assert response.status_code == 200
-    assert simulator.status_code == 409
     for call in (parse, auth, record, dispatch):
         call.assert_not_awaited()
 

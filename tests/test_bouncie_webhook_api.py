@@ -305,47 +305,6 @@ def test_live_webhook_acknowledges_when_processing_fails(
     )
 
 
-def test_simulator_webhook_bypasses_real_auth(
-    webhook_client: TestClient,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    handler = AsyncMock()
-    monkeypatch.setattr(webhook_api, "TRIP_EVENT_HANDLERS", {"tripStart": handler})
-
-    resp = webhook_client.post(
-        "/api/simulator/bouncie-webhook",
-        json=_trip_start_payload(),
-    )
-
-    assert resp.status_code == 200
-    assert resp.json() == {"status": "ok"}
-    handler.assert_awaited_once()
-
-
-def test_simulator_webhook_rejects_trip_data_without_required_gps_heading(
-    webhook_client: TestClient,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    handler = AsyncMock()
-    monkeypatch.setattr(webhook_api, "TRIP_EVENT_HANDLERS", {"tripData": handler})
-    payload = _trip_data_payload()
-    data = payload["data"]
-    assert isinstance(data, list)
-    point = data[0]
-    assert isinstance(point, dict)
-    gps = point["gps"]
-    assert isinstance(gps, dict)
-    gps.pop("heading")
-
-    resp = webhook_client.post(
-        "/api/simulator/bouncie-webhook",
-        json=payload,
-    )
-
-    assert resp.status_code == 400
-    handler.assert_not_awaited()
-
-
 @pytest.mark.parametrize(
     "path",
     [

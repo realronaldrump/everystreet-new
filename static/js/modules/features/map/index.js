@@ -251,32 +251,6 @@ export default function initMapPage({ signal, cleanup } = {}) {
 
   setupExclusiveSceneModeGuard(registerCleanup);
 
-  // Bouncie Simulator — lazy-loaded on toggle click
-  const simToggle = document.getElementById("sim-toggle");
-  if (simToggle) {
-    let simulator = null;
-    const handleSimToggle = async () => {
-      if (simulator) {
-        simulator.toggle();
-        return;
-      }
-      try {
-        const { BouncieSimulator } = await import("../simulator/index.js");
-        const simulatorMapInstance = store.map || window.map;
-        simulator = new BouncieSimulator(simulatorMapInstance);
-        simulator.show();
-        registerCleanup(() => {
-          simulator.destroy();
-          simulator = null;
-        });
-      } catch (err) {
-        console.error("Failed to load Bouncie Simulator:", err);
-      }
-    };
-    simToggle.addEventListener("click", handleSimToggle);
-    registerCleanup(() => simToggle.removeEventListener("click", handleSimToggle));
-  }
-
   const teardown = () => {
     cleanupFns.forEach((fn) => {
       try {

@@ -308,26 +308,3 @@ class NominatimClient:
             msg = "Nominatim reverse error: unexpected response"
             raise ExternalServiceException(msg, {"url": self._reverse_url})
         return data
-
-    async def validate_location(
-        self,
-        location: str,
-        location_type: str | None = None,
-    ) -> dict[str, Any] | None:
-        """Validate a location string against Nominatim search results."""
-        results = await self.search_raw(
-            query=location,
-            limit=1,
-            polygon_geojson=True,
-        )
-        if not results:
-            return None
-
-        result = results[0]
-        if (
-            location_type
-            and result.get("type") != location_type
-            and result.get("source") != "google"
-        ):
-            return None
-        return result

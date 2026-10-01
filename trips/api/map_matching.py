@@ -55,16 +55,6 @@ async def clear_map_matching_history(
     return await service.clear_history(include_active=include_active)
 
 
-@router.post("/api/map_matching/jobs/preview", response_model=dict[str, object])
-@api_route(logger)
-async def preview_map_matching_jobs(
-    request: MapMatchJobRequest,
-    limit: Annotated[int, Query(ge=1, le=100)] = 25,
-):
-    """Preview trips that would be matched by a job request."""
-    return await service.preview(request, limit=limit)
-
-
 @router.delete("/api/map_matching/jobs/{job_id}", response_model=dict[str, object])
 @api_route(logger)
 async def delete_map_matching_job(

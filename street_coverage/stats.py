@@ -1,11 +1,10 @@
 """Exact coverage totals and revision-safe projection verification."""
 
 from db.aggregation import aggregate_to_list
-from db.models import CoverageArea, CoverageState, Street
+from db.models import CoverageArea, Street
 from street_coverage import transactions
 from street_coverage.matching import MATCHING_VERSION
 from street_coverage.projection import area_metrics, claim_area, project_segments
-from street_coverage.segment_ids import segment_id_regex_for_area_version
 
 
 async def calculate_area_stats(area_id, area_version=None):
@@ -83,30 +82,3 @@ async def update_area_stats(area_id):
         return await CoverageArea.get(area_id, session=session)
 
     return await transactions.run_transaction(commit)
-
-
-async def get_segment_status_counts(area_id, area_version=None):
-    area = await CoverageArea.get(area_id)
-    if area is None:
-        raise ValueError("Coverage area not found")
-    query = {
-        "area_id": area_id,
-        "segment_id": segment_id_regex_for_area_version(
-            area_id, area_version or area.area_version
-        ),
-    }
-    rows = await aggregate_to_list(
-        CoverageState,
-        [{"$match": query}, {"$group": {"_id": "$status", "count": {"$sum": 1}}}],
-    )
-    counts = {row["_id"]: row["count"] for row in rows}
-    return {
-        "driven": counts.get("driven", 0),
-        "undriveable": counts.get("undriveable", 0),
-        "undriven": max(
-            0,
-            area.total_segments
-            - counts.get("driven", 0)
-            - counts.get("undriveable", 0),
-        ),
-    }

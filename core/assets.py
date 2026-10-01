@@ -63,7 +63,6 @@ STYLESHEET_BUNDLES: dict[str, tuple[str, ...]] = {
         "features/map/layers.css",
         "features/map/popups.css",
         "features/map/live-tracking.css",
-        "features/simulator.css",
         "features/map/particle-flow.css",
         "features/map/destination-bloom.css",
         "features/map/trip-replay.css",

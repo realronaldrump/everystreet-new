@@ -8,7 +8,6 @@ from fastapi import APIRouter, Body, HTTPException
 from admin.services.admin_service import MAPBOX_SETTINGS_ERROR, AdminService
 from core.api import api_route
 from db.models import AppSettings
-from db.schemas import ValidateLocationModel
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -49,18 +48,6 @@ async def update_app_settings_endpoint(
         )
 
     return await AdminService.update_app_settings(settings)
-
-
-@router.post("/api/validate_location", response_model=dict[str, Any])
-@api_route(logger)
-async def validate_location(
-    data: ValidateLocationModel,
-) -> dict[str, Any]:
-    """Validate a location via OSM-backed lookup."""
-    return await AdminService.validate_location(
-        data.location,
-        data.locationType,
-    )
 
 
 @router.get("/api/first_trip_date", response_model=dict[str, str])

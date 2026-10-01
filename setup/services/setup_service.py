@@ -19,7 +19,6 @@ from setup.services.bouncie_credentials import get_bouncie_credentials
 from tasks.arq import get_arq_pool
 from tasks.config import set_global_disable
 from tasks.ops import enqueue_task
-from tasks.registry import TASK_DEFINITIONS
 
 logger = logging.getLogger(__name__)
 
@@ -628,104 +627,6 @@ async def restart_service(service_name: str) -> dict[str, Any]:
     }
 
 
-async def get_service_logs(service_name: str, tail: int = 100) -> dict[str, Any]:
-    """Fetch recent logs for a service container."""
-    service_name = service_name.strip().lower()
-    allowed = {"nominatim", "valhalla", "mongo", "redis", "worker", "app"}
-    if (
-        service_name not in allowed
-        and not service_name.startswith("everystreet-")
-        and service_name != "web"
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={"message": "Unsupported service", "code": "invalid_service"},
-        )
-
-    container_map = {
-        "nominatim": "nominatim",
-        "valhalla": "valhalla",
-        "mongodb": "mongo",
-        "redis": "redis",
-        "worker": "worker",
-        "app": "app",
-        "bouncie": "app",
-    }
-
-    target_container = container_map.get(service_name, service_name)
-
-    import asyncio
-
-    # Try docker compose logs first
-    cmd = [
-        "docker",
-        "compose",
-        "logs",
-        "--tail",
-        str(tail),
-        "--no-log-prefix",
-        target_container,
-    ]
-
-    try:
-        process = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=5.0)
-
-        output = stdout.decode("utf-8", errors="replace")
-        error_out = stderr.decode("utf-8", errors="replace")
-
-        if process.returncode != 0:
-            return {
-                "success": False,
-                "logs": f"Failed to fetch logs: {error_out}",
-                "service": service_name,
-            }
-
-        return {
-            "success": True,
-            "logs": output,
-            "service": service_name,
-            "timestamp": datetime.now(UTC).isoformat(),
-        }
-    except Exception as exc:
-        return {
-            "success": False,
-            "logs": f"Error fetching logs: {exc}",
-            "service": service_name,
-        }
-
-
-async def trigger_task(task_name: str) -> dict[str, Any]:
-    """Manually trigger a background task."""
-    if task_name not in TASK_DEFINITIONS:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Unknown task: {task_name}",
-        )
-
-    try:
-        job = await enqueue_task(
-            task_name,
-            manual_run=True,
-            trigger_source="admin_dashboard",
-        )
-        return {
-            "success": True,
-            "message": f"Task '{task_name}' triggered successfully",
-            "job_id": job.get("job_id") if job else None,
-        }
-    except Exception as exc:
-        logger.exception("Failed to trigger task %s", task_name)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
-        )
-
-
 class SetupService:
     """Setup wizard service helpers."""
 
@@ -745,21 +646,11 @@ class SetupService:
     async def restart_service(service_name: str) -> dict[str, Any]:
         return await restart_service(service_name)
 
-    @staticmethod
-    async def get_service_logs(service_name: str) -> dict[str, Any]:
-        return await get_service_logs(service_name)
-
-    @staticmethod
-    async def trigger_task(task_name: str) -> dict[str, Any]:
-        return await trigger_task(task_name)
-
 
 __all__ = [
     "SetupService",
     "complete_setup",
     "get_service_health",
-    "get_service_logs",
     "get_setup_status",
     "restart_service",
-    "trigger_task",
 ]

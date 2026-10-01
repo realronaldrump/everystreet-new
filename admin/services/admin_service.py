@@ -1,16 +1,15 @@
 from __future__ import annotations
 
-import asyncio
 import logging
 from datetime import UTC, datetime
 from typing import Any
 
-from fastapi import HTTPException, status
+from fastapi import HTTPException
 
 from admin.services.storage_service import StorageService
 from config import get_mapbox_token
 from core.date_utils import ensure_utc
-from core.mapping.factory import clear_local_provider_cache, get_geocoder
+from core.mapping.factory import clear_local_provider_cache
 from core.serialization import serialize_utc_datetime
 from core.service_config import clear_config_cache, get_service_config
 from db.manager import db_manager
@@ -213,73 +212,6 @@ class AdminService:
     @staticmethod
     async def get_storage_summary() -> dict[str, Any]:
         return await AdminService.get_storage_info()
-
-    @staticmethod
-    async def validate_location(location: str, location_type: str) -> dict[str, Any]:
-        try:
-            geocoder = await get_geocoder()
-
-            async def _validate() -> dict[str, Any] | None:
-                validate_fn = getattr(geocoder, "validate_location", None)
-                if callable(validate_fn):
-                    return await validate_fn(location, location_type)
-
-                try:
-                    results = await geocoder.search_raw(
-                        query=location,
-                        limit=1,
-                        polygon_geojson=True,
-                    )
-                except NotImplementedError:
-                    results = await geocoder.search(
-                        location,
-                        limit=1,
-                    )
-
-                if not results:
-                    return None
-
-                result = results[0]
-                if (
-                    location_type
-                    and result.get("type") != location_type
-                    and result.get("source") != "google"
-                ):
-                    return None
-                return result
-
-            validated = await asyncio.wait_for(
-                _validate(),
-                timeout=12.0,
-            )
-        except TimeoutError as exc:
-            logger.warning(
-                "Location validation timed out for location=%s type=%s",
-                location,
-                location_type,
-            )
-            raise HTTPException(
-                status_code=status.HTTP_504_GATEWAY_TIMEOUT,
-                detail="Validation timed out. Please try again.",
-            ) from exc
-        except Exception as exc:
-            logger.exception(
-                "Location validation failed for location=%s type=%s",
-                location,
-                location_type,
-            )
-            raise HTTPException(
-                status_code=status.HTTP_502_BAD_GATEWAY,
-                detail="Unable to validate location at this time.",
-            ) from exc
-
-        if not validated:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Location not found.",
-            )
-
-        return validated
 
     @staticmethod
     async def get_first_trip_date() -> dict[str, str]:

@@ -108,16 +108,6 @@ async def _serialize_mission(
     return payload
 
 
-async def _current_street_lengths(area: CoverageArea) -> dict[str, float]:
-    streets = await Street.find(
-        {"area_id": area.id, "area_version": area.area_version},
-    ).to_list()
-    return {
-        street.segment_id: max(float(street.length_miles or 0.0), 0.0)
-        for street in streets
-    }
-
-
 async def _daily_new_miles(area, *, timezone="UTC"):
     """New trip-derived miles per local calendar day, over the whole history."""
     rollup = await CoverageJournalRollup.find_one(

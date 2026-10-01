@@ -20,11 +20,6 @@ async def _trip_analytics_cached(query: dict):
     return await TripAnalyticsService.get_trip_analytics(query)
 
 
-@cached("driver_behavior", ttl_seconds=600)
-async def _driver_behavior_cached(query: dict):
-    return await TripAnalyticsService.get_driver_behavior_analytics(query)
-
-
 @router.get("/api/trip-analytics")
 @api_route(logger)
 async def get_trip_analytics(request: Request):
@@ -134,20 +129,3 @@ async def get_drilldown_trips(request: Request):
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
         )
-
-
-@router.get("/api/driver-behavior")
-@api_route(logger)
-async def driver_behavior_analytics(request: Request):
-    """
-    Aggregate driving behavior statistics within optional date range filters.
-
-    Accepts the same `start_date` and `end_date` query parameters used
-    by other API endpoints. If no filters are provided, all trips are
-    considered.
-    """
-    query = TripQuerySpec.from_request(
-        request,
-        include_invalid=True,
-    ).to_mongo_query(enforce_source=True)
-    return await _driver_behavior_cached(query)

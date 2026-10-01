@@ -98,13 +98,6 @@ async def mark_journal_pending(area_id, *, session=None):
     return int(row["journal_revision"]) if row else 0
 
 
-async def append_status_event(**kwargs):
-    """Record an owner decision as part of the caller's coverage transaction."""
-    event = CoverageStatusEvent(**kwargs)
-    await event.insert()
-    await mark_journal_pending(event.area_id)
-
-
 async def clear_journal_data(area_id):
     for model in (
         CoverageDriveEvent,

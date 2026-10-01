@@ -30,7 +30,6 @@ The deployed web and worker images were both revision
 | Boundary | Behavior when off |
 | --- | --- |
 | Real webhook `/api/webhooks/bouncie/live` | Returns the existing HTTP 200 acknowledgement before body parsing, credential lookup, event dispatch, receipt recording, Redis trip writes, or completion-sync enqueueing. It does not claim to process the event. |
-| Simulator `/api/simulator/bouncie-webhook` | Returns HTTP 409 with the disabled message. The map simulator entry is hidden. |
 | Live service handlers | Ignore trip start, data, metrics, and end events. Direct service reads return no live trip without reading Redis. |
 | `/api/active_trip`, `/api/trip_updates` | Return `enabled: false`, no trip, and an explicit disabled message. |
 | `/ws/trips` | Sends `tracking_disabled` and closes without opening a Redis subscription. Existing connections close when the setting refreshes. |
@@ -68,7 +67,7 @@ sync, coverage processing, map matching, vehicle data, and imports continue.
 ## Verification
 
 Regression tests cover explicit-boolean defaults, fail-closed configuration,
-disabled webhook acknowledgement without processing, simulator rejection,
+disabled webhook acknowledgement without processing,
 REST/WebSocket shutdown, direct service bypasses, and browser startup/shutdown.
 Existing enabled-path tests explicitly turn the feature on. Production checks
 must confirm the actual web and worker image revisions, disabled API responses,

@@ -271,46 +271,6 @@ class MapMatchingJobService:
             "skipped_active": skipped,
         }
 
-    async def preview(
-        self,
-        request: MapMatchJobRequest,
-        limit: int = 25,
-    ) -> dict[str, Any]:
-        normalized = await self._normalize_request_with_defaults(request)
-        query = MapMatchingJobRunner._build_query(normalized)
-
-        total = await Trip.find(query).count()
-        trips = (
-            await Trip.find(query)
-            .sort(-Trip.endTime)
-            .project(TripPreviewProjection)
-            .limit(limit)
-            .to_list()
-        )
-
-        sample = []
-        for trip in trips:
-            trip_dict = trip.model_dump()
-            sample.append(
-                {
-                    "transactionId": trip_dict.get("transactionId"),
-                    "startTime": trip_dict.get("startTime"),
-                    "endTime": trip_dict.get("endTime"),
-                    "distance": trip_dict.get("distance"),
-                    "matchStatus": trip_dict.get("matchStatus"),
-                    "matchedGps": trip_dict.get("matchedGps"),
-                },
-            )
-
-        return {
-            "total": total,
-            "provider_policy": normalized.provider_policy,
-            "matching_engine": MapMatchingJobRunner._matching_engine_payload(
-                normalized.provider_policy,
-            ),
-            "sample": sample,
-        }
-
     async def preview_matches(
         self,
         job_id: str,
