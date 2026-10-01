@@ -15,7 +15,6 @@ from core.trip_source_policy import enforce_bouncie_source
 from db.aggregation import aggregate_to_list
 from db.models import Place, Trip
 from db.schemas import (
-    NonCustomPlaceVisit,
     PlaceResponse,
     PlaceStatisticsResponse,
     PlaceVisitsResponse,
@@ -624,122 +623,6 @@ class VisitStatsService:
         name = place.name if isinstance(place, PlaceResponse) else place.name or ""
 
         return PlaceVisitsResponse(trips=trips_data, name=name)
-
-    @staticmethod
-    async def get_non_custom_places_visits(
-        timeframe: str | None = None,
-    ) -> list[NonCustomPlaceVisit]:
-        """
-        Aggregate visits to non-custom destinations.
-
-        The logic derives a human-readable place name from destination information,
-        prioritizing actual place names over addresses:
-            1. destinationPlaceName (if present - explicitly set place name)
-            2. destination.formatted_address (full address from Nominatim, includes POI names)
-            3. destination.address_components.street (street name as last resort)
-
-        Args:
-            timeframe: Optional time filter (day|week|month|year)
-
-        Returns:
-            List of NonCustomPlaceVisit objects
-
-        Raises:
-            ValueError: If timeframe is invalid
-        """
-        match_stage = enforce_bouncie_source(
-            apply_trip_record_filters(
-                {
-                    "$and": [
-                        {
-                            "$or": [
-                                {"destinationPlaceId": {"$exists": False}},
-                                {"destinationPlaceId": None},
-                                {"destinationPlaceId": ""},
-                            ]
-                        },
-                        {
-                            "$or": [
-                                {
-                                    "destinationPlaceName": {
-                                        "$exists": True,
-                                        "$ne": None,
-                                    }
-                                },
-                                {
-                                    "destination.formatted_address": {
-                                        "$exists": True,
-                                        "$ne": "",
-                                    }
-                                },
-                                {
-                                    "destination.address_components.street": {
-                                        "$exists": True,
-                                        "$ne": "",
-                                    }
-                                },
-                            ]
-                        },
-                    ]
-                },
-            ),
-        )
-
-        start_date = _resolve_timeframe_start(
-            timeframe,
-            error_message=(
-                f"Unsupported timeframe '{timeframe}'. Choose from day, week, month, year."
-            ),
-        )
-        if start_date is not None:
-            match_stage["endTime"] = {"$gte": start_date}
-
-        pipeline = [
-            {"$match": match_stage},
-            {
-                "$addFields": {
-                    "placeName": {
-                        "$ifNull": [
-                            "$destinationPlaceName",
-                            {
-                                "$ifNull": [
-                                    "$destination.formatted_address",
-                                    {
-                                        "$ifNull": [
-                                            "$destination.address_components.street",
-                                            "Unknown",
-                                        ],
-                                    },
-                                ],
-                            },
-                        ],
-                    },
-                },
-            },
-            {"$match": {"placeName": {"$ne": None, "$nin": ["", "Unknown"]}}},
-            {
-                "$group": {
-                    "_id": "$placeName",
-                    "totalVisits": {"$sum": 1},
-                    "firstVisit": {"$min": "$endTime"},
-                    "lastVisit": {"$max": "$endTime"},
-                },
-            },
-            {"$sort": {"totalVisits": -1}},
-            {"$limit": 100},
-        ]
-
-        results = await aggregate_to_list(Trip, pipeline)
-
-        return [
-            NonCustomPlaceVisit(
-                name=doc["_id"],
-                totalVisits=doc["totalVisits"],
-                firstVisit=doc.get("firstVisit"),
-                lastVisit=doc.get("lastVisit"),
-            )
-            for doc in results
-        ]
 
     @staticmethod
     async def get_visit_suggestions(

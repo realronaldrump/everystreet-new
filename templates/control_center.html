@@ -633,53 +633,6 @@ Map Match Trips on Fetch
               <i class="fas fa-rotate-right"></i> Refresh
             </button>
           </div>
-
-          <details class="mt-4 fleet-manual-add">
-            <summary class="fleet-manual-add-summary">
-	            Device missing from Bouncie?
-            </summary>
-            <p class="text-muted small mt-2">
-	            Bouncie occasionally leaves a device off its vehicle list even though the
-	            device is still recording trips. Add it here by IMEI and it will be
-	            included in trip syncing. The IMEI is printed on the device.
-            </p>
-            <form id="credentials-add-vehicle-form"
-                  method="post"
-                  action="/control-center/credentials/add-vehicle"
-                  novalidate>
-              <input type="hidden" name="csrf_token" value="{{ auth_context.csrf_token or '' }}" />
-              <div class="row g-3 align-items-end">
-                <div class="col-12 col-md-4">
-                  <label for="credentials-add-vehicle-imei" class="form-label">
-	                  IMEI
-                  </label>
-                  <input type="text"
-                         class="form-control"
-                         id="credentials-add-vehicle-imei"
-                         name="imei"
-                         placeholder="123456789012345"
-                         inputmode="numeric"
-                         autocomplete="off" />
-                </div>
-                <div class="col-12 col-md-5">
-                  <label for="credentials-add-vehicle-name" class="form-label">
-	                  Name it (optional)
-                  </label>
-                  <input type="text"
-                         class="form-control"
-                         id="credentials-add-vehicle-name"
-                         name="custom_name"
-                         placeholder="My car"
-                         autocomplete="off" />
-                </div>
-                <div class="col-12 col-md-3">
-                  <button type="submit" class="btn btn-outline-primary w-100" id="credentials-add-vehicle-btn">
-                    <i class="fas fa-plus"></i> Add
-                  </button>
-                </div>
-              </div>
-            </form>
-          </details>
         </div>
 
       </div>
@@ -1539,8 +1492,9 @@ Geocoding Progress
           Map Matching
         </h3>
         <p class="text-muted small">
-          Map matching is managed in one place now. Queue jobs and track progress from
-          the Map Matching workspace.
+          Match trips to the roads they followed, re-run trips that failed or
+          look wrong, and review the results in the Map Matching workspace.
+          Map Match Trips on Fetch in Preferences matches new trips as they sync.
         </p>
         <a class="btn btn-outline-primary" href="/map-matching">
           <i class="fas fa-layer-group"></i> Open Map Matching

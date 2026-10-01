@@ -5,7 +5,7 @@ import logging
 from fastapi import APIRouter, HTTPException, status
 
 from core.api import api_route
-from db.schemas import NonCustomPlaceVisit, PlaceVisitsResponse
+from db.schemas import PlaceVisitsResponse
 from visits.services.place_service import PlaceService
 from visits.services.visit_stats_service import VisitStatsService
 
@@ -24,23 +24,3 @@ async def get_trips_for_place(place_id: str):
             detail="Place not found",
         )
     return await VisitStatsService.get_trips_for_place(place)
-
-
-@router.get("/api/non_custom_places_visits", response_model=list[NonCustomPlaceVisit])
-@api_route(logger)
-async def get_non_custom_places_visits(timeframe: str | None = None):
-    """
-    Aggregate visits to non-custom destinations.
-
-    The logic derives a human-readable place name from destination information,
-    prioritizing actual place names over addresses:
-
-       1. destinationPlaceName (if present - explicitly set place name)
-       2. destination.formatted_address (full address from Nominatim, includes POI names)
-       3. destination.address_components.street (street name as last resort)
-
-    Supports an optional timeframe query-param (day | week | month | year).
-    When supplied, only trips whose endTime falls inside that rolling window
-    are considered.
-    """
-    return await VisitStatsService.get_non_custom_places_visits(timeframe)

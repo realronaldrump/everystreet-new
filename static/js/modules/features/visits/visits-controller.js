@@ -46,12 +46,10 @@ class VisitsPageController {
     this.places = [];
     this.placesStats = [];
     this.suggestions = [];
-    this.nonCustomPlaces = [];
     this.currentView = "cards";
     this.placeSearch = "";
     this.placeSort = "visits";
     this.placesShown = 12;
-    this.stopsShown = 10;
     this.loadGeneration = 0;
     this.suggestionGeneration = 0;
     this.detailGeneration = 0;
@@ -118,7 +116,6 @@ class VisitsPageController {
       placeSort: document.getElementById("place-sort"),
       placesCount: document.getElementById("places-result-count"),
       placesShowMore: document.getElementById("places-show-more"),
-      stopsShowMore: document.getElementById("stops-show-more"),
 
       // Patterns section
       patternsSection: document.getElementById("patterns-section"),
@@ -139,9 +136,6 @@ class VisitsPageController {
       // Map section
       placeNameInput: document.getElementById("place-name"),
 
-      // Other stops
-      otherStopsSection: document.getElementById("other-stops-section"),
-      otherStopsList: document.getElementById("other-stops-list"),
 
       // FAB
       startDrawingFab: document.getElementById("start-drawing-fab"),
@@ -163,7 +157,6 @@ class VisitsPageController {
         if (!retry) return;
         const section = retry.dataset.visitsRetry;
         if (section === "discoveries") void this.loadSuggestions();
-        else if (section === "stops") void this.loadOtherStops();
         else if (section === "detail") void this.showPlaceDetail(this.activePlaceId);
         else void this.loadData();
       },
@@ -192,14 +185,6 @@ class VisitsPageController {
       () => {
         this.placesShown += 12;
         this.renderPlaces();
-      },
-      { signal }
-    );
-    this.elements.stopsShowMore?.addEventListener(
-      "click",
-      () => {
-        this.stopsShown += 10;
-        this.renderOtherStops();
       },
       { signal }
     );
@@ -345,21 +330,6 @@ class VisitsPageController {
           this.previewSuggestion(index);
         } else if (action === "save") {
           this.addSuggestionAsPlace(index);
-        }
-      },
-      { signal }
-    );
-
-    this.elements.otherStopsList?.addEventListener(
-      "click",
-      (event) => {
-        const saveBtn = event.target.closest(".btn-save[data-stop-name]");
-        if (!saveBtn) {
-          return;
-        }
-        const stopName = String(saveBtn.dataset.stopName || "").trim();
-        if (stopName) {
-          this.saveNonCustomPlace(stopName);
         }
       },
       { signal }
@@ -687,7 +657,6 @@ class VisitsPageController {
     if (!current()) return;
     // Optional sections never hold up places, deep links, or the map.
     void this.loadSuggestions();
-    void this.loadOtherStops();
   }
 
   clearSectionError(section) {
@@ -1042,69 +1011,6 @@ class VisitsPageController {
       return;
     }
     emptyCopy.textContent = `We need at least ${this.discoveryMinVisits} visits to the same area to suggest a new place. Keep tracking your trips!`;
-  }
-
-  async loadOtherStops() {
-    if (this.destroyed) return;
-    this.stopsAbortController?.abort();
-    const request = new AbortController();
-    this.stopsAbortController = request;
-    if (this.elements.stopsShowMore) this.elements.stopsShowMore.hidden = true;
-    const current = () => !this.destroyed && this.stopsAbortController === request;
-    if (this.elements.otherStopsSection)
-      this.elements.otherStopsSection.style.display = "block";
-    if (this.elements.otherStopsList)
-      this.elements.otherStopsList.innerHTML =
-        '<p class="visits-inline-state" role="status">Loading other stops…</p>';
-    try {
-      const places = await this.dataService.fetchNonCustomVisits(
-        {},
-        { signal: request.signal }
-      );
-      if (!current()) return;
-      this.nonCustomPlaces = places;
-      this.renderOtherStops();
-    } catch {
-      if (!current()) return;
-      if (this.elements.otherStopsList)
-        this.elements.otherStopsList.innerHTML =
-          '<div class="visits-inline-state" role="status">Other stops could not be loaded. <button type="button" class="btn btn-outline-secondary btn-sm" data-visits-retry="stops">Try again</button></div>';
-    }
-  }
-
-  renderOtherStops() {
-    if (this.nonCustomPlaces.length === 0) {
-      this.elements.otherStopsSection.style.display = "none";
-      return;
-    }
-
-    this.elements.otherStopsSection.style.display = "block";
-
-    if (this.elements.stopsShowMore)
-      this.elements.stopsShowMore.hidden =
-        this.nonCustomPlaces.length <= this.stopsShown;
-    const stopsHTML = this.nonCustomPlaces
-      .slice(0, this.stopsShown)
-      .map(
-        (stop) => `
-      <div class="other-stop-item">
-        <div class="other-stop-info">
-          <h4>${escapeHtml(stop.name)}</h4>
-          <span class="other-stop-visit-count">${stop.totalVisits} visits</span>
-        </div>
-        <div class="other-stop-dates">
-          <span>First: ${this.formatDate(stop.firstVisit)}</span>
-          <span>Last: ${this.formatDate(stop.lastVisit)}</span>
-        </div>
-        <button class="btn-save" data-stop-name="${escapeHtml(stop.name)}">
-          <i class="fas fa-plus"></i> Save
-        </button>
-      </div>
-    `
-      )
-      .join("");
-
-    this.elements.otherStopsList.innerHTML = stopsHTML;
   }
 
   // Pattern detection
@@ -1486,7 +1392,6 @@ class VisitsPageController {
     this.destroyed = true;
     this.loadAbortController?.abort();
     this.suggestionAbortController?.abort();
-    this.stopsAbortController?.abort();
     this.detailAbortController?.abort();
     this.visitsManager?.destroy?.();
     this.visitsManager = null;
@@ -1731,20 +1636,6 @@ class VisitsPageController {
         label.textContent = originalLabel;
       }
     }
-  }
-
-  // Convert a non-custom place to a custom place
-  async saveNonCustomPlace(name) {
-    const customName = await this.promptPlaceName(name);
-    if (!customName) {
-      return;
-    }
-
-    this.startDrawingFromFab(customName);
-    this.showNotification(
-      `Draw a boundary for "${customName}", then save it as a place.`,
-      "info"
-    );
   }
 
   showNotification(message, type = "info") {

@@ -32,10 +32,6 @@ export function createVisitsDataService(client = apiClient) {
       return get(`/api/places/${encodeURIComponent(placeId)}/trips`, options);
     },
 
-    fetchNonCustomVisits(params = {}, options = {}) {
-      return get(`/api/non_custom_places_visits${buildQuery(params)}`, options);
-    },
-
     fetchVisitSuggestions(params = {}, options = {}) {
       return get(`/api/visit_suggestions${buildQuery(params)}`, options);
     },

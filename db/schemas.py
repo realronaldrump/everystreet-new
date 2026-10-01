@@ -181,15 +181,6 @@ class PlaceVisitsResponse(BaseModel):
     name: str
 
 
-class NonCustomPlaceVisit(BaseModel):
-    """Response model for non-custom place visit statistics."""
-
-    name: str
-    totalVisits: int
-    firstVisit: datetime | None = None
-    lastVisit: datetime | None = None
-
-
 class DestinationBloomPlaceResponse(BaseModel):
     """Response model for a destination bloom -> place creation."""
 

@@ -77,27 +77,6 @@ export class DriveSimulation {
     this._debouncedSimulate();
   }
 
-  /** Hydrate a trusted set of undriven features from another planning surface. */
-  hydrateSelection(areaId, features) {
-    this.activate(areaId);
-    this.selectedSegments.clear();
-    for (const feature of features || []) {
-      const segmentId = String(feature?.properties?.segment_id || "");
-      const status = String(feature?.properties?.status || "undriven").toLowerCase();
-      if (segmentId && status === "undriven") {
-        this.selectedSegments.set(segmentId, feature);
-      }
-    }
-    this._updateSourceData();
-    this._updateUI();
-    if (this.selectedSegments.size > 0) {
-      void this._simulate();
-    } else {
-      this.onStatsUpdate(null);
-    }
-    return this.selectedSegments.size;
-  }
-
   /** Set the area for the simulation (e.g. on area change). */
   setArea(areaId) {
     if (this.active) {

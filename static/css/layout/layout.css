@@ -242,7 +242,6 @@ body[data-route="/map"]::after,
 body[data-route="/live-navigation"]::after,
 body[data-route="/coverage-route-planner"]::after,
 body[data-route="/regional-coverage-explorer"]::after,
-body[data-route="/coverage-diorama"]::after,
 body[data-route="/memory-city"]::after {
   content: none;
 }

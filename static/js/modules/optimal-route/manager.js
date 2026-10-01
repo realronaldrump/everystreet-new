@@ -5,11 +5,6 @@ import {
   getExplorationSelection,
   setExplorationSelection,
 } from "../core/exploration-map.js";
-import {
-  clearCoverageRouteDraft,
-  isDioramaDraftRequest,
-  readCoverageRouteDraft,
-} from "../features/coverage-diorama/draft.js";
 import { buildLiveNavigationUrl } from "../live-navigation/live-navigation-api.js";
 import confirmationDialog from "../ui/confirmation-dialog.js";
 import { OptimalRouteAPI } from "./api.js";
@@ -34,7 +29,6 @@ export class OptimalRoutesManager {
     this.coverageAreas = [];
     this.lastSelectedAreaId = "";
     this.abortController = new AbortController();
-    this.pendingDioramaDraft = this.readPendingDioramaDraft();
     const initialParams = new URLSearchParams(window.location.search);
     const selection = getExplorationSelection();
     this.initialAreaId = initialParams.get("area") || selection.areaId || "";
@@ -331,7 +325,6 @@ export class OptimalRoutesManager {
         this.initialAreaId = "";
         return;
       }
-      await this.openPendingDioramaDraft();
       if (
         !this.selectedAreaId &&
         this.initialAreaId &&
@@ -452,13 +445,10 @@ export class OptimalRoutesManager {
     if (epoch !== this.selectionEpoch) return;
 
     // Load streets
-    let undrivenFeatures = [];
     try {
-      const streetNetwork = await this.api.loadStreetNetwork(nextAreaId);
+      const { drivenFeatures, undrivenFeatures } =
+        await this.api.loadStreetNetwork(nextAreaId);
       if (epoch !== this.selectionEpoch) return;
-      const { drivenFeatures, undrivenFeatures: loadedUndrivenFeatures } =
-        streetNetwork;
-      undrivenFeatures = loadedUndrivenFeatures;
       this.map.updateStreets(drivenFeatures, undrivenFeatures);
       this.ui.setMapStatus("");
     } catch {
@@ -516,8 +506,6 @@ export class OptimalRoutesManager {
       this.map.flyToBounds(bounds);
       document.getElementById("map-legend").style.display = "block";
     }
-
-    this.hydratePendingDioramaDraft(nextAreaId, undrivenFeatures);
   }
 
   async fitSelectedArea() {
@@ -533,76 +521,6 @@ export class OptimalRoutesManager {
     const epoch = this.selectionEpoch;
     const bounds = await this.api.getAreaBounds(this.selectedAreaId);
     if (epoch === this.selectionEpoch && bounds) this.map.flyToBounds(bounds);
-  }
-
-  readPendingDioramaDraft() {
-    if (!isDioramaDraftRequest()) {
-      return null;
-    }
-    try {
-      return readCoverageRouteDraft(window.sessionStorage);
-    } catch {
-      return null;
-    }
-  }
-
-  async openPendingDioramaDraft() {
-    const draft = this.pendingDioramaDraft;
-    if (!draft) {
-      return;
-    }
-    const areaExists = this.coverageAreas.some(
-      (area) => String(area.id) === draft.areaId
-    );
-    if (!areaExists) {
-      this.ui.showNotification(
-        "The Diorama route draft references an unavailable area.",
-        "warning"
-      );
-      this.clearPendingDioramaDraft();
-      return;
-    }
-    if (this.ui.areaSelect) {
-      this.ui.setAreaSelection(draft.areaId);
-    }
-    await this.onAreaSelect(draft.areaId);
-  }
-
-  hydratePendingDioramaDraft(areaId, undrivenFeatures) {
-    const draft = this.pendingDioramaDraft;
-    if (!draft || String(areaId) !== draft.areaId) {
-      return;
-    }
-    const requested = new Set(draft.segmentIds);
-    const validFeatures = (undrivenFeatures || []).filter((feature) =>
-      requested.has(String(feature?.properties?.segment_id || ""))
-    );
-    const selectedCount = this.simulation.hydrateSelection(areaId, validFeatures);
-    const legend = document.getElementById("legend-simulated");
-    if (legend) {
-      legend.style.display = selectedCount > 0 ? "" : "none";
-    }
-    if (selectedCount > 0) {
-      this.ui.showNotification(
-        `Loaded ${selectedCount} street segment${selectedCount === 1 ? "" : "s"} from Coverage Diorama.`,
-        "success"
-      );
-    } else {
-      this.ui.showNotification(
-        "None of the Diorama draft streets are currently available to plan.",
-        "warning"
-      );
-    }
-    this.clearPendingDioramaDraft();
-  }
-
-  clearPendingDioramaDraft() {
-    this.pendingDioramaDraft = null;
-    try {
-      clearCoverageRouteDraft(window.sessionStorage);
-    } catch {
-      // Browser storage can be disabled; the in-memory draft is still cleared.
-    }
   }
 
   onMapLayersReady() {

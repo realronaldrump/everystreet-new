@@ -10,7 +10,6 @@ import { isAbortError } from "../../utils.js";
 const BOUNCIE_AUTHORIZE_URL = "/api/bouncie/authorize";
 const BOUNCIE_REDIRECT_URI_API = "/api/bouncie/redirect-uri";
 const VEHICLES_API = "/api/vehicles?active_only=true";
-const BOUNCIE_ADD_VEHICLE_API = "/api/profile/bouncie-credentials/vehicles";
 const APP_SETTINGS_API = "/api/app_settings";
 
 function readFetchConcurrencyConfig(input) {
@@ -279,11 +278,6 @@ function setupBouncieVehicles({ signal } = {}) {
   const summaryEl = document.getElementById("credentials-vehicles-summary");
   const refreshBtn = document.getElementById("credentials-refresh-vehicles-btn");
 
-  const addForm = document.getElementById("credentials-add-vehicle-form");
-  const addBtn = document.getElementById("credentials-add-vehicle-btn");
-  const imeiInput = document.getElementById("credentials-add-vehicle-imei");
-  const nameInput = document.getElementById("credentials-add-vehicle-name");
-
   if (!summaryEl) {
     return;
   }
@@ -292,65 +286,6 @@ function setupBouncieVehicles({ signal } = {}) {
     refreshBtn.addEventListener(
       "click",
       () => loadBouncieVehicles({ signal }),
-      eventOptions
-    );
-  }
-
-  if (addForm) {
-    addForm.addEventListener(
-      "submit",
-      async (event) => {
-        event.preventDefault();
-
-        const imei = String(imeiInput?.value || "").trim();
-        const customName = String(nameInput?.value || "").trim();
-
-        if (!imei) {
-          notificationManager.show("IMEI is required.", "danger");
-          return;
-        }
-
-        const originalHtml = addBtn?.innerHTML;
-        try {
-          if (addBtn) {
-            addBtn.disabled = true;
-            addBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Adding...';
-          }
-
-          const response = await apiClient.post(
-            BOUNCIE_ADD_VEHICLE_API,
-            {
-              imei,
-              custom_name: customName || null,
-            },
-            { signal }
-          );
-
-          notificationManager.show(
-            response?.message || "Vehicle added successfully.",
-            "success"
-          );
-
-          if (imeiInput) {
-            imeiInput.value = "";
-          }
-          if (nameInput) {
-            nameInput.value = "";
-          }
-
-          await loadBouncieVehicles({ signal });
-        } catch (error) {
-          if (!isAbortError(error)) {
-            notificationManager.show(error.message, "danger");
-          }
-        } finally {
-          if (addBtn) {
-            addBtn.disabled = false;
-            addBtn.innerHTML =
-              originalHtml || '<i class="fas fa-plus"></i> Add Vehicle';
-          }
-        }
-      },
       eventOptions
     );
   }

@@ -97,10 +97,6 @@ body[data-route="/regional-coverage-explorer"] .nav-breadcrumb {
   display: none;
 }
 
-body[data-route="/coverage-diorama"] .nav-breadcrumb {
-  display: none;
-}
-
 /* Bottom navigation (mobile) */
 .bottom-nav {
   position: fixed;

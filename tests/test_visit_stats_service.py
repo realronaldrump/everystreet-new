@@ -174,30 +174,6 @@ def test_places_statistics_api_forwards_timeframe(
     service_mock.assert_awaited_once_with(None)
 
 
-@pytest.mark.asyncio
-async def test_non_custom_visit_match_includes_null_place_ids(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    captured: dict[str, object] = {}
-
-    async def fake_aggregate(_model, pipeline, **_kwargs):
-        captured["pipeline"] = pipeline
-        return []
-
-    monkeypatch.setattr(
-        "visits.services.visit_stats_service.aggregate_to_list",
-        fake_aggregate,
-    )
-
-    await VisitStatsService.get_non_custom_places_visits()
-
-    match = captured["pipeline"][0]["$match"]
-    assert match["source"] == "bouncie"
-    place_id_clause = match["$and"][0]["$or"]
-    assert {"destinationPlaceId": None} in place_id_clause
-    assert {"destinationPlaceId": ""} in place_id_clause
-
-
 def test_visit_suggestion_match_is_scoped_to_bouncie() -> None:
     match = visit_stats_service._suggestion_match_stage("month")
 

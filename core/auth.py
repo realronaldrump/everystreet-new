@@ -33,7 +33,6 @@ OWNER_PASSWORD_HASH_ENV: Final[str] = "OWNER_PASSWORD_HASH"
 DEFAULT_SESSION_SECRET: Final[str] = "change-me-session-secret"
 FORM_CSRF_PATHS: Final[set[str]] = {
     "/logout",
-    "/control-center/credentials/add-vehicle",
     "/vehicles/add-vehicle",
 }
 LOCAL_HOST_ALIASES: Final[set[str]] = {

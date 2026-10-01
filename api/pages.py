@@ -15,29 +15,6 @@ from gas.services.vehicle_service import VehicleService
 router = APIRouter()
 
 
-async def _handle_add_vehicle_form(
-    request: Request,
-    *,
-    imei: str,
-    custom_name: str | None,
-    csrf_token: str,
-    redirect_url: str,
-) -> RedirectResponse:
-    if not validate_form_csrf_token(request, csrf_token):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Invalid CSRF token.",
-        )
-
-    imei_value = (imei or "").strip()
-    name_value = (custom_name or "").strip() or None
-
-    if imei_value:
-        await VehicleService.upsert_active_device(imei_value, name_value)
-
-    return RedirectResponse(url=redirect_url, status_code=303)
-
-
 @router.get("/", response_class=HTMLResponse)
 async def landing(request: Request):
     """Render landing page."""
@@ -76,26 +53,6 @@ async def control_center_page(request: Request):
     )
 
 
-@router.post(
-    "/control-center/credentials/add-vehicle",
-    response_class=RedirectResponse,
-)
-async def control_center_add_vehicle(
-    request: Request,
-    imei: Annotated[str, Form()] = "",
-    custom_name: Annotated[str | None, Form()] = None,
-    csrf_token: Annotated[str, Form()] = "",
-) -> RedirectResponse:
-    """Handle Credentials -> Add Vehicle form submission."""
-    return await _handle_add_vehicle_form(
-        request,
-        imei=imei,
-        custom_name=custom_name,
-        csrf_token=csrf_token,
-        redirect_url="/control-center#credentials",
-    )
-
-
 @router.post("/vehicles/add-vehicle", response_class=RedirectResponse)
 async def vehicles_add_vehicle(
     request: Request,
@@ -104,13 +61,19 @@ async def vehicles_add_vehicle(
     csrf_token: Annotated[str, Form()] = "",
 ) -> RedirectResponse:
     """Handle My Vehicles -> Add Vehicle form submission."""
-    return await _handle_add_vehicle_form(
-        request,
-        imei=imei,
-        custom_name=custom_name,
-        csrf_token=csrf_token,
-        redirect_url="/vehicles",
-    )
+    if not validate_form_csrf_token(request, csrf_token):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Invalid CSRF token.",
+        )
+
+    imei_value = (imei or "").strip()
+    name_value = (custom_name or "").strip() or None
+
+    if imei_value:
+        await VehicleService.upsert_active_device(imei_value, name_value)
+
+    return RedirectResponse(url="/vehicles", status_code=303)
 
 
 @router.get("/vehicles", response_class=HTMLResponse)
@@ -204,15 +167,6 @@ async def regional_coverage_explorer_page(request: Request):
 async def memory_city_page(request: Request):
     """Render the Memory City 3D sculpture view."""
     return await render_template(request, "memory_city.html")
-
-
-@router.get(
-    "/coverage-diorama",
-    response_class=HTMLResponse,
-)
-async def coverage_diorama_page(request: Request):
-    """Render the owner-facing 3D coverage planning diorama."""
-    return await render_template(request, "coverage_diorama.html")
 
 
 @router.get("/setup-wizard", response_class=HTMLResponse)

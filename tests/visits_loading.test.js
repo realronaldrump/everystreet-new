@@ -18,7 +18,6 @@ function page(service) {
   controller.renderPatterns = () => {};
   controller.processInitialPlaceDeepLink = () => {};
   controller.loadSuggestions = async () => {};
-  controller.loadOtherStops = async () => {};
   controller.showSectionError = () => {};
   controller.clearSectionError = () => {};
   return controller;

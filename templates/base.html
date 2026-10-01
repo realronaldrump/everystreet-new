@@ -50,14 +50,6 @@ Every Street
     <link rel="dns-prefetch" href="//api.mapbox.com" />
     <link rel="preconnect" href="//cdn.jsdelivr.net" crossorigin />
     <link rel="preconnect" href="//api.mapbox.com" crossorigin />
-    <script type="importmap">
-      {
-        "imports": {
-          "three": {{ CDN.three_js | tojson }},
-          "three/addons/": {{ CDN.three_addons | tojson }}
-        }
-      }
-    </script>
     <link rel="icon"
           href="{{ url_for('static', path='favicon.ico') | replace('http://', '//') }}"
           type="image/x-icon" />

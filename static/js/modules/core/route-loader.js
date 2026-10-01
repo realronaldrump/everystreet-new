@@ -51,7 +51,6 @@ const routes = [
     ["map", "topojson"],
   ],
   ["/memory-city", "../../pages/memory-city.js", ["deck"]],
-  ["/coverage-diorama", "../../pages/coverage-diorama.js"],
   ["/export", "../../pages/export.js"],
   ["/setup-wizard", "../../pages/setup-wizard.js"],
 ];
