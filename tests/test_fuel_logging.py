@@ -64,7 +64,9 @@ def test_prices_are_derived_with_decimal_rounding():
     from_price = readings(
         total_cost=None, price_per_gallon=3.599, gallons=17.781
     ).readings()
-    assert from_price["total_cost"] == 64.0
+    assert from_price["total_cost"] == 63.99
+    half_cent = readings(total_cost=None, price_per_gallon=3.5995).readings()
+    assert half_cent["total_cost"] == 36.0
     from_total = readings(total_cost=86.58, gallons=17.781).readings()
     assert from_total["price_per_gallon"] == 4.869
     assert from_total["odometer_source"] == "manual"
