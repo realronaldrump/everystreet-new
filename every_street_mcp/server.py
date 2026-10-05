@@ -36,6 +36,8 @@ from recurring_routes.services.service import serialize_route_summary
 from street_coverage.intelligence import CoverageIntelligenceService
 from tracking.services.tracking_service import TrackingService
 
+from .fuel import FuelFillupInput, fuel_logging_context, save_fuel_fillup
+from .photo_metadata import FuelPhoto, inspect_photos
 from .security import ExactMcpPathAdapter, OpenAIMtlsProxyGuard
 
 SERVER_NAME = "every-street-intelligence"
@@ -47,8 +49,8 @@ ACTION_RESOURCE_URI = "ui://every-street/action-review-v1.html"
 VIEW_TTL_SECONDS = 20 * 60
 ACTION_MAX_AGE_SECONDS = 10 * 60
 AUDIT_TTL_DAYS = 30
-TOOL_COUNT = 17
-MODEL_TOOL_COUNT = 15
+TOOL_COUNT = 20
+MODEL_TOOL_COUNT = 18
 
 NOAUTH = [{"type": "noauth"}]
 READ_ANNOTATIONS = ToolAnnotations(
@@ -71,7 +73,14 @@ mcp = FastMCP(
         "street coverage, places, recurring routes, and vehicle economics. Use read "
         "tools before preparing an action. Never imply that a live trip is historical "
         "or persisted. Writes require prepare_every_street_action followed by a user "
-        "click in the action-review widget."
+        "click in the action-review widget for goals and missions. For gas photos, "
+        "Marquise (the Nissan) is always implied. Read get_fuel_logging_context, "
+        "extract the numbers visually, inspect original photo timestamps using "
+        "inspect_fuel_photos when files are available, then use log_gas_fillup when "
+        "the owner asks to log them. Assume a full tank unless told partial. Never "
+        "guess missing readings or use upload time as capture time. Ask briefly "
+        "about missing dates or conflicting readings. Fuel writes use the host's "
+        "normal write-tool approval."
     ),
     website_url=PUBLIC_APP_URL,
     host="0.0.0.0",
@@ -725,6 +734,68 @@ async def get_vehicle_economics(
     )
     await _audit("get_vehicle_economics", started)
     return _result("Vehicle economics are ready.", result)
+
+
+@mcp.tool(
+    title="Get Marquise fuel logging context",
+    description="Start a photo-to-fill-up workflow: automatically find Marquise, the owner's Nissan, and return units, account timezone, and five recent fill-ups. Never ask which car. Pump, receipt, and odometer photos are for this car. Use log_gas_fillup to save when requested.",
+    annotations=READ_ANNOTATIONS,
+    meta=_tool_meta(
+        invoking="Checking Marquise's fuel log…", invoked="Fuel logging context ready"
+    ),
+    structured_output=False,
+)
+async def get_fuel_logging_context() -> CallToolResult:
+    started = await _start_tool("get_fuel_logging_context", limit=15)
+    result = await fuel_logging_context()
+    await _audit("get_fuel_logging_context", started)
+    return _result(
+        "Fuel photos are for Marquise, the Nissan. Read the photos and their capture time, then log the fill-up when requested.",
+        result,
+    )
+
+
+@mcp.tool(
+    title="Read fuel photo capture times",
+    description="Read original EXIF capture dates and timezone offsets from attached pump, receipt, and odometer photos. The vision model cannot see EXIF. Pass original file attachments if available; images are discarded after metadata extraction. Missing metadata requires a visible receipt date or a short question. Never invent a capture time from upload time.",
+    annotations=READ_ANNOTATIONS,
+    meta={
+        **_tool_meta(
+            invoking="Reading photo capture times…", invoked="Photo timestamps checked"
+        ),
+        "openai/fileParams": ["photos"],
+    },
+    structured_output=False,
+)
+async def inspect_fuel_photos(photos: list[FuelPhoto]) -> CallToolResult:
+    started = await _start_tool("inspect_fuel_photos", limit=10)
+    result = await inspect_photos(photos)
+    await _audit("inspect_fuel_photos", started, result_count=len(photos))
+    return _result(
+        "Original photo timestamps checked. Read the displayed pump and odometer numbers visually.",
+        result,
+    )
+
+
+@mcp.tool(
+    title="Log a gas fill-up for Marquise",
+    description="Save one user-requested fill-up directly into Every Street's gas log for Marquise, the Nissan. Use readings from the user's odometer/pump/receipt photos, US gallons, miles, USD, and a supported date with explicit UTC offset. Never ask which car. Assume full tank unless told partial. At least total paid or price per gallon is required; the other is calculated. Conflicting arithmetic, impossible odometer progression, or implausible MPG are rejected. Retries return an existing matching fill-up without duplicating it. Call only when the owner asks to log the fill-up, and report the saved result.",
+    annotations=WRITE_ANNOTATIONS,
+    meta=_tool_meta(invoking="Saving Marquise's fill-up…", invoked="Fill-up saved"),
+    structured_output=False,
+)
+async def log_gas_fillup(fillup: FuelFillupInput) -> CallToolResult:
+    started = await _start_tool("log_gas_fillup", limit=5)
+    result = await save_fuel_fillup(fillup)
+    await _audit(
+        "log_gas_fillup", started, action_type="log_gas_fillup", result_count=1
+    )
+    summary = (
+        "This fill-up is already logged for Marquise; no duplicate was created."
+        if result["already_logged"]
+        else "The fill-up was saved to Marquise's Every Street gas log."
+    )
+    return _result(summary, result)
 
 
 @mcp.tool(

@@ -377,6 +377,8 @@ class FillupService:
             odometer=odometer,
             odometer_source=odometer_source,
             odometer_is_estimated=odometer_is_estimated,
+            entry_source=fillup_data.get("entry_source"),
+            fillup_time_source=fillup_data.get("fillup_time_source"),
             latitude=fillup_data.get("latitude"),
             longitude=fillup_data.get("longitude"),
             is_full_tank=is_full_tank,

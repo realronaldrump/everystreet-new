@@ -25,6 +25,7 @@ h3
 uvicorn[standard]
 jinja2
 mcp>=1.26,<2
+ExifRead>=3.5.1,<4
 python-multipart
 pwdlib[argon2]
 osmnx

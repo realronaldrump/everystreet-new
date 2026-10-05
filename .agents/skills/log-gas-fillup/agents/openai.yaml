@@ -1,0 +1,13 @@
+interface:
+  display_name: "Log gas for Marquise"
+  short_description: "Save a fill-up from pump and odometer photos"
+  default_prompt: "Use $log-gas-fillup to log these fill-up photos for Marquise in Every Street."
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "every-street"
+      description: "Every Street photo metadata and fuel logging tools"
+      transport: "streamable_http"
+      url: "https://www.everystreet.me/mcp"
+policy:
+  allow_implicit_invocation: true

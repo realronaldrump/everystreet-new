@@ -1258,6 +1258,8 @@ class GasFillup(Document):
     odometer: float | None = None
     odometer_source: str | None = None
     odometer_is_estimated: bool = False
+    entry_source: str | None = None
+    fillup_time_source: str | None = None
     latitude: float | None = None
     longitude: float | None = None
     is_full_tank: bool = True

@@ -43,6 +43,9 @@ async def test_mcp_catalog_is_anonymous_and_contains_expected_tools() -> None:
         "recommend_coverage_missions",
         "get_live_drive",
         "get_vehicle_economics",
+        "get_fuel_logging_context",
+        "inspect_fuel_photos",
+        "log_gas_fillup",
         "get_system_health",
         "render_every_street_explorer",
         "prepare_every_street_action",
@@ -66,6 +69,20 @@ async def test_commit_and_view_tools_are_hidden_from_model() -> None:
     assert tools["prepare_every_street_action"].annotations.readOnlyHint is True
     assert tools["commit_every_street_action"].annotations.readOnlyHint is False
     assert tools["commit_every_street_action"].annotations.destructiveHint is False
+    assert tools["log_gas_fillup"].meta["ui"]["visibility"] == ["model", "app"]
+    assert tools["log_gas_fillup"].annotations.readOnlyHint is False
+    assert tools["log_gas_fillup"].annotations.idempotentHint is True
+    assert tools["inspect_fuel_photos"].meta["openai/fileParams"] == ["photos"]
+
+
+async def test_photo_file_schema_matches_openai_contract() -> None:
+    tools = {tool.name: tool for tool in await mcp.list_tools()}
+    schema = tools["inspect_fuel_photos"].inputSchema
+    file_schema = schema["$defs"]["FuelPhoto"]
+    assert {"file_id", "download_url", "mime_type", "file_name"} <= set(
+        file_schema["properties"]
+    )
+    assert set(file_schema["required"]) == {"file_id", "download_url"}
 
 
 async def test_mcp_registers_versioned_app_resources() -> None:
