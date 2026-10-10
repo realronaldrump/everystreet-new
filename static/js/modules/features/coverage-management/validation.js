@@ -5,6 +5,7 @@
  */
 
 import apiClient from "../../core/api-client.js";
+import { syncAppSelect } from "../../ui/app-select.js";
 import { escapeHtml } from "../../utils.js";
 import { API_BASE, withSignal } from "./context.js";
 
@@ -173,6 +174,7 @@ export async function validateLocationInput() {
     const kind = result.kind || areaType;
     if (typeSelect && kind !== areaType) {
       typeSelect.value = kind;
+      syncAppSelect(typeSelect);
       validationState.lastType = kind;
     }
 

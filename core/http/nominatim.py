@@ -191,6 +191,7 @@ class NominatimClient:
         polygon_geojson: bool = False,
         addressdetails: bool = True,
         feature_type: str | None = None,
+        dedupe: bool = True,
     ) -> list[dict[str, Any]]:
         params: dict[str, Any] = {
             "q": query,
@@ -202,6 +203,8 @@ class NominatimClient:
             params["polygon_geojson"] = 1
         if feature_type:
             params["featureType"] = feature_type
+        if not dedupe:
+            params["dedupe"] = 0
 
         session = await get_session()
         results = await request_json(

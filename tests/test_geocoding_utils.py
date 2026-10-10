@@ -25,10 +25,11 @@ async def test_search_raw_returns_results(
     result = await client.search_raw(query="Waco", limit=1, polygon_geojson=True)
     assert result == [{"display_name": "Waco", "type": "city"}]
     assert "featureType" not in session.requests[0][2]["params"]
+    assert "dedupe" not in session.requests[0][2]["params"]
 
 
 @pytest.mark.asyncio
-async def test_search_raw_passes_feature_type(
+async def test_search_raw_passes_feature_type_and_keeps_look_alikes(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     session = FakeSession(get_responses=[FakeResponse(status=200, json_data=[])])
@@ -38,8 +39,14 @@ async def test_search_raw_passes_feature_type(
     )
 
     client = NominatimClient()
-    await client.search_raw(query="Garfield County", feature_type="settlement")
-    assert session.requests[0][2]["params"]["featureType"] == "settlement"
+    await client.search_raw(
+        query="Garfield County",
+        feature_type="settlement",
+        dedupe=False,
+    )
+    params = session.requests[0][2]["params"]
+    assert params["featureType"] == "settlement"
+    assert params["dedupe"] == 0
 
 
 @pytest.mark.asyncio

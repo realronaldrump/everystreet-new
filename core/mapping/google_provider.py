@@ -226,9 +226,10 @@ class GoogleGeocoder(Geocoder):
         polygon_geojson: bool = False,
         addressdetails: bool = True,
         feature_type: str | None = None,
+        dedupe: bool = True,
     ) -> list[dict[str, Any]]:
         # Text search cannot filter by place type; callers filter by "type".
-        _ = (addressdetails, feature_type)
+        _ = (addressdetails, feature_type, dedupe)
         session = await get_session()
         params: dict[str, Any] = {
             "query": query,

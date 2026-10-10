@@ -493,12 +493,17 @@ async def validate_area(request: ValidateAreaRequest):
     client = await get_geocoder()
 
     async def search(text: str) -> list[dict[str, Any]]:
+        # Nominatim merges results sharing a name, kind and rank. Where the
+        # map lacks state boundaries, same-named counties in different states
+        # read alike ("Garfield County, United States") and all but one would
+        # vanish; find_area_candidates tells them apart by location instead.
         return await client.search_raw(
             query=text,
             limit=SEARCH_RESULT_LIMIT,
             polygon_geojson=False,
             addressdetails=True,
             feature_type=AREA_FEATURE_TYPE,
+            dedupe=False,
         )
 
     try:

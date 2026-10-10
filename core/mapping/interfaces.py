@@ -36,13 +36,15 @@ class Geocoder(Protocol):
         polygon_geojson: bool = False,
         addressdetails: bool = True,
         feature_type: str | None = None,
+        dedupe: bool = True,
     ) -> list[dict[str, Any]]:
         """
         Search for a place and return raw provider results.
 
         ``feature_type`` narrows results to Nominatim's place feature types
         ("country", "state", "city", "settlement"); providers that cannot
-        filter by it return unfiltered results.
+        filter by it return unfiltered results. ``dedupe=False`` keeps
+        results the provider would merge as look-alikes.
         """
         ...
 

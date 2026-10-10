@@ -317,7 +317,10 @@ def test_validate_area_searches_places_only_and_drops_roads() -> None:
     assert candidate["name"] == "Garfield County"
     assert candidate["context"] == "Colorado"
     assert candidate["kind_label"] == "County"
-    assert geocoder.search_raw.await_args.kwargs["feature_type"] == "settlement"
+    search_kwargs = geocoder.search_raw.await_args.kwargs
+    assert search_kwargs["feature_type"] == "settlement"
+    # Same-named counties must not be merged before their states are known.
+    assert search_kwargs["dedupe"] is False
 
 
 def test_resolve_area_returns_boundary() -> None:
