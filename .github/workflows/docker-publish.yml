@@ -17,7 +17,8 @@ on:
 
 concurrency:
   group: ghcr-${{ github.ref }}
-  cancel-in-progress: true
+  # Finish the active main release; newer pushes replace the pending run.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
