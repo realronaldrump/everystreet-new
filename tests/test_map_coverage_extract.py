@@ -17,10 +17,10 @@ _OSM_XML = """<?xml version="1.0" encoding="UTF-8"?>
 <osm version="0.6" generator="coverage-extract-regression">
 <node id="1" version="1" lat="39.00" lon="-107.00"/>
 <node id="3" version="1" lat="40.00" lon="-107.00"/>
-<node id="7" version="1" lat="40.20" lon="-107.50"/>
 <node id="4" version="1" lat="40.00" lon="-108.00"/>
 <node id="5" version="1" lat="40.50" lon="-108.50"/>
 <node id="6" version="1" lat="40.51" lon="-108.50"/>
+<node id="7" version="1" lat="40.20" lon="-107.50"/>
 <way id="100" version="1"><nd ref="1"/><nd ref="3"/></way>
 <way id="101" version="1"><nd ref="3"/><nd ref="7"/><nd ref="4"/></way>
 <way id="102" version="1"><nd ref="4"/><nd ref="1"/></way>
