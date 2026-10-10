@@ -190,8 +190,9 @@ class NominatimClient:
         limit: int = 1,
         polygon_geojson: bool = False,
         addressdetails: bool = True,
+        feature_type: str | None = None,
     ) -> list[dict[str, Any]]:
-        params = {
+        params: dict[str, Any] = {
             "q": query,
             "format": "json",
             "limit": limit,
@@ -199,6 +200,8 @@ class NominatimClient:
         }
         if polygon_geojson:
             params["polygon_geojson"] = 1
+        if feature_type:
+            params["featureType"] = feature_type
 
         session = await get_session()
         results = await request_json(

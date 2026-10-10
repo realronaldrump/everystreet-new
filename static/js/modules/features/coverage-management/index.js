@@ -217,7 +217,7 @@ function setupEventListeners(signal) {
     if (!query) {
       setValidationStatus({
         icon: "fa-location-dot",
-        message: "Enter a location to validate.",
+        message: "Type a city, county, or state to find it.",
         tone: "neutral",
       });
       validationState.lastQuery = "";
@@ -231,7 +231,7 @@ function setupEventListeners(signal) {
     } else if (query.length < 2) {
       setValidationStatus({
         icon: "fa-pen",
-        message: "Keep typing to validate.",
+        message: "Keep typing…",
         tone: "neutral",
       });
       validationState.lastQuery = "";
@@ -245,7 +245,7 @@ function setupEventListeners(signal) {
     } else {
       setValidationStatus({
         icon: "fa-spinner fa-spin",
-        message: "Validating location…",
+        message: "Searching for places…",
         tone: "info",
       });
     }
@@ -1108,7 +1108,9 @@ function handleAreaCardClick(event) {
 
 async function addArea() {
   const displayNameInput = document.getElementById("location-input").value.trim();
-  const areaType = document.getElementById("location-type").value;
+  const areaType =
+    validationState.selectedCandidate?.kind ||
+    document.getElementById("location-type").value;
   const tripMode = getCoverageTripModeSelection();
 
   if (!displayNameInput) {
@@ -1117,10 +1119,7 @@ async function addArea() {
   }
 
   if (!validationState.confirmedBoundary || !validationState.confirmedCandidate) {
-    notificationManager.show(
-      "Please validate and confirm a location before adding.",
-      "warning"
-    );
+    notificationManager.show("Pick a place from the list before adding it.", "warning");
     return;
   }
 

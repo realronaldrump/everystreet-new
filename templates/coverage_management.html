@@ -533,10 +533,10 @@ Place
               <input type="text"
                      id="location-input"
                      class="form-control"
-                     placeholder="e.g., Waco, TX"
+                     placeholder="e.g., Waco, TX or Garfield County, CO"
                      autocomplete="off"
                      required />
-              <small class="form-text text-secondary">A city, county, or state.</small>
+              <small class="form-text text-secondary">A city, county, or state. Add the state to narrow it down.</small>
             </div>
             <div class="mb-3">
               <label for="location-type" class="form-label">
@@ -553,7 +553,7 @@ County
 State / Region
                 </option>
               </select>
-              <small class="form-text text-secondary">Helps pick the right boundary.</small>
+              <small class="form-text text-secondary">Only places of this kind are listed.</small>
             </div>
             <div class="mb-3">
               <label for="include-service-roads-toggle"
@@ -609,7 +609,7 @@ Map-matched path only
                 <span class="status-icon">
                   <i class="fas fa-location-dot" aria-hidden="true"></i>
                 </span>
-                <span>Enter a location to validate.</span>
+                <span>Type a city, county, or state to find it.</span>
               </div>
               <div id="location-validation-note"
                    class="validation-note text-secondary small d-none">
@@ -617,15 +617,10 @@ Map-matched path only
               <div id="location-validation-candidates"
                    class="validation-candidates"
                    role="listbox"
-                   aria-label="Validation matches">
-              </div>
-              <div id="location-validation-confirmation"
-                   class="alert alert-success validation-confirmation d-none"
-                   role="status"
-                   aria-live="polite">
+                   aria-label="Matching places">
               </div>
               <small class="form-text text-secondary mt-2">
-              Choose the matching place before adding it.
+              Pick the matching place, then add it.
               </small>
             </div>
           </form>

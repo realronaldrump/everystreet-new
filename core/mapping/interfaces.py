@@ -35,8 +35,15 @@ class Geocoder(Protocol):
         limit: int = 1,
         polygon_geojson: bool = False,
         addressdetails: bool = True,
+        feature_type: str | None = None,
     ) -> list[dict[str, Any]]:
-        """Search for a place and return raw provider results."""
+        """
+        Search for a place and return raw provider results.
+
+        ``feature_type`` narrows results to Nominatim's place feature types
+        ("country", "state", "city", "settlement"); providers that cannot
+        filter by it return unfiltered results.
+        """
         ...
 
     async def lookup_raw(

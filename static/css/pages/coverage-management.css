@@ -1721,6 +1721,7 @@
   border-radius: var(--radius-md);
   display: flex;
   justify-content: space-between;
+  align-items: center;
   gap: var(--space-2);
   min-height: 44px;
   transition: var(--transition-fast);
@@ -1736,9 +1737,18 @@
   box-shadow: var(--shadow-md);
 }
 
+.validation-candidate .candidate-body {
+  min-width: 0;
+}
+
 .validation-candidate .candidate-title {
   font-weight: var(--font-weight-semibold);
   color: var(--text-primary);
+}
+
+.validation-candidate .candidate-context {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
 }
 
 .validation-candidate .candidate-meta {
@@ -1746,6 +1756,15 @@
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-1);
+}
+
+.validation-candidate .candidate-icon {
+  flex-shrink: 0;
+  color: var(--text-secondary);
+}
+
+.validation-candidate.is-selected .candidate-icon {
+  color: var(--success);
 }
 
 .validation-badge {
@@ -1757,20 +1776,10 @@
   background: var(--manual-paper-shade);
 }
 
-.validation-badge.badge-mismatch {
+.validation-badge.badge-approx {
   border-color: var(--warning);
   color: var(--warning);
   background: rgb(var(--warning-rgb) / 12%);
-}
-
-.validation-badge.badge-node {
-  border-color: var(--info);
-  color: var(--info);
-  background: rgb(var(--info-rgb) / 12%);
-}
-
-.validation-confirmation {
-  margin-top: var(--space-2);
 }
 
 /* =============================================================================

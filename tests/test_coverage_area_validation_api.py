@@ -246,10 +246,10 @@ def test_validate_area_sets_note_when_all_candidates_mismatch() -> None:
     data = response.json()
     assert all(candidate["type_match"] is False for candidate in data["candidates"])
     assert data["note"] is not None
-    assert "No matches for the selected area type." in data["note"]
+    assert "No cities or towns found" in data["note"]
 
 
-def test_validate_area_returns_404_on_no_match() -> None:
+def test_validate_area_returns_empty_list_on_no_match() -> None:
     app = _create_app()
     geocoder = _mock_geocoder(search_results=[])
 
@@ -263,7 +263,57 @@ def test_validate_area_returns_404_on_no_match() -> None:
             json={"location": "Nowhere", "area_type": "city"},
         )
 
-    assert response.status_code == 404
+    assert response.status_code == 200
+    assert response.json()["candidates"] == []
+
+
+def test_validate_area_searches_places_only_and_drops_roads() -> None:
+    app = _create_app()
+    search_results = [
+        {
+            "display_name": "CO 82, Cardiff, Garfield County, United States",
+            "osm_id": 11,
+            "osm_type": "way",
+            "class": "highway",
+            "type": "primary",
+            "addresstype": "road",
+            "address": {"road": "CO 82", "county": "Garfield County"},
+        },
+        {
+            "display_name": "Garfield County, Colorado, United States",
+            "name": "Garfield County",
+            "osm_id": 1411343,
+            "osm_type": "relation",
+            "class": "boundary",
+            "type": "administrative",
+            "addresstype": "county",
+            "place_rank": 12,
+            "address": {"county": "Garfield County", "state": "Colorado"},
+        },
+    ]
+    geocoder = _mock_geocoder(search_results=search_results)
+
+    with patch(
+        "street_coverage.api.areas.get_geocoder",
+        new=AsyncMock(return_value=geocoder),
+    ):
+        client = TestClient(app)
+        response = client.post(
+            "/api/coverage/areas/validate",
+            json={"location": "Garfield county CO", "area_type": "county"},
+        )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["kind"] == "county"
+    assert [c["display_name"] for c in data["candidates"]] == [
+        "Garfield County, Colorado, United States",
+    ]
+    candidate = data["candidates"][0]
+    assert candidate["name"] == "Garfield County"
+    assert candidate["context"] == "Colorado"
+    assert candidate["kind_label"] == "County"
+    assert geocoder.search_raw.await_args.kwargs["feature_type"] == "settlement"
 
 
 def test_resolve_area_returns_boundary() -> None:

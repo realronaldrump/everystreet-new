@@ -24,6 +24,22 @@ async def test_search_raw_returns_results(
     client = NominatimClient()
     result = await client.search_raw(query="Waco", limit=1, polygon_geojson=True)
     assert result == [{"display_name": "Waco", "type": "city"}]
+    assert "featureType" not in session.requests[0][2]["params"]
+
+
+@pytest.mark.asyncio
+async def test_search_raw_passes_feature_type(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    session = FakeSession(get_responses=[FakeResponse(status=200, json_data=[])])
+    monkeypatch.setattr(
+        "core.http.nominatim.get_session",
+        AsyncMock(return_value=session),
+    )
+
+    client = NominatimClient()
+    await client.search_raw(query="Garfield County", feature_type="settlement")
+    assert session.requests[0][2]["params"]["featureType"] == "settlement"
 
 
 @pytest.mark.asyncio

@@ -241,6 +241,9 @@ async def build_trip_coverage_extract_from_geometry(
 
     logger.info("Extracting coverage PBF from %s", source_pbf)
 
+    # The smart strategy keeps boundary relations (states, counties, cities)
+    # that the trip corridors touch whole, so Nominatim can build and find
+    # those areas instead of dropping their clipped outlines.
     cmd = [
         "osmium",
         "extract",
@@ -249,6 +252,10 @@ async def build_trip_coverage_extract_from_geometry(
         "-o",
         str(output_pbf),
         "--overwrite",
+        "--strategy",
+        "smart",
+        "--option",
+        "types=multipolygon,boundary",
         source_pbf,
     ]
 

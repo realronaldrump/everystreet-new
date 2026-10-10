@@ -31,6 +31,12 @@ from street_coverage.ingestion import (
     delete_area,
     rebuild_area,
 )
+from street_coverage.place_search import (
+    AREA_FEATURE_TYPE,
+    SEARCH_RESULT_LIMIT,
+    find_area_candidates,
+    parse_bounding_box,
+)
 from street_coverage.public_road_filter import get_public_road_filter_signature
 from street_coverage.stats import update_area_stats
 from tasks.arq import extract_arq_job_id, get_arq_pool
@@ -62,9 +68,15 @@ class ValidateAreaRequest(BaseModel):
 
 
 class ValidateCandidate(BaseModel):
-    """Candidate match for a coverage area lookup."""
+    """An area (city, county, or state) matching a coverage area lookup."""
 
     display_name: str
+    name: str
+    context: str = ""
+    kind: Literal["city", "county", "state"]
+    kind_label: str
+    has_boundary: bool = True
+    state: str | None = None
     osm_id: int | str | None = None
     osm_type: str | None = None
     type: str | None = None
@@ -81,6 +93,7 @@ class ValidateAreaResponse(BaseModel):
     """Response for validating a location."""
 
     success: bool = True
+    kind: Literal["city", "county", "state"]
     candidates: list[ValidateCandidate]
     note: str | None = None
 
@@ -224,106 +237,6 @@ class BatchRecalculateResponse(BaseModel):
 # =============================================================================
 
 
-def _normalize_area_type(area_type: str) -> str:
-    return str(area_type or "").strip().lower()
-
-
-def _address_has_key(address: Any, keys: set[str]) -> bool:
-    if not isinstance(address, dict):
-        return False
-
-    for raw_key, raw_value in address.items():
-        key = str(raw_key or "").strip().lower()
-        if key not in keys:
-            continue
-        if isinstance(raw_value, str):
-            if raw_value.strip():
-                return True
-            continue
-        if raw_value is not None:
-            return True
-
-    return False
-
-
-def _parse_bounding_box(raw_bbox: Any) -> list[float] | None:
-    if not isinstance(raw_bbox, list) or len(raw_bbox) != 4:
-        return None
-    try:
-        south, north, west, east = map(float, raw_bbox)
-    except (TypeError, ValueError):
-        return None
-    return [west, south, east, north]
-
-
-def _is_type_match(area_type: str, result: dict[str, Any]) -> bool:
-    normalized = _normalize_area_type(area_type)
-    if not normalized:
-        return True
-
-    result_type = str(result.get("type") or "").strip().lower()
-    result_addresstype = str(result.get("addresstype") or "").strip().lower()
-    result_class = str(result.get("class") or "").strip().lower()
-    address = result.get("address") or {}
-
-    if normalized == "city":
-        city_types = {
-            "city",
-            "town",
-            "village",
-            "hamlet",
-            "municipality",
-            "locality",
-        }
-        return (
-            result_type in city_types
-            or result_addresstype in city_types
-            or _address_has_key(
-                address,
-                {"city", "town", "village", "hamlet", "municipality"},
-            )
-            or (result_class == "place" and result_type not in {"state", "county"})
-        )
-    if normalized == "county":
-        county_types = {"county", "parish"}
-        return (
-            result_type in county_types
-            or result_addresstype in county_types
-            or _address_has_key(address, {"county"})
-        )
-    if normalized == "state":
-        state_types = {"state", "province", "region"}
-        return (
-            result_type in state_types
-            or result_addresstype in state_types
-            or _address_has_key(address, {"state"})
-        )
-    return True
-
-
-def _normalize_candidate(
-    result: dict[str, Any],
-    area_type: str,
-) -> dict[str, Any] | None:
-    display_name = result.get("display_name") or result.get("name") or ""
-    osm_id = result.get("osm_id")
-    osm_type = result.get("osm_type")
-    if not display_name or osm_id is None or not osm_type:
-        return None
-
-    return {
-        "display_name": display_name,
-        "osm_id": osm_id,
-        "osm_type": osm_type,
-        "type": result.get("type"),
-        "class": result.get("class"),
-        "address": result.get("address") or {},
-        "importance": result.get("importance"),
-        "bounding_box": _parse_bounding_box(result.get("boundingbox")),
-        "type_match": _is_type_match(area_type, result),
-    }
-
-
 def _extract_boundary(result: dict[str, Any], label: str) -> dict[str, Any]:
     geojson = result.get("geojson")
 
@@ -414,7 +327,7 @@ def _candidate_bounding_box(
     result: dict[str, Any],
     boundary: dict[str, Any] | None,
 ) -> list[float] | None:
-    bbox = _parse_bounding_box(result.get("boundingbox"))
+    bbox = parse_bounding_box(result.get("boundingbox"))
     if bbox:
         return bbox
     if boundary:
@@ -524,9 +437,11 @@ async def _ensure_batch_areas_available(
 )
 async def validate_area(request: ValidateAreaRequest):
     """
-    Validate a location before creating a coverage area.
+    Find areas (cities, counties, states) matching a typed place.
 
-    Returns candidate matches for selection.
+    Only places of the requested kind are returned, unless none match, in
+    which case other areas with that name are returned with a note. Roads and
+    other non-area features are never returned.
     """
     location = request.location.strip()
     if not location:
@@ -535,16 +450,26 @@ async def validate_area(request: ValidateAreaRequest):
             detail="Location is required.",
         )
 
-    limit = request.limit or 5
+    limit = request.limit or 8
     limit = max(1, min(int(limit), 10))
 
     client = await get_geocoder()
-    try:
-        results = await client.search_raw(
-            query=location,
-            limit=limit,
+
+    async def search(text: str) -> list[dict[str, Any]]:
+        return await client.search_raw(
+            query=text,
+            limit=SEARCH_RESULT_LIMIT,
             polygon_geojson=False,
             addressdetails=True,
+            feature_type=AREA_FEATURE_TYPE,
+        )
+
+    try:
+        found = await find_area_candidates(
+            search,
+            location,
+            request.area_type,
+            limit=limit,
         )
     except NotImplementedError as exc:
         raise HTTPException(
@@ -558,32 +483,11 @@ async def validate_area(request: ValidateAreaRequest):
             detail="Unable to validate location at this time.",
         ) from exc
 
-    if not results:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Location not found.",
-        )
-
-    candidates = [
-        candidate
-        for result in results
-        if (candidate := _normalize_candidate(result, request.area_type)) is not None
-    ]
-
-    if not candidates:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Location not found.",
-        )
-
-    note = None
-    if candidates and not any(candidate["type_match"] for candidate in candidates):
-        note = (
-            "No matches for the selected area type. "
-            "Select the closest result or adjust the area type."
-        )
-
-    return ValidateAreaResponse(candidates=candidates, note=note)
+    return ValidateAreaResponse(
+        kind=found.kind,
+        candidates=found.candidates,
+        note=found.note,
+    )
 
 
 @router.post(

@@ -1,6 +1,7 @@
 /**
- * The Add Area form's location lookup: validate a place name, list the
- * candidates, and confirm the boundary to add.
+ * The Add Area form's place lookup: find areas (cities, counties, states)
+ * matching the typed place, list them, and load the boundary of the one
+ * picked.
  */
 
 import apiClient from "../../core/api-client.js";
@@ -8,6 +9,13 @@ import { escapeHtml } from "../../utils.js";
 import { API_BASE, withSignal } from "./context.js";
 
 export const VALIDATION_DEBOUNCE_MS = 500;
+const CANDIDATE_LIMIT = 8;
+const AREA_KIND_NOUNS = {
+  city: { one: "city or town", many: "cities and towns" },
+  county: { one: "county", many: "counties" },
+  state: { one: "state", many: "states" },
+};
+
 export const validationState = {
   status: "idle",
   lastQuery: "",
@@ -31,7 +39,6 @@ export function initValidationUI() {
     status: document.getElementById("location-validation-status"),
     note: document.getElementById("location-validation-note"),
     candidates: document.getElementById("location-validation-candidates"),
-    confirmation: document.getElementById("location-validation-confirmation"),
     addButton: document.getElementById("add-coverage-area"),
   };
   resetValidationState();
@@ -63,24 +70,37 @@ export function setValidationStatus({ icon, message, tone = "neutral" }) {
     <span>${escapeHtml(message)}</span>`;
 }
 
+function setValidationNote(text) {
+  if (!validationElements?.note) {
+    return;
+  }
+  validationElements.note.textContent = text || "";
+  validationElements.note.classList.toggle("d-none", !text);
+}
+
+function markSelectedCandidate(index) {
+  validationElements?.candidates
+    ?.querySelectorAll(".validation-candidate")
+    .forEach((el, i) => {
+      const selected = i === index;
+      el.classList.toggle("is-selected", selected);
+      el.setAttribute("aria-selected", selected ? "true" : "false");
+      const icon = el.querySelector(".candidate-icon");
+      if (icon) {
+        icon.className = `candidate-icon fas ${
+          selected ? "fa-circle-check" : "fa-chevron-right"
+        }`;
+      }
+    });
+}
+
 export function clearValidationSelection() {
   validationState.resolveRequestId += 1;
   validationState.selectedCandidate = null;
   validationState.confirmedCandidate = null;
   validationState.confirmedBoundary = null;
   setAddButtonEnabled(false);
-
-  if (validationElements?.confirmation) {
-    validationElements.confirmation.classList.add("d-none");
-    validationElements.confirmation.textContent = "";
-  }
-  if (validationElements?.candidates) {
-    validationElements.candidates
-      .querySelectorAll(".validation-candidate")
-      .forEach((el) => {
-        el.classList.remove("is-selected");
-      });
-  }
+  markSelectedCandidate(-1);
 }
 
 export function resetValidationState() {
@@ -99,25 +119,34 @@ export function resetValidationState() {
   if (validationElements?.candidates) {
     validationElements.candidates.innerHTML = "";
   }
-  if (validationElements?.note) {
-    validationElements.note.textContent = "";
-    validationElements.note.classList.add("d-none");
-  }
-  if (validationElements?.confirmation) {
-    validationElements.confirmation.classList.add("d-none");
-    validationElements.confirmation.textContent = "";
-  }
+  setValidationNote("");
   setAddButtonEnabled(false);
   setValidationStatus({
     icon: "fa-location-dot",
-    message: "Enter a location to validate.",
+    message: "Type a city, county, or state to find it.",
     tone: "neutral",
   });
 }
 
+/** One line telling the user what the search found and what to do next. */
+export function describeSearchResult(candidates, kind) {
+  const nouns = AREA_KIND_NOUNS[kind] || AREA_KIND_NOUNS.city;
+  if (!candidates.length) {
+    return "No areas found. Check the spelling, or add the state, like “Garfield County, CO”.";
+  }
+  if (!candidates.some((candidate) => candidate.type_match)) {
+    return "Pick a place below, or change the kind of place.";
+  }
+  if (candidates.length === 1) {
+    return `Found 1 ${nouns.one}.`;
+  }
+  return `Found ${candidates.length} ${nouns.many}. Pick the one you mean.`;
+}
+
 export async function validateLocationInput() {
   const query = document.getElementById("location-input")?.value.trim() || "";
-  const areaType = document.getElementById("location-type")?.value || "city";
+  const typeSelect = document.getElementById("location-type");
+  const areaType = typeSelect?.value || "city";
 
   if (!query || query.length < 2) {
     return;
@@ -134,7 +163,7 @@ export async function validateLocationInput() {
   try {
     const result = await apiClient.post(
       `${API_BASE}/areas/validate`,
-      { location: query, area_type: areaType, limit: 5 },
+      { location: query, area_type: areaType, limit: CANDIDATE_LIMIT },
       withSignal()
     );
 
@@ -142,36 +171,26 @@ export async function validateLocationInput() {
       return;
     }
 
-    validationState.candidates = prioritizeBoundaryCandidates(result.candidates || []);
+    // Typing "County" searches counties; show that in the kind picker.
+    const kind = result.kind || areaType;
+    if (typeSelect && kind !== areaType) {
+      typeSelect.value = kind;
+      validationState.lastType = kind;
+    }
+
+    validationState.candidates = result.candidates || [];
     renderValidationCandidates(validationState.candidates);
+    setValidationNote(result.note);
+    setValidationStatus({
+      icon: validationState.candidates.length ? "fa-list" : "fa-magnifying-glass",
+      message: describeSearchResult(validationState.candidates, kind),
+      tone: validationState.candidates.length ? "info" : "warning",
+    });
 
-    if (validationState.candidates.length === 0) {
-      setValidationStatus({
-        icon: "fa-triangle-exclamation",
-        message: "No matches found. Try a different spelling or area type.",
-        tone: "warning",
-      });
-    } else {
-      setValidationStatus({
-        icon: "fa-list",
-        message: `Found ${validationState.candidates.length} match${validationState.candidates.length !== 1 ? "es" : ""}. Select one to confirm.`,
-        tone: "info",
-      });
-    }
-
-    const preferredCandidateIndex = getPreferredValidationCandidateIndex(
-      validationState.candidates
-    );
-    if (preferredCandidateIndex >= 0) {
-      await resolveValidationCandidateAtIndex(preferredCandidateIndex, { auto: true });
-    }
-
-    if (result.note && validationElements?.note) {
-      validationElements.note.textContent = result.note;
-      validationElements.note.classList.remove("d-none");
-    } else if (validationElements?.note) {
-      validationElements.note.textContent = "";
-      validationElements.note.classList.add("d-none");
+    // One clear match needs no extra tap.
+    const [onlyCandidate] = validationState.candidates;
+    if (validationState.candidates.length === 1 && onlyCandidate.type_match) {
+      await resolveValidationCandidateAtIndex(0);
     }
   } catch (error) {
     if (requestId !== validationState.requestId) {
@@ -179,48 +198,13 @@ export async function validateLocationInput() {
     }
     setValidationStatus({
       icon: "fa-exclamation-circle",
-      message: `Validation error: ${error.message}`,
+      message: `Couldn't search for places: ${error.message}`,
       tone: "danger",
     });
   }
 }
 
-function isNodeValidationCandidate(candidate) {
-  return (
-    String(candidate?.osm_type || "")
-      .trim()
-      .toLowerCase() === "node"
-  );
-}
-
-function prioritizeBoundaryCandidates(candidates) {
-  if (!Array.isArray(candidates) || candidates.length <= 1) {
-    return Array.isArray(candidates) ? candidates : [];
-  }
-
-  return candidates
-    .map((candidate, index) => ({
-      candidate,
-      index,
-      isNode: isNodeValidationCandidate(candidate),
-    }))
-    .sort((a, b) => {
-      if (a.isNode !== b.isNode) {
-        return a.isNode ? 1 : -1;
-      }
-      return a.index - b.index;
-    })
-    .map(({ candidate }) => candidate);
-}
-
-function getPreferredValidationCandidateIndex(candidates) {
-  if (!Array.isArray(candidates) || candidates.length === 0) {
-    return -1;
-  }
-  return candidates.findIndex((candidate) => !isNodeValidationCandidate(candidate));
-}
-
-async function resolveValidationCandidateAtIndex(index, { auto = false } = {}) {
+async function resolveValidationCandidateAtIndex(index) {
   const candidate = validationState.candidates[index];
   if (!candidate) {
     return;
@@ -230,22 +214,12 @@ async function resolveValidationCandidateAtIndex(index, { auto = false } = {}) {
   validationState.confirmedCandidate = null;
   validationState.confirmedBoundary = null;
   setAddButtonEnabled(false);
-  if (validationElements?.confirmation) {
-    validationElements.confirmation.classList.add("d-none");
-    validationElements.confirmation.textContent = "";
-  }
+  markSelectedCandidate(index);
 
-  // Mark selected
-  validationElements?.candidates
-    ?.querySelectorAll(".validation-candidate")
-    .forEach((el, i) => {
-      el.classList.toggle("is-selected", i === index);
-      el.setAttribute("aria-selected", i === index ? "true" : "false");
-    });
-
+  const label = candidateLabel(candidate);
   setValidationStatus({
     icon: "fa-spinner fa-spin",
-    message: auto ? "Resolving boundary for best match…" : "Resolving boundary…",
+    message: `Loading the boundary of ${label}…`,
     tone: "info",
   });
 
@@ -280,63 +254,67 @@ async function resolveValidationCandidateAtIndex(index, { auto = false } = {}) {
 
     setValidationStatus({
       icon: "fa-check-circle",
-      message: `Confirmed: ${escapeHtml(
-        resolvedCandidate.display_name || candidate.display_name
-      )}`,
+      message: `${label} is ready to add.`,
       tone: "success",
     });
-
-    if (validationElements?.confirmation) {
-      validationElements.confirmation.textContent = `Ready to add: ${
-        resolvedCandidate.display_name || candidate.display_name
-      }`;
-      validationElements.confirmation.classList.remove("d-none");
-    }
-
     setAddButtonEnabled(true);
   } catch (error) {
     if (resolveId !== validationState.resolveRequestId) {
       return;
     }
+    markSelectedCandidate(-1);
     setValidationStatus({
       icon: "fa-exclamation-circle",
-      message: `Failed to resolve boundary: ${error.message}`,
+      message: `Couldn't load the boundary of ${label}: ${error.message}`,
       tone: "danger",
     });
   }
+}
+
+/** "Garfield County, Colorado" from a candidate's name and context. */
+export function candidateLabel(candidate) {
+  const name = candidate?.name || candidate?.display_name || "this place";
+  const region = String(candidate?.context || "")
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .at(-1);
+  return region && region !== name ? `${name}, ${region}` : name;
+}
+
+export function buildCandidateMarkup(candidate, index) {
+  const name = candidate.name || candidate.display_name || "";
+  const context = candidate.context
+    ? `<div class="candidate-context">${escapeHtml(candidate.context)}</div>`
+    : "";
+  const kindBadge = candidate.kind_label
+    ? `<span class="validation-badge badge-kind">${escapeHtml(candidate.kind_label)}</span>`
+    : "";
+  const approximate =
+    candidate.has_boundary === false
+      ? '<span class="validation-badge badge-approx" title="No mapped boundary; uses the area around this point">Approximate boundary</span>'
+      : "";
+  return `
+    <button type="button"
+            class="validation-candidate"
+            data-candidate-index="${index}"
+            role="option"
+            aria-selected="false">
+      <div class="candidate-body">
+        <div class="candidate-title">${escapeHtml(name)}</div>
+        ${context}
+        <div class="candidate-meta">${kindBadge}${approximate}</div>
+      </div>
+      <i class="candidate-icon fas fa-chevron-right" aria-hidden="true"></i>
+    </button>`;
 }
 
 export function renderValidationCandidates(candidates) {
   if (!validationElements?.candidates) {
     return;
   }
-  if (!candidates.length) {
-    validationElements.candidates.innerHTML = "";
-    return;
-  }
-
   validationElements.candidates.innerHTML = candidates
-    .map((c, idx) => {
-      const typeMatch = c.type_match
-        ? ""
-        : '<span class="validation-badge badge-mismatch">Type mismatch</span>';
-      const pointOnly = isNodeValidationCandidate(c)
-        ? '<span class="validation-badge badge-node">Point only</span>'
-        : "";
-      const typeBadge = `<span class="validation-badge">${escapeHtml(c.osm_type || "")}</span>`;
-      return `
-        <button type="button"
-                class="validation-candidate"
-                data-candidate-index="${idx}"
-                role="option"
-                aria-selected="false">
-          <div>
-            <div class="candidate-title">${escapeHtml(c.display_name || "")}</div>
-            <div class="candidate-meta">${typeBadge}${pointOnly}${typeMatch}</div>
-          </div>
-          <i class="fas fa-chevron-right text-secondary" aria-hidden="true"></i>
-        </button>`;
-    })
+    .map((candidate, index) => buildCandidateMarkup(candidate, index))
     .join("");
 }
 
