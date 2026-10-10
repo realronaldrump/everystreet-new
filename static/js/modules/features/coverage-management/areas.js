@@ -5,7 +5,7 @@ import {
   formatPercent,
   plural,
 } from "../coverage-journal/format.js";
-import { splitAreaName } from "./area-name.js";
+import { areaSubtitle, splitAreaName } from "./area-name.js";
 import { formatRelativeTime, normalizeCoveragePercent } from "./stats.js";
 
 export const DEFAULT_AREA_SORT = "coverage-desc";
@@ -207,7 +207,8 @@ function renderCoverageJobPanel(coverageJob) {
 
 function renderAreaCard(area, coverageJob, routeJob) {
   const pct = normalizeCoveragePercent(area.coverage_percentage);
-  const { name, region } = splitAreaName(area.display_name);
+  const { name } = splitAreaName(area.display_name);
+  const region = areaSubtitle(area);
   const areaName = escapeHtml(name);
   const isReady = area.status === "ready";
   const canRebuild = area.status === "ready" || area.status === "error";

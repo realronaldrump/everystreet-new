@@ -1,7 +1,11 @@
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
+import pytest
+from beanie import PydanticObjectId
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from shapely.geometry import shape
 
 from street_coverage.api import router as coverage_router
 
@@ -515,3 +519,78 @@ def test_add_area_fails_fast_on_invalid_location() -> None:
 
     assert response.status_code == 404
     assert create_area.call_count == 0
+
+
+def _post_drawn_area(boundary: dict) -> tuple:
+    app = _create_app()
+    area = SimpleNamespace(id=PydanticObjectId())
+    with (
+        patch(
+            "street_coverage.api.areas._fetch_boundary",
+            new=AsyncMock(),
+        ) as fetch_boundary,
+        patch(
+            "street_coverage.api.areas.create_area",
+            new=AsyncMock(return_value=area),
+        ) as create_area,
+        patch(
+            "street_coverage.api.areas.Job.find_one",
+            new=AsyncMock(return_value=None),
+        ),
+    ):
+        client = TestClient(app)
+        response = client.post(
+            "/api/coverage/areas",
+            json={
+                "display_name": "Castle Heights",
+                "area_type": "custom",
+                "boundary": boundary,
+            },
+        )
+    return response, create_area, fetch_boundary
+
+
+def test_add_area_uses_a_drawn_boundary_without_a_lookup() -> None:
+    boundary = {
+        "type": "Polygon",
+        "coordinates": [
+            [[-97.2, 31.5], [-97.18, 31.5], [-97.18, 31.52], [-97.2, 31.5]],
+        ],
+    }
+
+    response, create_area, fetch_boundary = _post_drawn_area(boundary)
+
+    assert response.status_code == 200
+    assert fetch_boundary.await_count == 0
+    kwargs = create_area.await_args.kwargs
+    assert kwargs["display_name"] == "Castle Heights"
+    assert kwargs["area_type"] == "custom"
+    assert kwargs["boundary"] == boundary
+
+
+def test_add_area_repairs_a_drawn_boundary_that_crosses_itself() -> None:
+    bowtie = {
+        "type": "Polygon",
+        "coordinates": [[[0, 0], [1, 1], [1, 0], [0, 1], [0, 0]]],
+    }
+
+    response, create_area, _fetch_boundary = _post_drawn_area(bowtie)
+
+    assert response.status_code == 200
+    repaired = shape(create_area.await_args.kwargs["boundary"])
+    assert repaired.is_valid
+    assert repaired.geom_type == "MultiPolygon"
+    assert repaired.area == pytest.approx(0.5)
+
+
+def test_add_area_rejects_a_drawn_boundary_without_area() -> None:
+    flat = {
+        "type": "Polygon",
+        "coordinates": [[[0, 0], [1, 1], [2, 2], [0, 0]]],
+    }
+
+    response, create_area, _fetch_boundary = _post_drawn_area(flat)
+
+    assert response.status_code == 400
+    assert "has no area" in response.json()["detail"]
+    assert create_area.await_count == 0

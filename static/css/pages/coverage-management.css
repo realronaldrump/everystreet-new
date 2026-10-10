@@ -1782,6 +1782,25 @@
   background: rgb(var(--warning-rgb) / 12%);
 }
 
+/* Add Area: find a place, or draw one on the map */
+.add-area-mode {
+  display: flex;
+  width: 100%;
+}
+
+.add-area-mode > button {
+  flex: 1;
+}
+
+.draw-area-map {
+  position: relative;
+  height: min(52vh, 420px);
+  min-height: 260px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
 /* =============================================================================
    MISC UTILITY / ANIMATION CLASSES
    ============================================================================= */

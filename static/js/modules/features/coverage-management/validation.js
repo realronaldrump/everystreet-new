@@ -29,27 +29,25 @@ export const validationState = {
   resolveRequestId: 0,
 };
 export let validationElements = null;
+let onSelectionChange = null;
 
 // =============================================================================
 // Location Validation
 // =============================================================================
 
-export function initValidationUI() {
+/** ``onChange`` runs whenever the place ready to add changes. */
+export function initValidationUI({ onChange = null } = {}) {
   validationElements = {
     status: document.getElementById("location-validation-status"),
     note: document.getElementById("location-validation-note"),
     candidates: document.getElementById("location-validation-candidates"),
-    addButton: document.getElementById("add-coverage-area"),
   };
+  onSelectionChange = onChange;
   resetValidationState();
 }
 
-function setAddButtonEnabled(enabled) {
-  if (!validationElements?.addButton) {
-    return;
-  }
-  validationElements.addButton.disabled = !enabled;
-  validationElements.addButton.setAttribute("aria-disabled", String(!enabled));
+function notifySelectionChange() {
+  onSelectionChange?.();
 }
 
 export function setValidationStatus({ icon, message, tone = "neutral" }) {
@@ -99,7 +97,7 @@ export function clearValidationSelection() {
   validationState.selectedCandidate = null;
   validationState.confirmedCandidate = null;
   validationState.confirmedBoundary = null;
-  setAddButtonEnabled(false);
+  notifySelectionChange();
   markSelectedCandidate(-1);
 }
 
@@ -120,7 +118,7 @@ export function resetValidationState() {
     validationElements.candidates.innerHTML = "";
   }
   setValidationNote("");
-  setAddButtonEnabled(false);
+  notifySelectionChange();
   setValidationStatus({
     icon: "fa-location-dot",
     message: "Type a city, county, or state to find it.",
@@ -213,7 +211,7 @@ async function resolveValidationCandidateAtIndex(index) {
   validationState.selectedCandidate = candidate;
   validationState.confirmedCandidate = null;
   validationState.confirmedBoundary = null;
-  setAddButtonEnabled(false);
+  notifySelectionChange();
   markSelectedCandidate(index);
 
   const label = candidateLabel(candidate);
@@ -257,7 +255,7 @@ async function resolveValidationCandidateAtIndex(index) {
       message: `${label} is ready to add.`,
       tone: "success",
     });
-    setAddButtonEnabled(true);
+    notifySelectionChange();
   } catch (error) {
     if (resolveId !== validationState.resolveRequestId) {
       return;

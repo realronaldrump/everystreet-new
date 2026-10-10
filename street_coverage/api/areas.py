@@ -9,6 +9,7 @@ Simplified API for managing coverage areas:
 - Trigger rebuild
 """
 
+import json
 import logging
 from datetime import UTC, datetime
 from typing import Annotated, Any, Literal
@@ -17,9 +18,13 @@ from beanie import PydanticObjectId
 from fastapi import APIRouter, HTTPException, Query, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
+from shapely.errors import ShapelyError
+from shapely.geometry import mapping, shape
+from shapely.ops import unary_union
 
 from core.coverage import get_effective_coverage_trip_mode
 from core.mapping.factory import get_geocoder
+from core.spatial import validate_and_fix_geometry
 from db.models import CoverageArea, Job
 from street_coverage.ingestion import (
     _calculate_bounding_box,
@@ -53,9 +58,11 @@ router = APIRouter(prefix="/api/coverage", tags=["coverage"])
 class CreateAreaRequest(BaseModel):
     """Request to create a new coverage area."""
 
-    display_name: str
-    area_type: str = "city"  # city, county, state, custom
-    boundary: dict[str, Any] | None = None  # Optional GeoJSON, fetched if not provided
+    display_name: str = Field(min_length=1)
+    area_type: Literal["city", "county", "state", "custom"] = "city"
+    # GeoJSON Polygon/MultiPolygon: a picked place's boundary, or one drawn
+    # on the map for a custom area. Looked up by name when omitted.
+    boundary: dict[str, Any] | None = None
     trip_mode: Literal["regular", "matched", "both"] | None = None
 
 
@@ -320,7 +327,32 @@ def _ensure_polygon_geojson(boundary: dict[str, Any], label: str) -> dict[str, A
             f"Expected Polygon or MultiPolygon."
         )
         raise ValueError(msg)
-    return geojson
+    return _repair_polygon_geojson(geojson, label)
+
+
+def _repair_polygon_geojson(geojson: dict[str, Any], label: str) -> dict[str, Any]:
+    """
+    Return a valid boundary, repairing one that crosses or overlaps itself.
+
+    A hand-drawn outline can cross itself, which would break clipping the
+    area's streets to it.
+    """
+    try:
+        geometry = shape(geojson)
+    except (ValueError, TypeError, AttributeError, IndexError, ShapelyError) as exc:
+        msg = f"The boundary for {label} is not a usable outline."
+        raise ValueError(msg) from exc
+    if geometry.is_valid and not geometry.is_empty:
+        return geojson
+
+    fixed = validate_and_fix_geometry(geometry)
+    parts = getattr(fixed, "geoms", [fixed]) if fixed is not None else []
+    polygons = [part for part in parts if part.geom_type in ("Polygon", "MultiPolygon")]
+    if not polygons:
+        msg = f"The boundary for {label} has no area. Draw a closed outline."
+        raise ValueError(msg)
+    # Round-trip through JSON so coordinates are lists, as GeoJSON stores them.
+    return json.loads(json.dumps(mapping(unary_union(polygons))))
 
 
 def _candidate_bounding_box(

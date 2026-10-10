@@ -10,6 +10,7 @@ Coverage Management
 
 {% block extra_css %}
 
+  <link rel="stylesheet" href="{{ CDN.mapbox_draw_css }}" crossorigin="anonymous" />
   {{ include_mapbox_css() }}
   {{ static_css("pages/coverage-management.css") }}
 {% endblock %}
@@ -512,7 +513,7 @@ Last driven
   </div>
 
   <div class="modal fade" id="addAreaModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
       <div class="modal-content">
         <div class="modal-header">
           <h5 class="modal-title">
@@ -525,103 +526,163 @@ Last driven
           </button>
         </div>
         <div class="modal-body">
+          <div class="segmented-control add-area-mode mb-3"
+               role="group"
+               aria-label="How to add the area">
+            <button type="button" data-add-area-mode="search" aria-pressed="true">
+              <i class="fas fa-magnifying-glass me-1" aria-hidden="true"></i>Find a place
+            </button>
+            <button type="button" data-add-area-mode="draw" aria-pressed="false">
+              <i class="fas fa-draw-polygon me-1" aria-hidden="true"></i>Draw an area
+            </button>
+          </div>
           <form id="add-area-form" novalidate>
-            <div class="mb-3">
-              <label for="location-input" class="form-label">
+            <div id="add-area-search-panel">
+              <div class="mb-3">
+                <label for="location-input" class="form-label">
 Place
-              </label>
-              <input type="text"
-                     id="location-input"
-                     class="form-control"
-                     placeholder="e.g., Waco, TX or Garfield County, CO"
-                     autocomplete="off"
-                     required />
-              <small class="form-text text-secondary">A city, county, or state. Add the state to narrow it down.</small>
-            </div>
-            <div class="mb-3">
-              <label for="location-type" class="form-label">
-Kind of place
-              </label>
-              <select id="location-type" class="form-select">
-                <option value="city" selected>
-City
-                </option>
-                <option value="county">
-County
-                </option>
-                <option value="state">
-State / Region
-                </option>
-              </select>
-              <small class="form-text text-secondary">Only places of this kind are listed.</small>
-            </div>
-            <div class="mb-3">
-              <label for="include-service-roads-toggle"
-                     class="form-label d-flex justify-content-between align-items-center">
-                <span>Service roads</span>
-              </label>
-              <div class="form-check form-switch">
-                <input type="checkbox"
-                       id="include-service-roads-toggle"
-                       class="form-check-input"
-                       role="switch"
-                       checked />
-                <label class="form-check-label" for="include-service-roads-toggle">
-                Include driveways, alleys, and parking aisles
                 </label>
+                <input type="text"
+                       id="location-input"
+                       class="form-control"
+                       placeholder="e.g., Waco, TX or Garfield County, CO"
+                       autocomplete="off"
+                       required />
+                <small class="form-text text-secondary">A city, county, or state. Add the state to narrow it down.</small>
               </div>
-              <small class="form-text text-secondary d-block">
-              Takes effect when the area's streets are built or rebuilt.
-              </small>
-              <small class="form-text text-secondary d-block mt-1"
-                     id="include-service-roads-status"
-                     data-include-service-status
-                     aria-live="polite"></small>
+              <div class="mb-3">
+                <label for="location-type" class="form-label">
+Kind of place
+                </label>
+                <select id="location-type" class="form-select">
+                  <option value="city" selected>
+City
+                  </option>
+                  <option value="county">
+County
+                  </option>
+                  <option value="state">
+State / Region
+                  </option>
+                </select>
+                <small class="form-text text-secondary">Only places of this kind are listed.</small>
+              </div>
+              <div class="coverage-validation" id="coverage-validation-panel">
+                <div id="location-validation-status"
+                     class="validation-status"
+                     role="status"
+                     aria-live="polite">
+                  <span class="status-icon">
+                    <i class="fas fa-location-dot" aria-hidden="true"></i>
+                  </span>
+                  <span>Type a city, county, or state to find it.</span>
+                </div>
+                <div id="location-validation-note"
+                     class="validation-note text-secondary small d-none">
+                </div>
+                <div id="location-validation-candidates"
+                     class="validation-candidates"
+                     role="listbox"
+                     aria-label="Matching places">
+                </div>
+                <small class="form-text text-secondary mt-2">
+                Pick the matching place, then add it.
+                </small>
+              </div>
             </div>
-            <div class="mb-3">
-              <label for="modal-coverage-trip-mode"
-                     class="form-label d-flex justify-content-between align-items-center">
-                <span>Trips used</span>
-              </label>
-              <select id="modal-coverage-trip-mode" class="form-select">
-                <option value="both" selected>
+            <div id="add-area-draw-panel" class="d-none">
+              <div class="mb-3">
+                <label for="draw-area-name" class="form-label">
+Area name
+                </label>
+                <input type="text"
+                       id="draw-area-name"
+                       class="form-control"
+                       placeholder="e.g., Castle Heights"
+                       autocomplete="off"
+                       maxlength="120" />
+              </div>
+              <div class="mb-2">
+                <label for="draw-area-goto-input" class="form-label">
+Go to
+                </label>
+                <div class="input-group">
+                  <input type="search"
+                         id="draw-area-goto-input"
+                         class="form-control"
+                         placeholder="A city or address"
+                         autocomplete="off" />
+                  <button type="button"
+                          id="draw-area-goto-btn"
+                          class="btn btn-outline-secondary"
+                          aria-label="Go to this place on the map">
+                    <i class="fas fa-location-arrow" aria-hidden="true"></i>
+                  </button>
+                </div>
+              </div>
+              <div id="draw-area-map"
+                   class="draw-area-map"
+                   role="application"
+                   aria-label="Map for outlining the area"></div>
+              <div class="d-flex align-items-start justify-content-between gap-2">
+                <div id="draw-area-status"
+                     class="validation-status mt-2 text-secondary"
+                     role="status"
+                     aria-live="polite"></div>
+                <button type="button"
+                        id="draw-area-clear"
+                        class="btn btn-sm btn-outline-secondary mt-2 flex-shrink-0">
+                  <i class="fas fa-rotate-left me-1" aria-hidden="true"></i>Start over
+                </button>
+              </div>
+            </div>
+            <div class="add-area-settings mt-3">
+              <div class="mb-3">
+                <label for="include-service-roads-toggle"
+                       class="form-label d-flex justify-content-between align-items-center">
+                  <span>Service roads</span>
+                </label>
+                <div class="form-check form-switch">
+                  <input type="checkbox"
+                         id="include-service-roads-toggle"
+                         class="form-check-input"
+                         role="switch"
+                         checked />
+                  <label class="form-check-label" for="include-service-roads-toggle">
+                  Include driveways, alleys, and parking aisles
+                  </label>
+                </div>
+                <small class="form-text text-secondary d-block">
+                Takes effect when the area's streets are built or rebuilt.
+                </small>
+                <small class="form-text text-secondary d-block mt-1"
+                       id="include-service-roads-status"
+                       data-include-service-status
+                       aria-live="polite"></small>
+              </div>
+              <div class="mb-3">
+                <label for="modal-coverage-trip-mode"
+                       class="form-label d-flex justify-content-between align-items-center">
+                  <span>Trips used</span>
+                </label>
+                <select id="modal-coverage-trip-mode" class="form-select">
+                  <option value="both" selected>
 Map-matched path, or GPS when unmatched
-                </option>
-                <option value="regular">
+                  </option>
+                  <option value="regular">
 GPS path only
-                </option>
-                <option value="matched">
+                  </option>
+                  <option value="matched">
 Map-matched path only
-                </option>
-              </select>
-              <small class="form-text text-secondary d-block">
-              Which path of each trip is compared with the streets.
-              </small>
-              <small class="form-text text-secondary d-block mt-1"
-                     data-coverage-trip-mode-status
-                     aria-live="polite"></small>
-            </div>
-            <div class="coverage-validation" id="coverage-validation-panel">
-              <div id="location-validation-status"
-                   class="validation-status"
-                   role="status"
-                   aria-live="polite">
-                <span class="status-icon">
-                  <i class="fas fa-location-dot" aria-hidden="true"></i>
-                </span>
-                <span>Type a city, county, or state to find it.</span>
+                  </option>
+                </select>
+                <small class="form-text text-secondary d-block">
+                Which path of each trip is compared with the streets.
+                </small>
+                <small class="form-text text-secondary d-block mt-1"
+                       data-coverage-trip-mode-status
+                       aria-live="polite"></small>
               </div>
-              <div id="location-validation-note"
-                   class="validation-note text-secondary small d-none">
-              </div>
-              <div id="location-validation-candidates"
-                   class="validation-candidates"
-                   role="listbox"
-                   aria-label="Matching places">
-              </div>
-              <small class="form-text text-secondary mt-2">
-              Pick the matching place, then add it.
-              </small>
             </div>
           </form>
 

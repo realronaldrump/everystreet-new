@@ -90,6 +90,12 @@ export function splitAreaName(displayName) {
   return { name, region };
 }
 
+/** The line under an area's name: its region, or that it was drawn. */
+export function areaSubtitle(area) {
+  const { region } = splitAreaName(area?.display_name);
+  return region || (area?.area_type === "custom" ? "Drawn area" : "");
+}
+
 /** The place and region on one line, for selects and labels. */
 export function shortAreaName(displayName) {
   const { name, region } = splitAreaName(displayName);

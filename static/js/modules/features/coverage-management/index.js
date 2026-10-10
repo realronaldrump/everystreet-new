@@ -20,7 +20,7 @@ import GlobalJobTracker from "../../ui/global-job-tracker.js";
 import notificationManager from "../../ui/notifications.js";
 import { debounce, escapeHtml } from "../../utils.js";
 import { DEFAULT_AREA_SORT, renderAreaCards, sortCoverageAreas } from "./areas.js";
-import { shortAreaName, splitAreaName } from "./area-name.js";
+import { areaSubtitle, shortAreaName, splitAreaName } from "./area-name.js";
 import {
   formatDate,
   formatMiles,
@@ -66,6 +66,13 @@ import {
   shouldRebuildForServiceFilter,
 } from "./service-roads.js";
 import {
+  destroyDrawMap,
+  getDrawnBoundary,
+  initDrawAreaUI,
+  openDrawMap,
+  resetDrawnArea,
+} from "./draw-area.js";
+import {
   VALIDATION_DEBOUNCE_MS,
   clearValidationSelection,
   handleCandidateClick,
@@ -101,6 +108,7 @@ export default async function initCoverageManagementPage({
     clearTimeout(ownedState.activeJobsRefreshTimeoutId);
     ownedState.map?.remove();
     ownedState.hoverPopup?.remove();
+    destroyDrawMap();
     resetCoverageState(ownedState);
   };
   cleanup?.(teardown);
@@ -117,7 +125,8 @@ export default async function initCoverageManagementPage({
   setupSidebarTabs(signal);
   setupStreetMarkingListeners(signal);
   setupKeyboardShortcuts(signal);
-  initValidationUI();
+  initValidationUI({ onChange: refreshAddAreaButton });
+  initDrawAreaUI({ signal, onChange: refreshAddAreaButton });
   await loadCoverageFilterSettings();
   if (signal?.aborted) return;
 
@@ -272,10 +281,26 @@ function setupEventListeners(signal) {
     .getElementById("location-validation-candidates")
     ?.addEventListener("click", handleCandidateClick, opt);
 
-  // Reset validation on modal close
+  // Find a place, or draw an area
+  document.querySelectorAll("[data-add-area-mode]").forEach((button) => {
+    button.addEventListener(
+      "click",
+      () => setAddAreaMode(button.dataset.addAreaMode),
+      opt
+    );
+  });
+  document
+    .getElementById("draw-area-name")
+    ?.addEventListener("input", refreshAddAreaButton, opt);
+  // Enter in a field must not reload the page; "Add area" submits.
+  document
+    .getElementById("add-area-form")
+    ?.addEventListener("submit", (event) => event.preventDefault(), opt);
+
+  // Reset the form on modal close
   document
     .getElementById("addAreaModal")
-    ?.addEventListener("hidden.bs.modal", () => resetValidationState(), opt);
+    ?.addEventListener("hidden.bs.modal", resetAddAreaForm, opt);
 
   // Error panel dismiss
   document
@@ -1106,38 +1131,97 @@ function handleAreaCardClick(event) {
 // Area CRUD
 // =============================================================================
 
+function getAddAreaMode() {
+  const pressed = document.querySelector('[data-add-area-mode][aria-pressed="true"]');
+  return pressed?.dataset.addAreaMode === "draw" ? "draw" : "search";
+}
+
+function setAddAreaMode(mode) {
+  const drawing = mode === "draw";
+  document.querySelectorAll("[data-add-area-mode]").forEach((button) => {
+    button.setAttribute("aria-pressed", String(button.dataset.addAreaMode === mode));
+  });
+  document.getElementById("add-area-search-panel")?.classList.toggle("d-none", drawing);
+  document.getElementById("add-area-draw-panel")?.classList.toggle("d-none", !drawing);
+  refreshAddAreaButton();
+  if (drawing) {
+    const bounds = state.map?.getBounds?.();
+    openDrawMap({ bounds: bounds ? bounds.toArray() : null });
+  }
+}
+
+/** The area the form would add, or a reason it can't yet. */
+function readAddAreaRequest() {
+  if (getAddAreaMode() === "draw") {
+    const name = document.getElementById("draw-area-name")?.value.trim() || "";
+    const boundary = getDrawnBoundary();
+    if (!boundary) {
+      return { error: "Outline the area on the map first." };
+    }
+    if (!name) {
+      return { error: "Name the area before adding it." };
+    }
+    return { display_name: name, area_type: "custom", boundary };
+  }
+  const { confirmedBoundary, confirmedCandidate, selectedCandidate } = validationState;
+  if (!confirmedBoundary || !confirmedCandidate) {
+    return { error: "Pick a place from the list before adding it." };
+  }
+  return {
+    display_name:
+      confirmedCandidate.display_name ||
+      document.getElementById("location-input")?.value.trim(),
+    area_type:
+      selectedCandidate?.kind || document.getElementById("location-type")?.value,
+    boundary: confirmedBoundary,
+  };
+}
+
+function refreshAddAreaButton() {
+  const button = document.getElementById("add-coverage-area");
+  if (!button) {
+    return;
+  }
+  const ready = !readAddAreaRequest().error && !button.dataset.busy;
+  button.disabled = !ready;
+  button.setAttribute("aria-disabled", String(!ready));
+}
+
+function resetAddAreaForm() {
+  resetValidationState();
+  resetDrawnArea();
+  for (const id of ["location-input", "draw-area-name", "draw-area-goto-input"]) {
+    const input = document.getElementById(id);
+    if (input) {
+      input.value = "";
+    }
+  }
+  setAddAreaMode("search");
+}
+
 async function addArea() {
-  const displayNameInput = document.getElementById("location-input").value.trim();
-  const areaType =
-    validationState.selectedCandidate?.kind ||
-    document.getElementById("location-type").value;
-  const tripMode = getCoverageTripModeSelection();
-
-  if (!displayNameInput) {
-    notificationManager.show("Please enter a location name", "warning");
+  const request = readAddAreaRequest();
+  if (request.error) {
+    notificationManager.show(request.error, "warning");
     return;
   }
 
-  if (!validationState.confirmedBoundary || !validationState.confirmedCandidate) {
-    notificationManager.show("Pick a place from the list before adding it.", "warning");
-    return;
-  }
-
-  const displayName =
-    validationState.confirmedCandidate.display_name || displayNameInput;
-
+  const button = document.getElementById("add-coverage-area");
+  const displayName = request.display_name;
   try {
-    // Close modal
+    if (button) {
+      button.dataset.busy = "true";
+    }
+    refreshAddAreaButton();
+    const result = await apiPost("/areas", {
+      ...request,
+      trip_mode: getCoverageTripModeSelection(),
+    });
+
+    // Close only once saved, so a rejected area keeps what was entered.
     const addModal = document.getElementById("addAreaModal");
     addModal?.querySelector(":focus")?.blur();
     bootstrap.Modal.getInstance(addModal)?.hide();
-
-    const result = await apiPost("/areas", {
-      display_name: displayName,
-      area_type: areaType,
-      boundary: validationState.confirmedBoundary,
-      trip_mode: tripMode,
-    });
 
     await loadAreas();
 
@@ -1155,12 +1239,14 @@ async function addArea() {
         "info"
       );
     }
-
-    document.getElementById("location-input").value = "";
-    resetValidationState();
   } catch (error) {
     console.error("Failed to add area:", error);
     notificationManager.show(`Failed to add area: ${error.message}`, "danger");
+  } finally {
+    if (button) {
+      delete button.dataset.busy;
+    }
+    refreshAddAreaButton();
   }
 }
 
@@ -1352,7 +1438,8 @@ async function viewArea(areaId) {
     setIncludeServiceRoadsStatus(scope.message, scope.tone);
 
     // Update sidebar header
-    const { name, region } = splitAreaName(area.display_name);
+    const { name } = splitAreaName(area.display_name);
+    const region = areaSubtitle(area);
     const sidebarNameEl = document.getElementById("sidebar-area-name");
     if (sidebarNameEl) {
       sidebarNameEl.textContent = name;
