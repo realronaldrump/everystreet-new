@@ -24,6 +24,7 @@ const tripInteractions = {
     }
 
     const popup = new mapboxgl.Popup({
+      className: "trip-popup",
       closeButton: true,
       closeOnClick: options.closeOnClick !== false,
       maxWidth: "400px",
@@ -89,8 +90,7 @@ const tripInteractions = {
       return new Date(value);
     };
 
-    const formatValue = (value, formatter) =>
-      value != null ? formatter(value) : "N/A";
+    const isValidDate = (date) => date instanceof Date && !Number.isNaN(date.getTime());
     const formatMetric = (value, digits = 1) => {
       if (value == null) {
         return "N/A";
@@ -117,61 +117,61 @@ const tripInteractions = {
       const numeric = Number(value);
       return Number.isFinite(numeric) && numeric > 0 ? numeric : null;
     };
-    const formatTime = (value) =>
-      formatValue(
-        value,
-        (v) =>
-          toDate(v)?.toLocaleString("en-US", {
-            month: "short",
-            day: "numeric",
-            year: "numeric",
-            hour: "numeric",
-            minute: "2-digit",
-            hour12: true,
-          }) || "N/A"
-      );
+    const formatClock = (date) =>
+      date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+
+    const start = toDate(props.startTime);
+    const end = toDate(props.endTime);
+    const hasStart = isValidDate(start);
+    const hasEnd = isValidDate(end);
 
     let duration = normalizeDurationSeconds(props.duration ?? props.drivingTime);
-    if (duration == null && props.startTime && props.endTime) {
-      const start = toDate(props.startTime);
-      const end = toDate(props.endTime);
-      if (
-        start &&
-        end &&
-        !Number.isNaN(start.getTime()) &&
-        !Number.isNaN(end.getTime())
-      ) {
-        duration = (end - start) / 1000;
-      }
+    if (duration == null && hasStart && hasEnd) {
+      duration = (end - start) / 1000;
     }
 
-    const gasPrice = normalizeCurrencyAmount(props.estimated_cost);
-    const gasPriceRow =
-      gasPrice == null
-        ? ""
-        : `
-            <span class="trip-popup-label">Gas Price</span>
-            <span class="trip-popup-value">${utils.formatCurrency(gasPrice)}</span>
-          `;
+    const dayLabel = hasStart
+      ? start.toLocaleDateString("en-US", {
+          weekday: "short",
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+        })
+      : "Date unknown";
+    // A trip past midnight names the day it ended on.
+    let endLabel = hasEnd ? formatClock(end) : "N/A";
+    if (hasStart && hasEnd && start.toDateString() !== end.toDateString()) {
+      endLabel = end.toLocaleString("en-US", {
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+      });
+    }
+    const timeLabel = `${hasStart ? formatClock(start) : "N/A"} – ${endLabel}`;
+
+    const detail = (label, value) => `
+            <div class="trip-popup-detail">
+              <dt class="figure-label">${label}</dt>
+              <dd class="trip-popup-value data-num">${value}</dd>
+            </div>`;
+
+    const cost = normalizeCurrencyAmount(props.estimated_cost);
 
     return `
         <div class="trip-popup-content">
-          <div class="trip-popup-header">Trip Details</div>
-          <div class="trip-popup-grid">
-            <span class="trip-popup-label">Start</span>
-            <span class="trip-popup-value">${formatTime(props.startTime)}</span>
-            <span class="trip-popup-label">End</span>
-            <span class="trip-popup-value">${formatTime(props.endTime)}</span>
-            <span class="trip-popup-label">Distance</span>
-            <span class="trip-popup-value">${formatMetric(props.distance)} mi</span>
-            <span class="trip-popup-label">Duration</span>
-            <span class="trip-popup-value">${formatDurationValue(duration)}</span>
-            <span class="trip-popup-label">Avg Speed</span>
-            <span class="trip-popup-value">${formatMetric(props.avgSpeed)} mph</span>
-            <span class="trip-popup-label">Max Speed</span>
-            <span class="trip-popup-value">${formatMetric(props.maxSpeed)} mph</span>
-            ${gasPriceRow}
-          </div>
+          <header class="trip-popup-head">
+            <p class="pm-eyebrow">Trip</p>
+            <p class="trip-popup-title">${dayLabel}</p>
+            <p class="trip-popup-time data-num">${timeLabel}</p>
+          </header>
+          <dl class="trip-popup-details">
+            ${detail("Distance", `${formatMetric(props.distance)} mi`)}
+            ${detail("Duration", formatDurationValue(duration))}
+            ${detail("Avg speed", `${formatMetric(props.avgSpeed)} mph`)}
+            ${detail("Max speed", `${formatMetric(props.maxSpeed)} mph`)}
+            ${cost == null ? "" : detail("Est. cost", utils.formatCurrency(cost))}
+          </dl>
           ${this.createActionButtons(feature)}
         </div>
       `;
@@ -194,7 +194,7 @@ const tripInteractions = {
           <a class="btn btn-sm btn-primary view-trip-btn" href="/trips/${encodeURIComponent(tripId)}">
             <i class="fas fa-eye"></i> View
           </a>
-          <button class="btn btn-sm btn-outline-warning rematch-trip-btn" data-trip-id="${tripId}">
+          <button class="btn btn-sm btn-secondary rematch-trip-btn" data-trip-id="${tripId}">
             <i class="fas fa-route"></i> Rematch
           </button>
           ${

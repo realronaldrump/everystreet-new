@@ -39,7 +39,7 @@ test("trip popup falls back to timestamps when duration is invalid", async () =>
   assert.doesNotMatch(html, /NaN/);
 });
 
-test("trip popup includes gas price only for positive calculated cost", async () => {
+test("trip popup includes estimated cost only for positive calculated cost", async () => {
   const { default: tripInteractions } = await import(
     "../static/js/modules/trip-interactions.js"
   );
@@ -68,11 +68,11 @@ test("trip popup includes gas price only for positive calculated cost", async ()
     },
   });
 
-  assert.match(positive, /Gas Price/);
+  assert.match(positive, /Est\. cost/);
   assert.match(positive, /\$4\.50/);
-  assert.doesNotMatch(zero, /Gas Price/);
-  assert.doesNotMatch(missing, /Gas Price/);
-  assert.doesNotMatch(invalid, /Gas Price/);
+  assert.doesNotMatch(zero, /Est\. cost/);
+  assert.doesNotMatch(missing, /Est\. cost/);
+  assert.doesNotMatch(invalid, /Est\. cost/);
 });
 
 test("deck trip popups defer outside-map click closing", async () => {
