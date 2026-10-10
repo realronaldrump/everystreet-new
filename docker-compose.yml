@@ -237,7 +237,7 @@ services:
 
   # Watchtower - Automatic container updates
   # Updates web and worker containers when new images are pushed to GHCR
-  # Supports both immediate updates (via HTTP API) and polling (every 5 minutes)
+  # Supports both immediate updates (via HTTP API) and polling (every minute)
   watchtower:
     image: containrrr/watchtower:latest
     restart: unless-stopped
@@ -248,7 +248,7 @@ services:
       - DOCKER_API_VERSION=1.44
       - WATCHTOWER_HTTP_API_PERIODIC_POLLS=true
       - WATCHTOWER_LABEL_ENABLE=true
-      - WATCHTOWER_POLL_INTERVAL=300
+      - WATCHTOWER_POLL_INTERVAL=60
       - WATCHTOWER_CLEANUP=true
       - WATCHTOWER_INCLUDE_RESTARTING=true
       - WATCHTOWER_ROLLING_RESTART=true

@@ -1,4 +1,5 @@
-FROM python:3.12-slim
+# Update this digest through the weekly Dependabot PR, not on every code push.
+FROM python:3.12-slim@sha256:a6e34c598f2467ed0e9a8d349809fcd8b5c603269512df273a0bb1784edc11b1
 
 # Build arguments for multi-platform support
 ARG TARGETPLATFORM
@@ -35,21 +36,16 @@ WORKDIR /app
 # Copy ONLY dependency files first for layer caching
 COPY build-constraints.txt requirements.runtime.txt ./
 
-# Install Python dependencies (cached unless requirements.txt changes)
+# Install Python dependencies (cached unless runtime requirements or constraints change)
 RUN python -m pip install --upgrade "pip>=25.3,<27" \
     && python -m pip install --no-cache-dir --build-constraint build-constraints.txt -r requirements.runtime.txt \
     && python -m pip check
 
-# Copy the rest of the application code
+# CI generates version.json before this copy; Git history stays out of the image.
 COPY . ./
 
 # Build the pinned navigation bundle into the image; browsers use our own origin.
 RUN python scripts/build_swup_assets.py
-
-# Generate version.json with git info at build time
-RUN echo "{\"commit_count\": \"$(git rev-list --count HEAD 2>/dev/null || echo Unknown)\", \
-\"commit_hash\": \"$(git rev-parse --short HEAD 2>/dev/null || echo Unknown)\", \
-\"last_updated\": \"$(git log -1 --format=%cI 2>/dev/null || echo Unknown)\"}" > version.json
 
 # Health check for container orchestration
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \

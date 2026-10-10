@@ -102,7 +102,7 @@ without repeatedly asking for permission.
    and push; do not bypass the test gate.
 6. Allow Watchtower to update the mini PC's `web` and `worker` containers. The
    workflow requests an immediate update; the configured periodic poll is every
-   300 seconds. An image build or successful trigger is not deployment proof.
+   60 seconds. An image build or successful trigger is not deployment proof.
 7. Verify the actual deployment as described below. If a later push supersedes
    the build, follow the final relevant revision and confirm it includes the
    change. Do not report a cancelled or superseded run as successful delivery.
@@ -152,7 +152,7 @@ without repeatedly asking for permission.
 - Keep inspection proportional to the change. Reuse evidence, limit log/query
   output, and expand checks only for failures, material risk, or requested scope.
   Do not rerun passed checks without new changes or unresolved evidence.
-- Poll with reasonable backoff, allowing for the five-minute Watchtower cycle
+- Poll with reasonable backoff, allowing for the one-minute Watchtower cycle
   and container startup. If deployment stalls, inspect the relevant CI or
   Watchtower failure before intervening. If SSH fails, check existing Tailscale
   connectivity and use public-site evidence where possible; never bootstrap a

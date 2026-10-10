@@ -49,44 +49,16 @@ jobs:
         with:
           python-version: '3.12'
           cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements.runtime.txt
+            build-constraints.txt
 
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade "pip>=25.3,<27"
           python -m pip install --build-constraint build-constraints.txt -r requirements.txt
           python -m pip check
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v7
-        with:
-          node-version: '22'
-          cache: npm
-
-      - name: Install Node dependencies
-        run: npm ci
-
-      - name: Run JavaScript behavior tests
-        run: npm test
-
-      - name: Run JavaScript guardrail tests
-        run: npm run test:js:guardrails
-
-      - name: Build pinned navigation assets and install browser test tools
-        run: |
-          python scripts/build_swup_assets.py
-          npm install --no-save --package-lock=false @playwright/test@1.63.0
-          npx playwright install --with-deps chromium
-
-      - name: Verify navigation in Chromium
-        run: npx playwright test --config tests/browser/playwright.config.js
-
-      - name: Upload browser failure traces
-        if: failure()
-        uses: actions/upload-artifact@v7
-        with:
-          name: navigation-browser-traces
-          path: test-results/
-          if-no-files-found: ignore
 
       - name: Run Python tests
         run: python -m pytest
@@ -122,8 +94,46 @@ jobs:
         if: always()
         run: docker rm -f everystreet-workflow-mongo || true
 
+  test-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Run JavaScript behavior tests
+        run: npm test
+
+      - name: Run JavaScript guardrail tests
+        run: npm run test:js:guardrails
+
+      - name: Build pinned navigation assets and install browser test tools
+        run: |
+          python3 scripts/build_swup_assets.py
+          npm install --no-save --package-lock=false @playwright/test@1.63.0
+          npx playwright install --with-deps chromium
+
+      - name: Verify navigation in Chromium
+        run: npx playwright test --config tests/browser/playwright.config.js
+
+      - name: Upload browser failure traces
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: navigation-browser-traces
+          path: test-results/
+          if-no-files-found: ignore
+
   build-and-push:
-    needs: test
+    needs: [test, test-frontend]
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
@@ -132,10 +142,27 @@ jobs:
         with:
           fetch-depth: 0 # Full history needed for git rev-list --count
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v4
+      - name: Generate build version
+        run: |
+          python3 - <<'PY'
+          import json
+          import subprocess
+          from pathlib import Path
+
+          def git(*args):
+              return subprocess.check_output(['git', *args], text=True).strip()
+
+          Path('version.json').write_text(json.dumps({
+              'commit_count': git('rev-list', '--count', 'HEAD'),
+              'commit_hash': git('rev-parse', '--short', 'HEAD'),
+              'last_updated': git('log', '-1', '--format=%cI'),
+          }) + '\n')
+          PY
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
         with:
-          platforms: linux/amd64
+          node-version: '22'
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
@@ -156,7 +183,7 @@ jobs:
             type=raw,value=main
             type=sha,prefix=
 
-      - name: Build and push (multi-platform)
+      - name: Build and push Linux image
         uses: docker/build-push-action@v7
         env:
           DOCKER_BUILD_RECORD_UPLOAD: false
@@ -166,8 +193,8 @@ jobs:
           platforms: linux/amd64
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache
+          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache,mode=max
           # Keep provenance disabled for this build pipeline.
           provenance: false
 
@@ -178,38 +205,5 @@ jobs:
         env:
           WATCHTOWER_URL: ${{ secrets.WATCHTOWER_URL }}
           WATCHTOWER_TOKEN: ${{ secrets.WATCHTOWER_TOKEN }}
-        run: |
-          if [ -z "$WATCHTOWER_URL" ] || [ -z "$WATCHTOWER_TOKEN" ]; then
-            echo "::warning::WATCHTOWER_URL or WATCHTOWER_TOKEN not configured. Skipping instant deploy."
-            exit 0
-          fi
-
-          echo "Triggering deployment via Cloudflare Tunnel..."
-          set +e
-          RESPONSE=$(curl -sS -w "\n%{http_code}" -X POST \
-            -H "Authorization: Bearer $WATCHTOWER_TOKEN" \
-            "$WATCHTOWER_URL/v1/update" \
-            --connect-timeout 15 \
-            --max-time 60)
-          CURL_STATUS=$?
-          set -e
-
-          if [ "$CURL_STATUS" -ne 0 ]; then
-            if [ "$CURL_STATUS" -eq 28 ]; then
-              echo "::notice::Watchtower is still processing the deployment after 60 seconds. Containers will finish updating in this cycle or the next poll."
-            else
-              echo "::warning::Watchtower trigger failed with curl exit $CURL_STATUS. Containers will update on the next poll cycle."
-            fi
-            exit 0
-          fi
-
-          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
-          BODY=$(echo "$RESPONSE" | sed '$d')
-
-          if [ "$HTTP_CODE" = "200" ]; then
-            echo "Deployment triggered successfully!"
-            echo "$BODY"
-          else
-            echo "::warning::Watchtower returned HTTP $HTTP_CODE. Containers will update on next poll cycle."
-            echo "$BODY"
-          fi
+          WATCHTOWER_IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:main
+        run: node scripts/trigger-deployment.mjs
