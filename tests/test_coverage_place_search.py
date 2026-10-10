@@ -22,8 +22,13 @@ def _road(display_name: str, address: dict) -> dict:
     }
 
 
-def _county(display_name: str, osm_id: int, address: dict) -> dict:
-    return {
+def _county(
+    display_name: str,
+    osm_id: int,
+    address: dict,
+    lon_lat: tuple[float, float] | None = None,
+) -> dict:
+    county = {
         "display_name": display_name,
         "name": display_name.split(",", maxsplit=1)[0],
         "osm_id": osm_id,
@@ -34,6 +39,25 @@ def _county(display_name: str, osm_id: int, address: dict) -> dict:
         "place_rank": 12,
         "address": address,
     }
+    if lon_lat:
+        county["lon"], county["lat"] = (str(value) for value in lon_lat)
+    return county
+
+
+# Garfield County, Colorado and Garfield County, Utah, as a map built from
+# trip corridors holds them: neither state's boundary, so no state names.
+COLORADO_GARFIELD = _county(
+    "Garfield County, United States",
+    1411343,
+    {"county": "Garfield County", "country": "United States"},
+    (-107.90, 39.60),
+)
+UTAH_GARFIELD = _county(
+    "Garfield County, United States",
+    1411376,
+    {"county": "Garfield County", "country": "United States"},
+    (-111.44, 37.85),
+)
 
 
 def _fake_search(results_by_text: dict[str, list[dict]]):
@@ -85,13 +109,6 @@ def test_parse_place_query_splits_name_and_state(raw, kind, text, name, state) -
 
 @pytest.mark.asyncio
 async def test_finds_county_when_local_map_lacks_the_state_name() -> None:
-    # A map built from trip corridors can hold Garfield County, Colorado
-    # without the Colorado boundary, so nothing there mentions "Colorado".
-    colorado_county = _county(
-        "Garfield County, United States",
-        1411343,
-        {"county": "Garfield County", "country": "United States"},
-    )
     oklahoma_county = _county(
         "Garfield County, Oklahoma, United States",
         1729,
@@ -105,7 +122,7 @@ async def test_finds_county_when_local_map_lacks_the_state_name() -> None:
                     {"road": "CO 82", "county": "Garfield County"},
                 ),
             ],
-            "Garfield county": [oklahoma_county, colorado_county],
+            "Garfield county": [oklahoma_county, UTAH_GARFIELD, COLORADO_GARFIELD],
         },
     )
 
@@ -118,7 +135,41 @@ async def test_finds_county_when_local_map_lacks_the_state_name() -> None:
     ]
     assert found.kind == "county"
     assert [c["osm_id"] for c in found.candidates] == [1411343]
+    [candidate] = found.candidates
+    assert candidate["label"] == "Garfield County, Colorado"
+    assert candidate["state_match"] is True
     assert found.note is None
+
+
+@pytest.mark.asyncio
+async def test_never_offers_a_same_named_county_in_another_state() -> None:
+    # Garfield County, Colorado is missing from the map; Utah's must not
+    # stand in for it.
+    search, _calls = _fake_search({"Garfield County": [UTAH_GARFIELD]})
+
+    found = await find_area_candidates(
+        search,
+        "Garfield County, Colorado",
+        "county",
+        limit=8,
+    )
+
+    assert found.candidates == []
+
+
+@pytest.mark.asyncio
+async def test_names_the_state_a_place_lies_in_when_its_address_does_not() -> None:
+    search, _calls = _fake_search(
+        {"Garfield County": [UTAH_GARFIELD, COLORADO_GARFIELD]},
+    )
+
+    found = await find_area_candidates(search, "Garfield County", "county", limit=8)
+
+    assert sorted(c["label"] for c in found.candidates) == [
+        "Garfield County, Colorado",
+        "Garfield County, Utah",
+    ]
+    assert all(c["state_match"] is None for c in found.candidates)
 
 
 @pytest.mark.asyncio

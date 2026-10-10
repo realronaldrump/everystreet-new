@@ -20,7 +20,6 @@ from shapely.ops import unary_union
 
 from config import get_geofabrik_mirror, get_osm_extracts_path
 from core.service_config import get_service_config
-from map_data.auto_provision import US_STATE_BOUNDS
 from map_data.builders import (
     build_nominatim_data,
     build_valhalla_tiles,
@@ -39,7 +38,7 @@ from map_data.geofabrik_index import (
 from map_data.models import MapServiceConfig
 from map_data.progress import MapBuildProgress
 from map_data.services import check_service_health
-from map_data.us_states import build_geofabrik_path, get_state
+from map_data.us_states import US_STATE_BOUNDS, build_geofabrik_path, get_state
 from tasks.arq import get_arq_pool
 from tasks.map_setup_progress import MapSetupCancelledError, MapSetupProgress
 from tasks.ops import abort_job, run_task_with_history

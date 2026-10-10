@@ -78,12 +78,17 @@ class ValidateCandidate(BaseModel):
     """An area (city, county, or state) matching a coverage area lookup."""
 
     display_name: str
+    label: str
     name: str
     context: str = ""
     kind: Literal["city", "county", "state"]
     kind_label: str
     has_boundary: bool = True
     state: str | None = None
+    states: list[str] = Field(default_factory=list)
+    # Whether the place may lie in the state that was typed; None when no
+    # state was typed or nothing says where the place is.
+    state_match: bool | None = None
     osm_id: int | str | None = None
     osm_type: str | None = None
     type: str | None = None

@@ -130,7 +130,7 @@ export function resetValidationState() {
 export function describeSearchResult(candidates, kind) {
   const nouns = AREA_KIND_NOUNS[kind] || AREA_KIND_NOUNS.city;
   if (!candidates.length) {
-    return "No areas found. Check the spelling, or add the state, like “Garfield County, CO”.";
+    return "Your map data has no matching area. Check the spelling, or switch to “Draw an area” to outline it.";
   }
   if (!candidates.some((candidate) => candidate.type_match)) {
     return "Pick a place below, or change the kind of place.";
@@ -187,7 +187,11 @@ export async function validateLocationInput() {
 
     // One clear match needs no extra tap.
     const [onlyCandidate] = validationState.candidates;
-    if (validationState.candidates.length === 1 && onlyCandidate.type_match) {
+    if (
+      validationState.candidates.length === 1 &&
+      onlyCandidate.type_match &&
+      onlyCandidate.state_match !== false
+    ) {
       await resolveValidationCandidateAtIndex(0);
     }
   } catch (error) {

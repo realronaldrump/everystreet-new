@@ -13,7 +13,7 @@ import re
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-from map_data.us_states import US_STATES, get_state
+from map_data.us_states import US_STATES, get_state, get_states_for_coordinate
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
@@ -26,7 +26,9 @@ AREA_KINDS: tuple[str, ...] = ("city", "county", "state")
 # villages and hamlets (address ranks 8-20), which excludes roads.
 AREA_FEATURE_TYPE = "settlement"
 
-SEARCH_RESULT_LIMIT = 10
+# Nominatim allows up to 40; same-named places elsewhere must not crowd out
+# the one asked for.
+SEARCH_RESULT_LIMIT = 25
 
 _KIND_PLURALS = {"city": "cities or towns", "county": "counties", "state": "states"}
 
@@ -87,6 +89,10 @@ class PlaceQuery:
     text: str
     name: str
     state: str | None = None
+    # A state after a comma or as a postal code ("Waco, Texas", "Waco TX") is
+    # certain; a trailing state name may be part of the place ("Mount
+    # Washington"), so places elsewhere are listed after, not dropped.
+    explicit_state: bool = False
 
     def fallback_texts(self) -> list[str]:
         """
@@ -181,11 +187,13 @@ def parse_place_query(raw: str, kind: str) -> PlaceQuery:
 
     state: str | None = None
     state_suffix = ""
+    explicit = False
     if len(parts) > 1:
         last = parts[-1]
         state = _STATE_NAMES.get(last.lower()) or _state_from_code(last)
         if state:
             state_suffix = f", {last}"
+            explicit = True
             parts = parts[:-1]
 
     last_words = parts[-1].split()
@@ -193,10 +201,16 @@ def parse_place_query(raw: str, kind: str) -> PlaceQuery:
         last_words, state_words, state = _split_trailing_state(last_words, kind)
         if state:
             state_suffix = " " + " ".join(state_words)
+            explicit = len(state_words) == 1 and len(state_words[0]) == 2
     last_words = _expand_county_abbreviation(last_words, kind)
     name = ", ".join([*parts[:-1], " ".join(last_words)])
     # The first search keeps the state as typed ("Waco TX", "Waco, Texas").
-    return PlaceQuery(text=f"{name}{state_suffix}", name=name, state=state)
+    return PlaceQuery(
+        text=f"{name}{state_suffix}",
+        name=name,
+        state=state,
+        explicit_state=explicit,
+    )
 
 
 def _clean_text(value: Any) -> str:
@@ -259,7 +273,8 @@ def _state_in_text(part: str) -> str | None:
     return None
 
 
-def _result_state(result: dict[str, Any], kind: str, name: str) -> str | None:
+def _named_state(result: dict[str, Any], kind: str, name: str) -> str | None:
+    """The state a result's own address or name gives, if any."""
     address = result.get("address")
     if isinstance(address, dict):
         state = _clean_text(address.get("state"))
@@ -278,6 +293,38 @@ def _result_state(result: dict[str, Any], kind: str, name: str) -> str | None:
     return None
 
 
+def _result_point(result: dict[str, Any]) -> tuple[float, float] | None:
+    try:
+        return float(result["lon"]), float(result["lat"])
+    except (KeyError, TypeError, ValueError):
+        pass
+    bbox = parse_bounding_box(result.get("boundingbox"))
+    if bbox:
+        return (bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2
+    return None
+
+
+def _result_states(result: dict[str, Any], kind: str, name: str) -> list[str]:
+    """
+    Every US state a result may lie in.
+
+    A map built from trip corridors can lack a state's boundary, leaving
+    places there with no state in their address. Their location still says
+    which state they are in (or, near a border, which few).
+    """
+    named = _named_state(result, kind, name)
+    if named:
+        return [named]
+    point = _result_point(result)
+    if point is None:
+        return []
+    return sorted(
+        str(get_state(code)["name"])
+        for code in get_states_for_coordinate(*point)
+        if get_state(code)
+    )
+
+
 def describe_area(result: dict[str, Any], kind: str) -> dict[str, Any] | None:
     """Describe one geocoder result as an area candidate, or None to drop it."""
     display_name = _clean_text(result.get("display_name") or result.get("name"))
@@ -294,19 +341,27 @@ def describe_area(result: dict[str, Any], kind: str) -> dict[str, Any] | None:
     name = _clean_text(result.get("name")) or parts[0]
     if parts and parts[0].lower() == name.lower():
         parts = parts[1:]
-    # Drop postcodes, and the country unless nothing else describes the place.
+    # Drop postcodes and the country; name the state even when the address
+    # lacks it, so same-named places in different states are told apart.
     parts = [p for p in parts if not p.replace("-", "").replace(" ", "").isdigit()]
-    context = [p for p in parts if p.lower() not in _COUNTRY_NAMES] or parts
+    context = [p for p in parts if p.lower() not in _COUNTRY_NAMES]
+    states = _result_states(result, area_kind, name)
+    named_in_context = {_state_in_text(part) for part in context}
+    if area_kind != "state" and states and not named_in_context & set(states):
+        context.append(" or ".join(states))
+    context = context or parts
 
     return {
         "display_name": display_name,
+        "label": ", ".join([name, *context]),
         "name": name,
         "context": ", ".join(context),
         "kind": area_kind,
         "kind_label": kind_label,
         "type_match": area_kind == kind,
         "has_boundary": osm_type.lower() not in {"node", "n"},
-        "state": _result_state(result, area_kind, name),
+        "state": states[0] if len(states) == 1 else None,
+        "states": states,
         "osm_id": osm_id,
         "osm_type": osm_type,
         "type": result.get("type"),
@@ -318,10 +373,11 @@ def describe_area(result: dict[str, Any], kind: str) -> dict[str, Any] | None:
 
 
 def _same_state(candidate: dict[str, Any], state: str) -> bool | None:
-    known = candidate.get("state")
-    if not known:
+    """Whether a candidate may lie in ``state``; None when nothing says."""
+    states = candidate.get("states") or []
+    if not states:
         return None
-    return str(known).lower() == state.lower()
+    return state.lower() in {known.lower() for known in states}
 
 
 def rank_area_candidates(
@@ -341,14 +397,21 @@ def rank_area_candidates(
         name_rank = 0 if query_words <= set(_words(candidate["name"])) else 1
         state_rank = 1
         if query.state:
-            same = _same_state(candidate, query.state)
+            same = candidate["state_match"]
             state_rank = 0 if same else (1 if same is None else 2)
         return name_rank, state_rank, 0 if candidate["has_boundary"] else 1
+
+    for candidate in chosen:
+        candidate["state_match"] = (
+            _same_state(candidate, query.state) if query.state else None
+        )
 
     ranked: list[dict[str, Any]] = []
     seen_names: set[str] = set()
     for candidate in sorted(chosen, key=sort_key):
-        key = candidate["display_name"].lower()
+        # The label names the state, so same-named places in different states
+        # stay apart even when their addresses read the same.
+        key = candidate["label"].lower()
         if key in seen_names:
             continue
         seen_names.add(key)
@@ -405,7 +468,7 @@ async def find_area_candidates(
             seen.add(key)
             candidates.append(candidate)
 
-    add(await search(query.text))
+    add(await search(query.text), state=query.state if query.explicit_state else None)
     fallback_texts = query.fallback_texts()
     if fallback_texts and not any(c["type_match"] for c in candidates):
         for results in await asyncio.gather(*(search(t) for t in fallback_texts)):

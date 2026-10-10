@@ -66,6 +66,11 @@ import {
   shouldRebuildForServiceFilter,
 } from "./service-roads.js";
 import {
+  destroyBoundaryPreview,
+  hideBoundaryPreview,
+  showBoundaryPreview,
+} from "./boundary-preview.js";
+import {
   destroyDrawMap,
   getDrawnBoundary,
   initDrawAreaUI,
@@ -109,6 +114,7 @@ export default async function initCoverageManagementPage({
     ownedState.map?.remove();
     ownedState.hoverPopup?.remove();
     destroyDrawMap();
+    destroyBoundaryPreview();
     resetCoverageState(ownedState);
   };
   cleanup?.(teardown);
@@ -125,7 +131,7 @@ export default async function initCoverageManagementPage({
   setupSidebarTabs(signal);
   setupStreetMarkingListeners(signal);
   setupKeyboardShortcuts(signal);
-  initValidationUI({ onChange: refreshAddAreaButton });
+  initValidationUI({ onChange: handlePlaceSelectionChange });
   initDrawAreaUI({ signal, onChange: refreshAddAreaButton });
   await loadCoverageFilterSettings();
   if (signal?.aborted) return;
@@ -1167,14 +1173,26 @@ function readAddAreaRequest() {
   if (!confirmedBoundary || !confirmedCandidate) {
     return { error: "Pick a place from the list before adding it." };
   }
+  // The label names the state even when the map's address for it does not.
   return {
     display_name:
+      selectedCandidate?.label ||
       confirmedCandidate.display_name ||
       document.getElementById("location-input")?.value.trim(),
     area_type:
       selectedCandidate?.kind || document.getElementById("location-type")?.value,
     boundary: confirmedBoundary,
   };
+}
+
+/** Preview the picked place's boundary, so where it lies is plain. */
+function handlePlaceSelectionChange() {
+  refreshAddAreaButton();
+  if (validationState.confirmedBoundary) {
+    showBoundaryPreview(validationState.confirmedBoundary);
+  } else {
+    hideBoundaryPreview();
+  }
 }
 
 function refreshAddAreaButton() {

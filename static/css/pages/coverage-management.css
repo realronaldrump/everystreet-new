@@ -1792,6 +1792,15 @@
   flex: 1;
 }
 
+.place-preview-map {
+  position: relative;
+  height: 220px;
+  margin-top: var(--space-2);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
 .draw-area-map {
   position: relative;
   height: min(52vh, 420px);

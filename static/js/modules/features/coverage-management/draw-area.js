@@ -4,14 +4,11 @@
  */
 
 import apiClient from "../../core/api-client.js";
-import { ensureLibraries } from "../../core/library-loader.js";
-import { getCurrentTheme, resolveMapStyle } from "../../core/map-style-resolver.js";
-import { createMap, isMapboxStyleUrl, waitForMapboxToken } from "../../map-core.js";
 import { buildDrawStyles } from "../../map-draw-styles.js";
 import { isGoogleProvider } from "../map/map-style.js";
+import { createModalMap } from "./modal-map.js";
 
 const MAP_CONTAINER_ID = "draw-area-map";
-const US_CENTER = [-98.57, 39.82];
 const EARTH_RADIUS_M = 6371008.8;
 const SQ_METERS_PER_SQ_MILE = 2589988.110336;
 
@@ -128,25 +125,13 @@ function updateDrawStatus() {
 
 async function createDrawMap(bounds) {
   const { generation } = drawState;
-  await ensureLibraries(["map", "mapDraw"]);
-  const { styleUrl } = resolveMapStyle({ theme: getCurrentTheme() });
-  const accessToken = isMapboxStyleUrl(styleUrl)
-    ? await waitForMapboxToken({ timeoutMs: 5000 })
-    : undefined;
-  if (generation !== drawState.generation) {
+  const map = await createModalMap(MAP_CONTAINER_ID, {
+    libraries: ["map", "mapDraw"],
+    isCurrent: () => generation === drawState.generation,
+  });
+  if (!map) {
     return;
   }
-
-  const map = createMap(MAP_CONTAINER_ID, {
-    style: styleUrl,
-    accessToken,
-    center: US_CENTER,
-    zoom: 3,
-    dragRotate: false,
-    pitchWithRotate: false,
-    navigationControl: { showCompass: false, position: "bottom-right" },
-  });
-  map.touchZoomRotate?.disableRotation();
   map.addControl(
     new globalThis.mapboxgl.GeolocateControl({
       positionOptions: { enableHighAccuracy: true },

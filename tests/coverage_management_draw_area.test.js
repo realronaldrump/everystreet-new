@@ -7,6 +7,7 @@ import {
   boundaryFromFeatures,
   formatSquareMiles,
 } from "../static/js/modules/features/coverage-management/draw-area.js";
+import { boundaryBounds } from "../static/js/modules/features/coverage-management/modal-map.js";
 
 // About 1.18 by 1.38 miles near Waco, Texas.
 const SQUARE = [
@@ -76,4 +77,20 @@ test("areaSubtitle labels drawn areas", () => {
     }),
     "McLennan County, TX"
   );
+});
+
+test("boundaryBounds frames polygons and multipolygons for the preview", () => {
+  assert.deepEqual(boundaryBounds({ type: "Polygon", coordinates: SQUARE }), [
+    [-97.2, 31.5],
+    [-97.18, 31.52],
+  ]);
+  const shifted = SQUARE.map((ring) => ring.map(([lon, lat]) => [lon + 1, lat - 1]));
+  assert.deepEqual(
+    boundaryBounds({ type: "MultiPolygon", coordinates: [SQUARE, shifted] }),
+    [
+      [-97.2, 30.5],
+      [-96.18, 31.52],
+    ]
+  );
+  assert.equal(boundaryBounds(null), null);
 });

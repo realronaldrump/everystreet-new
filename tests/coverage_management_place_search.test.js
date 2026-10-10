@@ -53,7 +53,7 @@ test("candidateLabel names the place with its state", () => {
 });
 
 test("describeSearchResult tells the user what to do next", () => {
-  assert.match(describeSearchResult([], "county"), /No areas found/);
+  assert.match(describeSearchResult([], "county"), /no matching area/);
   assert.equal(describeSearchResult([county], "county"), "Found 1 county.");
   assert.equal(
     describeSearchResult([county, county], "county"),
