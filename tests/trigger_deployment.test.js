@@ -10,7 +10,7 @@ function harness(statuses) {
   const options = {
     url: "https://deploy.example.test/watchtower/",
     token: "synthetic-token",
-    image: "ghcr.io/example/app:main",
+    image: "ghcr.io/example/app",
     log: (message) => logs.push(message),
     sleep: async (ms) => waits.push(ms),
     fetchImpl: async (url, init) => {
@@ -28,7 +28,7 @@ test("deployment request retries a gateway error and targets only the app image"
   assert.equal(await triggerDeployment(h.options), true);
   assert.equal(h.requests.length, 2);
   assert.equal(h.requests[0].url.pathname, "/watchtower/v1/update");
-  assert.equal(h.requests[0].url.searchParams.get("image"), h.options.image);
+  assert.equal(h.requests[0].url.searchParams.get("image"), "ghcr.io/example/app");
   assert.equal(h.requests[0].init.headers.Authorization, "Bearer synthetic-token");
   assert.equal(h.requests[0].init.redirect, "error");
   assert.deepEqual(h.waits, [5_000]);

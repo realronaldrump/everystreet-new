@@ -205,5 +205,5 @@ jobs:
         env:
           WATCHTOWER_URL: ${{ secrets.WATCHTOWER_URL }}
           WATCHTOWER_TOKEN: ${{ secrets.WATCHTOWER_TOKEN }}
-          WATCHTOWER_IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:main
+          WATCHTOWER_IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
         run: node scripts/trigger-deployment.mjs

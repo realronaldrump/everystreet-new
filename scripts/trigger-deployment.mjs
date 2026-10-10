@@ -26,6 +26,7 @@ export async function triggerDeployment({
   if (endpoint.protocol !== "https:" || endpoint.username || endpoint.password) {
     throw new Error("WATCHTOWER_URL must use HTTPS without embedded credentials.");
   }
+  // Watchtower's filter compares repository names after removing image tags.
   endpoint.searchParams.set("image", image);
 
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
