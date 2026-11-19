@@ -14,7 +14,11 @@
 
 
 import CONFIG from "./core/config.js";
-import { getCurrentTheme, resolveMapStyle } from "./core/map-style-resolver.js";
+import {
+  getCurrentTheme,
+  preferredMapStyleType,
+  resolveMapStyle,
+} from "./core/map-style-resolver.js";
 import state from "./core/store.js";
 import { getExplicitMapViewFromUrl } from "./core/url-state.js";
 import { isMapboxStyleUrl, waitForMapboxToken } from "./mapbox-token.js";
@@ -242,7 +246,7 @@ const mapCore = {
       const theme = getCurrentTheme();
       const storedMapType = utils.getStorage(CONFIG.STORAGE_KEYS.mapType);
       const { styleType: mapType, styleUrl: mapStyle } = resolveMapStyle({
-        requestedType: storedMapType || theme,
+        requestedType: preferredMapStyleType(storedMapType, theme),
         theme,
       });
       activeStyleType = mapType;
@@ -693,26 +697,18 @@ const mapCore = {
       theme,
     });
 
-    if (activeStyleType === requestedStyleType && map.isStyleLoaded()) {
+    // isStyleLoaded() stays false while tiles stream in, so it cannot tell us
+    // whether this style is already showing; the tracked type can.
+    if (activeStyleType === requestedStyleType) {
       return;
     }
 
-    // Save current view
-    const currentView = {
-      center: map.getCenter(),
-      zoom: map.getZoom(),
-      bearing: map.getBearing(),
-      pitch: map.getPitch(),
-    };
+    // Rebuild rather than diff: a diffed swap never fires style.load, and the
+    // handlers below re-add every app layer anyway. setStyle keeps the camera,
+    // so nothing here may touch it (fits and pans can land while this loads).
+    map.setStyle(styleUrl, { diff: false });
 
-    // Set new style
-    map.setStyle(styleUrl);
-
-    // Wait for style to load
     await this.waitForStyleLoad();
-
-    // Restore view
-    map.jumpTo(currentView);
 
     // Save preference
     if (persistPreference) {

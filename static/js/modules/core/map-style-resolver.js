@@ -15,6 +15,24 @@ export function getCurrentTheme() {
   return normalizeTheme(theme);
 }
 
+/**
+ * The basemap the map page should open on: a picked satellite or streets
+ * basemap stays, while dark and light follow the application theme (the
+ * same rule theme-manager applies when the theme flips).
+ */
+export function preferredMapStyleType(storedMapType, theme) {
+  const styles = CONFIG?.MAP?.styles || {};
+  if (
+    typeof storedMapType === "string" &&
+    hasOwn(styles, storedMapType) &&
+    storedMapType !== "dark" &&
+    storedMapType !== "light"
+  ) {
+    return storedMapType;
+  }
+  return normalizeTheme(theme || getCurrentTheme());
+}
+
 export function resolveMapStyle({ requestedType, theme } = {}) {
   const styles = CONFIG?.MAP?.styles || {};
   const normalizedTheme = normalizeTheme(theme || getCurrentTheme());

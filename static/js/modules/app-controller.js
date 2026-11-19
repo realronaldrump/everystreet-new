@@ -644,7 +644,8 @@ const AppController = {
       }
     });
 
-    // Map style reload – re-apply layers via serialized handler (priority 1 = runs first)
+    // Map style reload – re-apply layers via serialized handler (priority 1 = runs first).
+    // map-core runs this after style.load, so the style is ready for layers.
     this._styleChangeHandlerRef = mapCore.registerStyleChangeHandler(1, async () => {
       if (!state.map || !state.mapInitialized) {
         return;
@@ -653,8 +654,6 @@ const AppController = {
       loadingManager.pulse("Applying new map style...");
 
       try {
-        await mapCore.waitForStyleLoad();
-
         for (const [name, info] of Object.entries(state.mapLayers)) {
           if (info.visible && info.layer) {
             await layerManager.updateMapLayer(name, info.layer);

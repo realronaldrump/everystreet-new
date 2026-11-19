@@ -11,6 +11,7 @@
  */
 
 import { CONFIG } from "../core/config.js";
+import { preferredMapStyleType } from "../core/map-style-resolver.js";
 import { onNavigation } from "../core/navigation-events.js";
 import store from "../core/store.js";
 import mapCore from "../map-core.js";
@@ -42,15 +43,10 @@ const mapControlsManager = {
     this._initialized = true;
     this._bindStyleSyncListener();
 
-    // Set initial value from stored preference or theme
-    const theme = document.documentElement.getAttribute("data-bs-theme") || "dark";
-    const storedMapType = utils.getStorage(CONFIG.STORAGE_KEYS.mapType);
-    const defaultMapType =
-      typeof storedMapType === "string" &&
-      Object.hasOwn(CONFIG.MAP.styles, storedMapType)
-        ? storedMapType
-        : theme;
-    mapTypeSelect.value = defaultMapType;
+    // Start on the basemap map-core opened with, so init never swaps styles.
+    mapTypeSelect.value = preferredMapStyleType(
+      utils.getStorage(CONFIG.STORAGE_KEYS.mapType)
+    );
 
     // Set up change handler
     mapTypeSelect.addEventListener("change", (e) => {

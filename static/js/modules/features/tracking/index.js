@@ -118,18 +118,16 @@ class LiveTripTracker {
   }
 
   // --- Map layers -------------------------------------------------------
+  // Callers run after the map's load (constructor) or after style.load (the
+  // style-change handler), so the style is ready. Don't gate on
+  // isStyleLoaded(): it also waits for every tile, and its style.load never
+  // comes again once the style is in.
   initializeMapLayers() {
     if (this.isDestroyed) {
       return;
     }
     if (!this.map || !this.map.addSource) {
       console.warn("Map not ready for layers");
-      return;
-    }
-
-    if (!this.map.isStyleLoaded()) {
-      console.warn("Map style not loaded, deferring layer init");
-      this.map.once("style.load", () => this.initializeMapLayers());
       return;
     }
 
