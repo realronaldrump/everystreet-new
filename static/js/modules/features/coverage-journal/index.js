@@ -283,7 +283,6 @@ function renderHeader() {
   $("journal-map-link").href = `/coverage-management?area=${id}`;
   $("journal-route-link").href = `/coverage-route-planner?area=${id}`;
   $("journal-plan-link").href = `/coverage-route-planner?area=${id}`;
-  $("journal-sculpture-link").href = `/memory-city?area=${id}`;
 
   const complete = area.is_complete === true;
   $("journal-stat-coverage").textContent = formatPercent(area.coverage_percentage, {

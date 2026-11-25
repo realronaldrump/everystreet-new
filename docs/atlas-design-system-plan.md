@@ -14,7 +14,7 @@ Five distinct greens coexist and are used interchangeably for chrome, not meanin
 - `--cat-sage #3b8a7f` (primary), `--accent #2f9e8f` (teal), `--cat-olive #4d9a6a` (success), `--cat-mint #4a9a8a`, `--cat-lime #7aaa58`.
 - On any given screen, the eyebrow, the primary button, the segmented-control active state, the toggle, the status dot, the checkmark bubble, the active tab, and the link are ALL green. On near-black dark surfaces the saturated teal reads "neon"; in light mode it reads "golf club."
 - Coverage page shows ten identical dark-green "Explore Map" filled buttons at once.
-- `--accent` (teal) vs `--primary` (sage) split is arbitrary: memory-city.css uses `--accent` 33×, trips.css 26×.
+- `--accent` (teal) vs `--primary` (sage) split is arbitrary: trips.css uses `--accent` 26×.
 
 ### 1b. Component drift between pages (the "chaos")
 - **3+ card languages:** hairline figure-band (trips, routes, insights masthead) vs boxy white cards (coverage mgmt, visits) vs beige-header cards (gas "New Fill-up", setup wizard "Bouncie Credentials").
@@ -26,7 +26,7 @@ Five distinct greens coexist and are used interchangeably for chrome, not meanin
 - **Regional explorer:** danger-red toggle for a neutral filter; all state percentages rendered in red (reads as errors); bespoke stat chips.
 - **Vehicles:** "Active" badge nearly invisible (light-on-light); dark mono "mi" suffix box floats oddly.
 - **Coverage mgmt:** donut rings colored by arbitrary tier (green/blue/ochre) → rainbow effect; orange glow + trophy on 100% card is its own one-off language.
-- **Masthead adoption:** 10 templates use `.page-masthead`; 10 don't (404, coverage_route_planner, index/map, landing, live_navigation, map_matching, memory_city, regional_coverage_explorer, setup_wizard, base).
+- **Masthead adoption:** 10 templates use `.page-masthead`; 9 don't (404, coverage_route_planner, index/map, landing, live_navigation, map_matching, regional_coverage_explorer, setup_wizard, base).
 - **Hardcoded font sizes** in page CSS: route-planner 118, trips 81, regional-explorer 37, vehicles 11, search 10, …
 
 ### 1c. Theme correctness bugs (root cause of "different between pages")
@@ -143,7 +143,7 @@ Order = user traffic × visible damage.
 8. **insights.html + insights.css** — chart palette from the ordered ramp (§3a, max 6 hues, sage first); heatmap = sequential sage ramp; "Open underlying trips" links stay sage (link = permitted green); dashed empty states normalized.
 9. **index.html (map)** — reference implementation; only: retire `--accent` teal remnants, confirm legend/dots comply, replace the long white loading veil with the standard route-tracer overlay quickly dismissed (perceived-perf polish).
 10. **setup_wizard.html, login.html, 404.html, landing.html** — canonical stepper (wizard), ink CTAs, eyebrow color change lands automatically via masthead.css.
-11. **live_navigation.html, memory_city.html** — memory-city.css has 33 `--accent` uses → primary; audit for teal glow remnants; otherwise re-skin via tokens.
+11. **live_navigation.html** — audit for teal glow remnants and apply the shared tokens.
 12. **base.html chrome** — header active-nav underline ink (not green), notif badge stays brick, date-picker apply button ink, footer unchanged. Theme-toggle sun icon is mistakable for a gear at small size — swap to `fa-circle-half-stroke` single icon.
 
 ---
@@ -179,7 +179,7 @@ Also: update `.claude/CLAUDE.md` (or a `docs/design-language.md` the templates r
 
 ## 8. Verification protocol (per phase, before commit)
 
-1. Render check: Jinja mock-render templates or hit deployed pages; `agent-browser` screenshot each route **in light AND dark** (the chaos was invisible in dark-only checks): `/`, `/map`, `/trips`, `/insights`, `/visits`, `/gas-tracking`, `/vehicles`, `/routes`, `/export`, `/map-matching`, `/coverage-management`, `/coverage-route-planner`, `/regional-coverage-explorer`, `/live-navigation`, `/memory-city`, `/setup-wizard`, `/control-center` (all 9 section anchors), `/login`, `/404`.
+1. Render check: Jinja mock-render templates or hit deployed pages; `agent-browser` screenshot each route **in light AND dark** (the chaos was invisible in dark-only checks): `/`, `/map`, `/trips`, `/insights`, `/visits`, `/gas-tracking`, `/vehicles`, `/routes`, `/export`, `/map-matching`, `/coverage-management`, `/coverage-route-planner`, `/regional-coverage-explorer`, `/live-navigation`, `/setup-wizard`, `/control-center` (all 9 section anchors), `/login`, `/404`.
 2. Hard-reload FOUC test: with `theme=light` in localStorage, first paint must be paper (verifiable because tokens now hang off `html.light-mode`).
 3. AA contrast spot-checks: eyebrow tertiary on paper, badge text, disabled states, mono figures.
 4. Run guardrail tests + existing test suite (`tests/test_control_center_page_smoke.py` etc. will catch template breakage).

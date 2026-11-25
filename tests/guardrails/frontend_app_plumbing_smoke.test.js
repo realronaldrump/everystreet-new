@@ -174,10 +174,3 @@ test("atlas map flex child stretches to the shell height", () => {
   assert.match(mapBaseCss, /#map\.atlas-map\s*\{[\s\S]*align-self:\s*stretch;/);
   assert.match(mapBaseCss, /#map\.atlas-map\s*\{[\s\S]*height:\s*auto;/);
 });
-
-test("memory city deck stage is not hidden from assistive tech while focused", () => {
-  const memoryCityHtml = readTemplate("memory_city.html");
-
-  assert.match(memoryCityHtml, /id="memory-city-stage"/);
-  assert.doesNotMatch(memoryCityHtml, /id="memory-city-stage"[^>]*aria-hidden="true"/);
-});

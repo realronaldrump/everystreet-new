@@ -16,18 +16,6 @@ test("visit popup labels the average gap as time between visits", () => {
   assert.doesNotMatch(markup, />Time Since Last</);
 });
 
-test("memory city labels its segment-granular model as segments", () => {
-  const root = join(import.meta.dirname, "..");
-  const template = readFileSync(join(root, "templates/memory_city.html"), "utf8");
-  const controller = readFileSync(
-    join(root, "static/js/modules/features/memory-city/index.js"),
-    "utf8"
-  );
-
-  assert.match(template, /memory-city-figure-label">Segments</);
-  assert.match(controller, /model\.count\)} segments stacked/);
-});
-
 test("coverage metrics label segment counts as segments", () => {
   const root = join(import.meta.dirname, "..");
   const planner = readFileSync(
